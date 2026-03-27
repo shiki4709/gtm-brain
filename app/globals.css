@@ -116,6 +116,11 @@ body {
 .conf-med { background: var(--accent-orange); }
 .conf-low { background: var(--rule); }
 
+/* Gradient dot */
+.gradient-dot {
+  background: var(--gradient-main);
+}
+
 /* Gradient text */
 .gradient-text {
   background: var(--gradient-main);
@@ -141,6 +146,92 @@ body {
   background: #fff3e0;
   color: var(--accent-orange-deep);
 }
+
+/* ═══ Buttons ═══ */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 8px 16px; border-radius: var(--radius-sm); border: none;
+  font-family: var(--font-head); font-size: 13px; font-weight: 600;
+  color: #fff; background: var(--gradient-main); cursor: pointer;
+  box-shadow: 0 2px 8px rgba(33,150,243,0.15);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-accent {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 6px 14px; border-radius: 6px; border: none;
+  font-family: var(--font-head); font-size: 12px; font-weight: 600;
+  color: #fff; background: var(--accent-blue); cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-accent:hover { opacity: 0.88; }
+
+.btn-orange {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 6px 14px; border-radius: 6px; border: none;
+  font-family: var(--font-head); font-size: 12px; font-weight: 600;
+  color: #fff; background: var(--accent-orange); cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-orange:hover { opacity: 0.88; }
+
+.btn-outline {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 6px 14px; border-radius: 6px;
+  border: 1.5px solid var(--rule); background: transparent;
+  font-family: var(--font-head); font-size: 12px; font-weight: 600;
+  color: var(--ink-3); cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-outline:hover { border-color: var(--ink-4); color: var(--ink); }
+
+/* ═══ Badges ═══ */
+.badge { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 100px; display: inline-flex; align-items: center; }
+.badge-icp { background: rgba(21,101,192,0.1); color: var(--accent-blue); }
+.badge-sent { background: var(--green-bg); color: var(--green); }
+.badge-replied { background: rgba(191,54,12,0.1); color: var(--accent-orange); }
+.badge-drafted { background: var(--rule-light); color: var(--ink-3); }
+.badge-count { background: var(--orange-bright); color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+
+/* ═══ Cards ═══ */
+.card { border: 1.5px solid var(--rule); border-radius: var(--radius); padding: 14px 18px; transition: border-color 0.15s; }
+.card:hover { border-color: var(--accent-blue); }
+.card-flat { border: 1.5px solid var(--rule); border-radius: var(--radius); padding: 14px 18px; }
+
+/* ═══ Inputs ═══ */
+.input {
+  width: 100%; padding: 10px 14px; border: 1.5px solid var(--rule);
+  border-radius: var(--radius-sm); font-family: var(--font-body);
+  font-size: 13px; color: var(--ink); background: #fff;
+  transition: border-color 0.15s;
+}
+.input:focus { border-color: var(--accent-blue); outline: none; }
+.input::placeholder { color: var(--ink-4); }
+
+/* ═══ Section labels ═══ */
+.section-label {
+  font-family: var(--font-head); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--ink-4); margin-bottom: 10px;
+}
+
+/* ═══ Heading (font shortcut) ═══ */
+.font-head { font-family: var(--font-head); }
+
+/* ═══ Pipeline ═══ */
+.pipe-step { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background: var(--rule-light); color: var(--ink-3); }
+.pipe-active { background: var(--accent-blue); color: #fff; font-weight: 600; }
+.pipe-arrow { color: var(--ink-4); font-size: 12px; }
+
+/* ═══ Stats ═══ */
+.stat-card { border: 1.5px solid var(--rule); border-radius: var(--radius-sm); padding: 16px; text-align: center; }
+.stat-num { font-family: var(--font-head); font-size: 24px; font-weight: 700; }
+.stat-num-blue { color: var(--accent-blue); }
+.stat-num-orange { color: var(--accent-orange); }
+.stat-num-green { color: var(--green); }
+.stat-label { font-size: 11px; color: var(--ink-4); margin-top: 2px; }
 
 /* ═══ Accessibility ═══ */
 

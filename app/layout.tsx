@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, DM_Sans } from "next/font/google";
+import Nav from "@/components/nav";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -31,7 +32,12 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <a href="#main-content" className="skip-link">Skip to content</a>
-        {children}
+        <Nav />
+        <main id="main-content" className="flex-1">
+          <div className="max-w-5xl mx-auto px-6 py-8">
+            {children}
+          </div>
+        </main>
       </body>
     </html>
   );
