@@ -12,21 +12,27 @@
   --ink: #1a1e2e;
   --ink-2: #3a4058;
   --ink-3: #6a7088;
-  --ink-4: #9aa0b3;
+  --ink-4: #6b7280;           /* was #9aa0b3 — darkened for WCAG AA (4.6:1) */
 
   --rule: #d8e2ea;
   --rule-light: #e8eff4;
 
-  --accent-blue: #2196F3;
-  --accent-blue-deep: #1a6fc0;
-  --accent-orange: #FF8A65;
-  --accent-orange-deep: #d4653a;
+  /* Decorative — for gradients, backgrounds, non-text elements */
+  --blue-bright: #2196F3;
+  --orange-bright: #FF8A65;
 
+  /* Text-safe — WCAG AA compliant (4.5:1+ on --bg) */
+  --accent-blue: #1565C0;      /* was #2196F3 — 5.5:1 on #f8fafb */
+  --accent-blue-deep: #0d47a1; /* deeper for emphasis */
+  --accent-orange: #bf360c;    /* was #FF8A65 — 5.4:1 on #f8fafb */
+  --accent-orange-deep: #b54a20; /* was #d4653a — 5.1:1 */
+
+  /* Gradients use bright colors (decorative, not text) */
   --gradient-main: linear-gradient(135deg, #2196F3, #42B1F0, #FF8A65);
   --gradient-subtle: linear-gradient(135deg, rgba(33,150,243,0.08), rgba(255,138,101,0.08));
   --gradient-brain: linear-gradient(135deg, rgba(33,150,243,0.04), rgba(255,138,101,0.04));
 
-  --green: #4caf50;
+  --green: #2e7d32;             /* was #4caf50 — 4.9:1 on #f8fafb */
   --green-bg: #e8f5e9;
 
   --radius: 12px;
@@ -134,4 +140,84 @@ body {
   border-radius: 4px;
   background: #fff3e0;
   color: var(--accent-orange-deep);
+}
+
+/* ═══ Accessibility ═══ */
+
+/* Focus ring — visible on keyboard nav, hidden on mouse */
+:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Buttons + interactive elements */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+/* Skip to content link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--ink);
+  color: #fff;
+  padding: 8px 16px;
+  z-index: 1000;
+  font-size: 14px;
+  font-weight: 600;
+  transition: top 0.2s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Screen reader only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Minimum touch target (WCAG 2.2 — 24x24px minimum) */
+button, a, [role="button"] {
+  min-height: 24px;
+  min-width: 24px;
+}
+
+/* Don't rely on color alone — confidence levels get text labels */
+.conf-label::before { content: attr(data-level); }
+
+/* High contrast mode support */
+@media (forced-colors: active) {
+  .brain-card { border: 2px solid ButtonText; }
+  .brain-nudge { border: 2px solid ButtonText; }
+  .tag-outbound, .tag-inbound { border: 1px solid ButtonText; }
+  .conf-fill { forced-color-adjust: none; }
 }

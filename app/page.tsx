@@ -1,65 +1,50 @@
-import Image from "next/image";
-
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="max-w-4xl mx-auto px-6 py-12">
+      <h1 className="font-[family-name:var(--font-head)] text-4xl font-bold gradient-text mb-3">
+        GTM Brain
+      </h1>
+      <p className="text-ink-2 text-lg mb-8">Your second brain for GTM.</p>
+
+      {/* Gradient button */}
+      <button className="px-6 py-3 rounded-lg text-white font-semibold text-sm shadow-lg"
+        style={{ background: 'var(--gradient-main)', boxShadow: '0 4px 16px rgba(33,150,243,0.2), 0 2px 6px rgba(255,138,101,0.15)' }}>
+        Get started
+      </button>
+
+      {/* Brain card */}
+      <div className="brain-card mt-8">
+        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-4 mb-2">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--gradient-main)' }} />
+          This week&apos;s insight
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <p className="text-[15px] leading-relaxed">
+          Posts about <strong className="text-accent">engineering hiring</strong> yield 3x more ICP leads.
+          DMs referencing comments get <strong style={{ color: 'var(--accent-orange)' }}>23% reply rate</strong>.
+        </p>
+        <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-ink-4">
+          <div className="conf-bar"><div className="conf-fill conf-high" style={{ width: '80%' }} /></div>
+          High confidence · 12 scrapes
         </div>
-      </main>
-    </div>
+      </div>
+
+      {/* Brain nudge */}
+      <div className="brain-nudge mt-4">
+        <div className="brain-nudge-icon">B</div>
+        <div className="flex-1">
+          Your ICP engages most on <strong className="text-accent">Tuesdays</strong>. Today is Tuesday.
+          Good day to scrape.
+        </div>
+        <span className="font-[family-name:var(--font-head)] text-xs font-semibold text-accent cursor-pointer whitespace-nowrap ml-2">
+          Start →
+        </span>
+      </div>
+
+      {/* Tags */}
+      <div className="flex gap-2 mt-6">
+        <span className="tag-outbound">outbound</span>
+        <span className="tag-inbound">inbound</span>
+      </div>
+    </main>
   );
 }
