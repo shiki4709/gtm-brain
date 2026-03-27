@@ -1,26 +1,137 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Syval Design System */
+  --font-head: var(--font-space-grotesk);
+  --font-body: var(--font-dm-sans);
+
+  --bg: #f8fafb;
+  --bg-warm: #eef4f8;
+  --bg-gradient: linear-gradient(135deg, #eef4f8 0%, #fdf4ee 100%);
+
+  --ink: #1a1e2e;
+  --ink-2: #3a4058;
+  --ink-3: #6a7088;
+  --ink-4: #9aa0b3;
+
+  --rule: #d8e2ea;
+  --rule-light: #e8eff4;
+
+  --accent-blue: #2196F3;
+  --accent-blue-deep: #1a6fc0;
+  --accent-orange: #FF8A65;
+  --accent-orange-deep: #d4653a;
+
+  --gradient-main: linear-gradient(135deg, #2196F3, #42B1F0, #FF8A65);
+  --gradient-subtle: linear-gradient(135deg, rgba(33,150,243,0.08), rgba(255,138,101,0.08));
+  --gradient-brain: linear-gradient(135deg, rgba(33,150,243,0.04), rgba(255,138,101,0.04));
+
+  --green: #4caf50;
+  --green-bg: #e8f5e9;
+
+  --radius: 12px;
+  --radius-sm: 8px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-dm-sans);
+  --font-heading: var(--font-space-grotesk);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Syval palette for Tailwind classes */
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-rule: var(--rule);
+  --color-rule-light: var(--rule-light);
+  --color-accent: var(--accent-blue);
+  --color-accent-deep: var(--accent-blue-deep);
+  --color-orange: var(--accent-orange);
+  --color-orange-deep: var(--accent-orange-deep);
+  --color-green: var(--green);
+  --color-bg-warm: var(--bg-warm);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  background-image: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+/* Brain card */
+.brain-card {
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  background: var(--gradient-brain);
+  border: 1.5px solid rgba(33,150,243,0.12);
+}
+
+/* Brain nudge */
+.brain-nudge {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(33,150,243,0.05);
+  border: 1px solid rgba(33,150,243,0.1);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.brain-nudge-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--gradient-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+/* Confidence bar */
+.conf-bar {
+  width: 60px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--rule-light);
+}
+.conf-fill { height: 100%; border-radius: 2px; }
+.conf-high { background: var(--green); }
+.conf-med { background: var(--accent-orange); }
+.conf-low { background: var(--rule); }
+
+/* Gradient text */
+.gradient-text {
+  background: var(--gradient-main);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Tags */
+.tag-outbound {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #e3f2fd;
+  color: var(--accent-blue-deep);
+}
+.tag-inbound {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #fff3e0;
+  color: var(--accent-orange-deep);
 }
