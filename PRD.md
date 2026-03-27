@@ -628,6 +628,121 @@ Based on validated industry benchmarks ([Alsona 2025](https://www.alsona.com/blo
 | First brain insight | After 1 week | — | Needs 5+ scrapes for topic_performance |
 | Brain-suggested DM angle outperforms generic | >2x reply rate | Signal-based: 2-3x median | Validated by Expandi data |
 
+## Path to Full Autonomous Agent
+
+The current product is human-in-the-loop: the system surfaces leads, drafts DMs, suggests content — but the human reviews and acts. The path to a full autonomous agent is incremental, not a rewrite.
+
+### Autonomy levels
+
+| Level | What the system does | What the human does | When |
+|-------|---------------------|--------------------|----- |
+| **L0 — Tool** | Scrapes when told, drafts when asked | Everything: finds posts, decides what to scrape, reviews every DM, manually sends | Now |
+| **L1 — Assistant** | Suggests what to scrape, which DMs to send, when to post | Reviews suggestions, approves/rejects, clicks send | Month 1-2 |
+| **L2 — Copilot** | Auto-scrapes watch list daily, auto-drafts DMs for new ICP leads, generates content on schedule | Reviews a daily digest, bulk-approves DMs, edits content before publish | Month 3-4 |
+| **L3 — Autopilot** | Runs the full loop autonomously: scrapes → filters → drafts → sends DMs → tracks replies → generates content → publishes | Reviews weekly report, sets strategy and ICP, intervenes on exceptions | Month 6+ |
+| **L4 — Agent** | Adapts strategy based on outcomes: shifts topics, changes DM angles, reallocates between inbound/outbound, identifies new ICP segments | Sets goals ("generate 10 meetings/month"), reviews monthly | Year 1+ |
+
+### How each level unlocks
+
+**L0 → L1 (suggestions):**
+Already designed. The brain nudges ("scrape this topic", "use comment-reference angle", "post on Tuesday") are L1 behavior. Requires: enough data in `sb_insights` to make good suggestions (~2 weeks of usage).
+
+**L1 → L2 (scheduled automation):**
+- Add cron jobs: daily watch list scrape, auto-DM-draft for new ICP leads, weekly content generation
+- Add approval queue: "Here are 12 DMs I drafted overnight. Approve all / edit / reject."
+- Add scheduled publishing: "Publish this LinkedIn post at 9am Tuesday" (brain picks optimal time)
+- Requires: Supabase Edge Functions or Vercel Cron for background jobs
+
+```
+Cron: Every morning at 7am
+  → Scrape new posts from watch list influencers
+  → Filter leads to ICP
+  → Draft DMs using best-performing angle
+  → Push to approval queue
+  → User opens app, sees "12 DMs ready to send"
+  → One-click approve all → DMs go out
+```
+
+**L2 → L3 (autonomous execution):**
+- Add auto-send: DMs above confidence threshold sent without approval
+- Add auto-publish: content generated and published on schedule
+- Add auto-engage: X replies posted automatically (with guardrails)
+- Add exception handling: flag unusual patterns for human review
+- Requires: trust threshold system — the brain must earn autonomy by proving its suggestions convert
+
+```
+Trust scoring:
+  if (dm_angle_reply_rate > 20% AND confidence > 0.8 AND sample > 20):
+    auto_send = true  // brain earned trust on this angle
+  else:
+    require_approval = true
+```
+
+**L3 → L4 (strategic adaptation):**
+- Brain detects: "outbound reply rate declining this month — shifting budget to inbound"
+- Brain detects: "new ICP segment emerging — 'VP of AI' appearing in high-converting scrapes"
+- Brain suggests: "your market is saturating this topic, try adjacent topic X"
+- Requires: months of accumulated data, pattern detection across time windows
+
+### Agent architecture
+
+When fully autonomous, the system runs as three cooperating agents:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   BRAIN (orchestrator)                │
+│  Reads sb_insights, decides what to do next          │
+│  Allocates effort between inbound/outbound           │
+│  Adapts strategy based on outcomes                   │
+├──────────┬──────────────────────┬────────────────────┤
+│          │                      │                    │
+│  OUTBOUND AGENT        INBOUND AGENT        X AGENT  │
+│  - Scrape posts        - Generate content   - Scan   │
+│  - Filter ICP          - Publish            - Draft  │
+│  - Draft DMs           - Scrape own posts   - Reply  │
+│  - Send (if trusted)   - Track performance  - Track  │
+│                                                       │
+└───────────────────────────────────────────────────────┘
+                         │
+                    sb_* tables
+                   (shared memory)
+```
+
+Each agent has its own action loop but shares the same Supabase brain. The orchestrator decides priority: "outbound is converting better this week, run 3 scrapes today vs 1 content piece."
+
+### What changes in the codebase
+
+| Level | Code change | Effort |
+|-------|------------|--------|
+| L1 | Already built — brain nudges in the UI | Done |
+| L2 | Add `/api/cron/daily-scrape`, `/api/cron/auto-draft`, approval queue UI | ~4h |
+| L3 | Add trust scoring to `sb_insights`, auto-send logic with guardrails, exception queue | ~6h |
+| L4 | Add strategy layer: time-window analysis, ICP drift detection, cross-channel optimization | ~10h |
+
+The key insight: **the same brain that surfaces insights today becomes the decision-maker tomorrow.** The `sb_insights` table doesn't change — it just gets read by the agent instead of displayed to the human. The queries are the same. The UI shifts from "here's what I recommend" to "here's what I did and why."
+
+### Guardrails for autonomous operation
+
+Even at L4, the agent has hard limits:
+
+- **DM rate limit**: max 50/day, max 200/week (LinkedIn's limit)
+- **Content rate limit**: max 1 LinkedIn post/day, 3 X posts/day
+- **X reply rate limit**: max 10/hour
+- **Confidence gate**: no autonomous action below 0.7 confidence
+- **Kill switch**: user can pause all autonomous actions instantly
+- **Exception escalation**: anything unusual gets flagged, not acted on
+- **Budget cap**: max Apify/Claude spend per day configurable
+
+### Why this path works
+
+1. **Trust is earned, not assumed.** The agent starts as a tool and earns autonomy by proving its suggestions convert. Users see the proof before giving it more power.
+
+2. **Same data, different reader.** The brain tables are the same whether a human reads them (L0-L1) or the agent reads them (L3-L4). No architectural rewrite needed.
+
+3. **Incremental, not big-bang.** Each level adds a cron job and a confidence check. You don't need to build "an agent" — you need to add `if (confidence > threshold) { doItAutomatically() }` to existing code.
+
+4. **The moat compounds.** At L4, the agent has 6+ months of market-specific data that no new competitor can replicate. The longer it runs, the better it gets, the harder it is to switch.
+
 ## Build order
 
 | Step | What | Est |
