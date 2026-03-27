@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GTM Dashboard Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', system-ui, sans-serif; color: #1a1e2e; background: #f8fafb; }
+  .shell { max-width: 900px; margin: 0 auto; padding: 24px; }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px; border-bottom: 1px solid #d8e2ea; margin-bottom: 20px; font-size: 13px; color: #6a7088; }
+  .topbar strong { color: #1a1e2e; }
+  .topbar-icp { font-size: 11px; color: #9aa0b3; }
+  .topbar-icp span { color: #2196F3; cursor: pointer; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 1.5px solid #d8e2ea; margin-bottom: 24px; }
+  .tab { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600; color: #9aa0b3; padding: 12px 20px; border: none; background: none; border-bottom: 2.5px solid transparent; cursor: pointer; transition: all 0.15s; }
+  .tab:hover { color: #3a4058; }
+  .tab.active { color: #1a1e2e; border-bottom-color: #2196F3; }
+  .tab .count { font-size: 11px; font-weight: 700; color: #fff; background: #FF8A65; padding: 1px 6px; border-radius: 10px; margin-left: 6px; }
+
+  /* Views */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Shared */
+  .label { font-family: 'Space Grotesk', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9aa0b3; margin-bottom: 10px; }
+  .card { border: 1.5px solid #d8e2ea; border-radius: 10px; padding: 16px 18px; margin-bottom: 10px; }
+  .card:hover { border-color: #b0c4d8; }
+  .row { display: flex; align-items: center; justify-content: space-between; }
+  .btn { font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; }
+  .btn-primary { background: #2196F3; color: #fff; }
+  .btn-outline { background: none; border: 1.5px solid #d8e2ea; color: #3a4058; }
+  .btn-sm { font-size: 11px; padding: 4px 10px; }
+  .tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
+  .tag-out { background: #e3f2fd; color: #1565c0; }
+  .tag-in { background: #fff3e0; color: #e65100; }
+  .muted { font-size: 12px; color: #9aa0b3; }
+  .hl { color: #2196F3; font-weight: 500; }
+
+  /* Stats */
+  .stats { display: flex; gap: 10px; margin-bottom: 20px; }
+  .stat { flex: 1; padding: 14px; border: 1.5px solid #d8e2ea; border-radius: 8px; text-align: center; }
+  .stat-n { font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; }
+  .stat-l { font-size: 11px; color: #9aa0b3; margin-top: 2px; }
+
+  /* Brain */
+  .brain { padding: 14px 18px; border: 1.5px solid #d8e2ea; border-radius: 10px; background: linear-gradient(135deg, rgba(33,150,243,0.03), rgba(255,138,101,0.03)); margin-bottom: 20px; }
+  .brain-l { font-family: 'Space Grotesk', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9aa0b3; margin-bottom: 4px; }
+  .brain-t { font-size: 13px; line-height: 1.55; }
+  .brain-t strong { color: #2196F3; }
+
+  /* Lead row */
+  .lead { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1.5px solid #d8e2ea; border-radius: 8px; margin-bottom: 6px; }
+  .lead:hover { border-color: #2196F3; }
+  .lead-name { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 600; }
+  .lead-sub { font-size: 11px; color: #6a7088; margin-top: 1px; }
+  .lead-badge { font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 100px; margin-left: 6px; }
+  .b-icp { background: #e3f2fd; color: #1565c0; }
+  .b-sent { background: #e8f5e9; color: #2e7d32; }
+  .b-replied { background: #fff3e0; color: #e65100; }
+  .lead-actions { display: flex; gap: 4px; }
+
+  /* Tweet */
+  .tweet { padding: 14px 16px; border: 1.5px solid #d8e2ea; border-radius: 10px; margin-bottom: 8px; }
+  .tweet:hover { border-color: #b0c4d8; }
+  .tweet-head { font-size: 13px; margin-bottom: 4px; }
+  .tweet-head strong { font-family: 'Space Grotesk', sans-serif; }
+  .tweet-handle { color: #9aa0b3; font-weight: 400; }
+  .tweet-body { font-size: 13px; color: #3a4058; line-height: 1.5; margin-bottom: 6px; }
+  .tweet-meta { font-size: 11px; color: #9aa0b3; margin-bottom: 8px; }
+
+  /* Content */
+  .content-col { display: flex; gap: 14px; }
+  .content-box { flex: 1; border: 1.5px solid #d8e2ea; border-radius: 10px; padding: 14px 16px; }
+  .content-plat { font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #2196F3; margin-bottom: 8px; }
+  .content-text { font-size: 12px; color: #3a4058; line-height: 1.6; }
+
+  /* Feed */
+  .feed { font-size: 12px; }
+  .feed-row { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid #f0f3f6; }
+  .feed-row:last-child { border-bottom: none; }
+  .feed-time { color: #9aa0b3; width: 40px; flex-shrink: 0; font-size: 11px; }
+
+  .watermark { text-align: center; padding: 28px 0; font-size: 11px; color: #c8cdd8; margin-top: 20px; border-top: 1px solid #e8eff4; }
+
+  .sep { height: 1px; background: #e8eff4; margin: 20px 0; }
+
+  /* Pipeline mini */
+  .pipeline-mini { display: flex; gap: 6px; align-items: center; font-size: 11px; color: #9aa0b3; margin-top: 6px; }
+  .pipe-step { padding: 2px 8px; border-radius: 4px; background: #f0f3f6; }
+  .pipe-active { background: #2196F3; color: #fff; }
+  .pipe-arrow { color: #d8e2ea; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div>Logged in as <strong>maruthi@nevara.io</strong></div>
+    <div class="topbar-icp">ICP: VP Engineering, CTO, Head of Product · <span>Edit</span></div>
+  </div>
+
+  <!-- Tabs: Dashboard / Outbound / Inbound -->
+  <div class="tabs" id="tabs">
+    <button class="tab active" onclick="show('overview')">Overview</button>
+    <button class="tab" onclick="show('outbound')">Outbound <span class="count">23</span></button>
+    <button class="tab" onclick="show('inbound')">Inbound <span class="count">5</span></button>
+  </div>
+
+  <!-- ═══════════ OVERVIEW ═══════════ -->
+  <div class="view active" id="v-overview">
+
+    <div class="brain">
+      <div class="brain-l">This week's insight</div>
+      <div class="brain-t">Posts about <strong>engineering hiring</strong> yield 3x more ICP leads than product launches. DMs referencing comments get <strong>23% reply rate</strong> vs 8% for generic.</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-n" style="color:#2196F3">142</div><div class="stat-l">ICP leads</div></div>
+      <div class="stat"><div class="stat-n" style="color:#4caf50">34</div><div class="stat-l">DMs sent</div></div>
+      <div class="stat"><div class="stat-n" style="color:#FF8A65">7</div><div class="stat-l">Replies</div></div>
+      <div class="stat"><div class="stat-n" style="color:#9575cd">12</div><div class="stat-l">X replies</div></div>
+      <div class="stat"><div class="stat-n" style="color:#FF8A65">3</div><div class="stat-l">Posts published</div></div>
+    </div>
+
+    <div class="label">Needs your attention</div>
+
+    <div class="card">
+      <div class="row">
+        <div><strong>23</strong> new ICP leads to review <span class="tag tag-out">outbound</span></div>
+        <button class="btn btn-primary btn-sm" onclick="show('outbound')">Review →</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <div><strong>8</strong> DMs drafted, ready to send <span class="tag tag-out">outbound</span></div>
+        <button class="btn btn-primary btn-sm" onclick="show('outbound')">Send →</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <div><strong>5</strong> tweets worth replying to <span class="tag tag-in">inbound</span></div>
+        <button class="btn btn-primary btn-sm" onclick="show('inbound')">Reply →</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <div><strong>2</strong> leads replied to your DM <span class="tag tag-out">outbound</span></div>
+        <button class="btn btn-primary btn-sm" onclick="show('outbound')">View →</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <div><strong>1</strong> post ready to publish <span class="tag tag-in">inbound</span></div>
+        <button class="btn btn-primary btn-sm" onclick="show('inbound')">Publish →</button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="label">Activity</div>
+    <div class="feed">
+      <div class="feed-row"><div class="feed-time">2m</div><div>Scraped <span class="hl">rmeadows post</span> — 920 engagers, 142 ICP <span class="tag tag-out">out</span></div></div>
+      <div class="feed-row"><div class="feed-time">15m</div><div><span class="hl">Sarah Chen</span> (VP Eng, Datadog) replied to your DM <span class="tag tag-out">out</span></div></div>
+      <div class="feed-row"><div class="feed-time">1h</div><div>Replied to <span class="hl">@markroberge</span> thread on sales hiring <span class="tag tag-in">in</span></div></div>
+      <div class="feed-row"><div class="feed-time">3h</div><div>Published <span class="hl">"Why your GTM playbook is outdated"</span> on LinkedIn <span class="tag tag-in">in</span></div></div>
+      <div class="feed-row"><div class="feed-time">5h</div><div>Sent 12 DMs to ICP leads from <span class="hl">landon-tracy post</span> <span class="tag tag-out">out</span></div></div>
+      <div class="feed-row"><div class="feed-time">Yday</div><div>Your LinkedIn post attracted <span class="hl">47 engagers</span> — 12 ICP matches <span class="tag tag-in">in</span></div></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ OUTBOUND ═══════════ -->
+  <div class="view" id="v-outbound">
+
+    <div style="font-size:13px;color:#6a7088;margin-bottom:16px">Find leads from other people's posts → filter to ICP → draft DMs → send</div>
+
+    <!-- Scrape input -->
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input type="text" placeholder="Paste a LinkedIn post URL..." style="flex:1;padding:10px 14px;border:1.5px solid #d8e2ea;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif">
+      <button class="btn btn-primary">Scrape</button>
+    </div>
+    <div style="margin-bottom:20px;font-size:12px;color:#9aa0b3">Or <span class="hl" style="cursor:pointer">search for posts</span> · <span class="hl" style="cursor:pointer">check watch list</span></div>
+
+    <!-- Pipeline -->
+    <div class="label">Pipeline</div>
+    <div class="pipeline-mini" style="margin-bottom:16px">
+      <span class="pipe-step">920 scraped</span>
+      <span class="pipe-arrow">→</span>
+      <span class="pipe-step pipe-active">142 ICP</span>
+      <span class="pipe-arrow">→</span>
+      <span class="pipe-step">34 DM sent</span>
+      <span class="pipe-arrow">→</span>
+      <span class="pipe-step">7 replied</span>
+      <span class="pipe-arrow">→</span>
+      <span class="pipe-step">2 meetings</span>
+    </div>
+
+    <!-- Leads -->
+    <div class="label">ICP leads — 23 new</div>
+
+    <div class="lead">
+      <div>
+        <div class="lead-name">Sarah Chen <span class="lead-badge b-icp">ICP</span> <span class="lead-badge b-replied">Replied</span></div>
+        <div class="lead-sub">VP of Engineering at Datadog · "Completely agree about the shift to..."</div>
+      </div>
+      <div class="lead-actions">
+        <button class="btn btn-outline btn-sm">View</button>
+      </div>
+    </div>
+    <div class="lead">
+      <div>
+        <div class="lead-name">Marcus Rivera <span class="lead-badge b-icp">ICP</span></div>
+        <div class="lead-sub">CTO at Series B fintech · "This is exactly what we're seeing..."</div>
+      </div>
+      <div class="lead-actions">
+        <button class="btn btn-primary btn-sm">Draft DM</button>
+        <button class="btn btn-outline btn-sm">View</button>
+      </div>
+    </div>
+    <div class="lead">
+      <div>
+        <div class="lead-name">Priya Patel <span class="lead-badge b-icp">ICP</span> <span class="lead-badge b-sent">DM Sent</span></div>
+        <div class="lead-sub">Head of Engineering at Notion</div>
+      </div>
+      <div class="lead-actions">
+        <button class="btn btn-outline btn-sm">View</button>
+      </div>
+    </div>
+    <div class="lead">
+      <div>
+        <div class="lead-name">James Wu <span class="lead-badge b-icp">ICP</span></div>
+        <div class="lead-sub">Director of Engineering at Stripe · Liked the post</div>
+      </div>
+      <div class="lead-actions">
+        <button class="btn btn-primary btn-sm">Draft DM</button>
+        <button class="btn btn-outline btn-sm">View</button>
+      </div>
+    </div>
+
+    <div style="text-align:center;padding:14px;color:#9aa0b3;font-size:12px">+ 138 more ICP leads · <span class="hl" style="cursor:pointer">Export to Sales Nav CSV</span></div>
+  </div>
+
+  <!-- ═══════════ INBOUND ═══════════ -->
+  <div class="view" id="v-inbound">
+
+    <div style="font-size:13px;color:#6a7088;margin-bottom:16px">Post content → attract engagement → stay active on X → leads come to you</div>
+
+    <!-- Content generation -->
+    <div class="label">Create content</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <input type="text" placeholder="Paste a URL or topic to write about..." style="flex:1;padding:10px 14px;border:1.5px solid #d8e2ea;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif">
+      <button class="btn btn-primary">Generate</button>
+    </div>
+
+    <div class="brain" style="margin-bottom:16px">
+      <div class="brain-l">Suggested topic</div>
+      <div class="brain-t">Based on your lead data, posts about <strong>engineering hiring</strong> attract the most ICP leads. <span class="hl" style="cursor:pointer">Generate a post →</span></div>
+    </div>
+
+    <!-- Draft ready -->
+    <div class="label">Ready to publish</div>
+    <div class="content-col" style="margin-bottom:24px">
+      <div class="content-box">
+        <div class="row" style="margin-bottom:8px">
+          <div class="content-plat">LinkedIn</div>
+          <button class="btn btn-outline btn-sm">Copy</button>
+        </div>
+        <div class="content-text">Most GTM playbooks were written for a world that no longer exists.<br><br>The shift isn't coming — it already happened:<br><br>→ Buyers research before talking to sales<br>→ Cold outbound reply rates dropped 40%<br>→ Best pipeline comes from warm engagement<br><br>What's working in your GTM right now?</div>
+      </div>
+      <div class="content-box">
+        <div class="row" style="margin-bottom:8px">
+          <div class="content-plat">X Thread</div>
+          <button class="btn btn-outline btn-sm">Copy</button>
+        </div>
+        <div class="content-text">most GTM playbooks for 2026 are already dead.<br><br>---<br><br>cold outbound reply rates dropped 40%. hiring more SDRs isn't the fix.<br><br>---<br><br>what's working: find people already engaging with your space. reach them there.<br><br>---<br><br>build systems, not headcount.</div>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- X Engage -->
+    <div class="label">X — Tweets to reply to</div>
+    <div style="font-size:11px;color:#9aa0b3;margin-bottom:10px">Watching: @markroberge, @kelseyhightower, @GergelyOrosz · Topics: engineering leadership, tech hiring</div>
+
+    <div class="tweet">
+      <div class="tweet-head"><strong>Mark Roberge</strong> <span class="tweet-handle">@markroberge · 2h</span></div>
+      <div class="tweet-body">Hot take: the best AEs in 2026 aren't "closers." They're consultants who happen to sell.</div>
+      <div class="tweet-meta">342 likes · 89 replies · 45 RTs</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-primary btn-sm">Draft Reply</button>
+        <button class="btn btn-outline btn-sm">View on X</button>
+      </div>
+    </div>
+
+    <div class="tweet">
+      <div class="tweet-head"><strong>Gergely Orosz</strong> <span class="tweet-handle">@GergelyOrosz · 5h</span></div>
+      <div class="tweet-body">Engineering leaders still doing stack ranking in 2026 are losing their best people.</div>
+      <div class="tweet-meta">1.2K likes · 234 replies</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-primary btn-sm">Draft Reply</button>
+        <button class="btn btn-outline btn-sm">View on X</button>
+      </div>
+    </div>
+
+    <div class="tweet" style="background:#f8fafb">
+      <div class="tweet-head"><strong>Your draft reply</strong> to @markroberge</div>
+      <div class="tweet-body" style="color:#1a1e2e;font-weight:500">"seeing the same shift. best reps we work with lead with diagnosis, not demo. the ones who ask better questions close more."</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-primary btn-sm">Copy & Post</button>
+        <button class="btn btn-outline btn-sm">Rewrite</button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- Your posts performance -->
+    <div class="label">Your posts — engagement</div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <div style="font-size:13px;font-weight:600">"Why your GTM playbook is outdated"</div>
+          <div class="muted">LinkedIn · 3h ago · 47 engagers · 12 ICP matches</div>
+        </div>
+        <button class="btn btn-primary btn-sm" style="background:#FF8A65">Scrape engagers →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="watermark">Preview — real data replaces all placeholders after backend is built</div>
+</div>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('v-' + id).classList.add('active');
+  var tabs = document.querySelectorAll('.tab');
+  var map = { overview: 0, outbound: 1, inbound: 2 };
+  if (map[id] !== undefined) tabs[map[id]].classList.add('active');
+}
+</script>
+</body>
+</html>

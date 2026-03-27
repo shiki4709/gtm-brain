@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Second Brain — UI Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', system-ui, sans-serif; color: #1a1e2e; background: #f8fafb; }
+  .shell { max-width: 800px; margin: 0 auto; padding: 32px 24px; }
+  h1 { font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+  .subtitle { font-size: 14px; color: #6a7088; margin-bottom: 32px; }
+  .section { margin-bottom: 48px; }
+  .section-num { font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700; color: #9aa0b3; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .section-title { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .section-desc { font-size: 13px; color: #6a7088; margin-bottom: 16px; }
+  .muted { color: #9aa0b3; }
+  .hl { color: #2196F3; font-weight: 600; }
+  .sep { height: 1px; background: #e8eff4; margin: 40px 0; }
+
+  /* Brain card — the main insight display */
+  .brain-card {
+    padding: 20px 24px; border-radius: 12px; margin-bottom: 12px;
+    background: linear-gradient(135deg, rgba(33,150,243,0.04), rgba(255,138,101,0.04));
+    border: 1.5px solid rgba(33,150,243,0.12);
+  }
+  .brain-label { font-family: 'Space Grotesk', sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9aa0b3; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .brain-dot { width: 6px; height: 6px; border-radius: 50%; background: linear-gradient(135deg, #2196F3, #FF8A65); }
+  .brain-text { font-size: 15px; line-height: 1.65; color: #1a1e2e; }
+  .brain-text strong { color: #2196F3; }
+  .brain-text em { font-style: normal; color: #FF8A65; font-weight: 600; }
+  .brain-confidence { font-size: 11px; color: #9aa0b3; margin-top: 10px; display: flex; align-items: center; gap: 6px; }
+  .conf-bar { width: 60px; height: 4px; border-radius: 2px; background: #e8eff4; }
+  .conf-fill { height: 100%; border-radius: 2px; }
+  .conf-high { background: #4caf50; }
+  .conf-med { background: #FF8A65; }
+  .conf-low { background: #d8e2ea; }
+
+  /* Nudge — inline suggestion */
+  .nudge {
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px;
+    border-radius: 8px; background: rgba(33,150,243,0.05); border: 1px solid rgba(33,150,243,0.1);
+    margin-bottom: 8px; font-size: 13px; line-height: 1.5;
+  }
+  .nudge-icon { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, #2196F3, #42B1F0); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: 700; margin-top: 1px; }
+  .nudge-text { flex: 1; }
+  .nudge-action { font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600; color: #2196F3; cursor: pointer; white-space: nowrap; margin-left: 8px; }
+
+  /* Weekly report */
+  .report { border: 1.5px solid #d8e2ea; border-radius: 12px; overflow: hidden; }
+  .report-header { padding: 16px 20px; background: #1a1e2e; color: #fff; }
+  .report-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; }
+  .report-date { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+  .report-body { padding: 20px; }
+  .report-section { margin-bottom: 16px; }
+  .report-section:last-child { margin-bottom: 0; }
+  .report-section-title { font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 700; color: #9aa0b3; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .report-text { font-size: 14px; line-height: 1.6; color: #3a4058; }
+  .report-stat { display: inline-flex; align-items: baseline; gap: 4px; margin-right: 16px; }
+  .report-stat-num { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; color: #1a1e2e; }
+  .report-stat-label { font-size: 11px; color: #9aa0b3; }
+  .report-stat-change { font-size: 11px; color: #4caf50; }
+  .report-recommendation { padding: 12px 16px; border-radius: 8px; background: linear-gradient(135deg, rgba(33,150,243,0.05), rgba(255,138,101,0.05)); border: 1px solid rgba(33,150,243,0.08); font-size: 13px; line-height: 1.55; }
+  .report-recommendation strong { color: #2196F3; }
+
+  /* Comparison mini */
+  .compare { display: flex; gap: 12px; margin-top: 8px; }
+  .compare-item { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1.5px solid #e8eff4; text-align: center; }
+  .compare-item.winner { border-color: #4caf50; background: rgba(76,175,80,0.04); }
+  .compare-num { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; }
+  .compare-label { font-size: 11px; color: #6a7088; margin-top: 2px; }
+
+  /* Context where brain shows */
+  .context-box { border: 1.5px solid #d8e2ea; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+  .context-label { font-size: 11px; color: #9aa0b3; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .context-mock { padding: 10px 14px; background: #f0f3f6; border-radius: 6px; font-size: 13px; color: #6a7088; margin-bottom: 8px; }
+
+  .watermark { text-align: center; padding: 32px 0; font-size: 11px; color: #c8cdd8; border-top: 1px solid #e8eff4; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<h1>The Second Brain — What it looks like</h1>
+<p class="subtitle">The brain appears in 3 ways: insight cards, inline nudges, and the weekly report.</p>
+
+<div class="sep"></div>
+
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">Brain appearance 1</div>
+  <div class="section-title">Insight cards</div>
+  <div class="section-desc">Appear at the top of Overview and inside each tab. Summarize what the brain has learned.</div>
+
+  <div class="brain-card">
+    <div class="brain-label"><div class="brain-dot"></div> This week's insight</div>
+    <div class="brain-text">Posts about <strong>engineering hiring</strong> yield 3x more ICP leads than product launches. Your best DM angle is <em>referencing their comment</em> — 23% reply rate vs 8% for generic.</div>
+    <div class="brain-confidence">
+      <div class="conf-bar"><div class="conf-fill conf-high" style="width:80%"></div></div>
+      High confidence · 12 scrapes, 34 DMs
+    </div>
+  </div>
+
+  <div class="brain-card">
+    <div class="brain-label"><div class="brain-dot"></div> Pattern detected</div>
+    <div class="brain-text"><strong>VP of Engineering</strong> titles reply 2.5x more than Director-level. Consider adding <strong>"VP Infrastructure"</strong> to your ICP — appeared 8 times this week but isn't in your filter.</div>
+    <div class="brain-confidence">
+      <div class="conf-bar"><div class="conf-fill conf-med" style="width:55%"></div></div>
+      Medium confidence · 6 data points
+    </div>
+  </div>
+
+  <div class="brain-card">
+    <div class="brain-label"><div class="brain-dot"></div> Early signal</div>
+    <div class="brain-text">Your <em>inbound</em> leads (from your own posts) have a <strong>33% reply rate</strong> vs 18% for outbound. Small sample, but worth posting more.</div>
+    <div class="brain-confidence">
+      <div class="conf-bar"><div class="conf-fill conf-low" style="width:25%"></div></div>
+      Low confidence · 3 inbound leads — needs more data
+    </div>
+  </div>
+</div>
+
+<div class="sep"></div>
+
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">Brain appearance 2</div>
+  <div class="section-title">Inline nudges</div>
+  <div class="section-desc">Appear right where the user is working — inside the outbound lead list, the content generator, the X engage feed. Context-aware, actionable.</div>
+
+  <div class="context-box">
+    <div class="context-label">Inside outbound → when drafting a DM</div>
+    <div class="context-mock">Drafting DM for Sarah Chen (VP Engineering, Datadog)...</div>
+    <div class="nudge">
+      <div class="nudge-icon">B</div>
+      <div class="nudge-text">Sarah commented on this post. <strong>Comment-reference DMs get 23% reply rate</strong> for VP-level leads. Referencing her comment in the draft.</div>
+    </div>
+  </div>
+
+  <div class="context-box">
+    <div class="context-label">Inside outbound → when choosing posts to scrape</div>
+    <div class="context-mock">Post finder results for "GTM"...</div>
+    <div class="nudge">
+      <div class="nudge-icon">B</div>
+      <div class="nudge-text">Posts about <strong>engineering hiring</strong> yield 12% ICP match rate in your data. This post matches. <span class="nudge-action">Scrape this first →</span></div>
+    </div>
+  </div>
+
+  <div class="context-box">
+    <div class="context-label">Inside inbound → content generator</div>
+    <div class="context-mock">Generate content from source material...</div>
+    <div class="nudge">
+      <div class="nudge-icon">B</div>
+      <div class="nudge-text">Your top-performing topics: <strong>engineering hiring</strong> (12% ICP rate), <strong>scaling teams</strong> (9%), <strong>remote culture</strong> (7%). <span class="nudge-action">Generate about hiring →</span></div>
+    </div>
+  </div>
+
+  <div class="context-box">
+    <div class="context-label">Inside inbound → your published posts</div>
+    <div class="context-mock">"Why your GTM playbook is outdated" · LinkedIn · 47 engagers</div>
+    <div class="nudge">
+      <div class="nudge-icon">B</div>
+      <div class="nudge-text">This post attracted <strong>12 ICP matches</strong> — 3x your average. The topic "GTM playbooks" is working. <span class="nudge-action">Scrape engagers →</span></div>
+    </div>
+  </div>
+
+  <div class="context-box">
+    <div class="context-label">Inside overview → when to act</div>
+    <div class="nudge">
+      <div class="nudge-icon">B</div>
+      <div class="nudge-text">Your ICP engages most on <strong>Tuesdays and Wednesdays</strong>. Today is Tuesday. Good day to scrape and send DMs. <span class="nudge-action">Start outbound →</span></div>
+    </div>
+  </div>
+
+  <div class="context-box">
+    <div class="context-label">Inside outbound → ICP settings</div>
+    <div class="nudge">
+      <div class="nudge-icon">B</div>
+      <div class="nudge-text"><strong>"VP Infrastructure"</strong> appeared 8 times in your scrapes but isn't in your ICP filter. Add it? <span class="nudge-action">Add to ICP →</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="sep"></div>
+
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">Brain appearance 3</div>
+  <div class="section-title">Weekly report</div>
+  <div class="section-desc">Generated every Friday. Summarizes what worked, what didn't, and what to do next week. This is the brain's most complete output.</div>
+
+  <div class="report">
+    <div class="report-header">
+      <div class="report-title">Weekly GTM Report</div>
+      <div class="report-date">Week of March 24 – 28, 2026</div>
+    </div>
+    <div class="report-body">
+
+      <div class="report-section">
+        <div class="report-section-title">Numbers</div>
+        <div style="margin-bottom:8px">
+          <span class="report-stat"><span class="report-stat-num">847</span><span class="report-stat-label"> leads</span><span class="report-stat-change"> ↑23%</span></span>
+          <span class="report-stat"><span class="report-stat-num">142</span><span class="report-stat-label"> ICP</span><span class="report-stat-change"> ↑15%</span></span>
+          <span class="report-stat"><span class="report-stat-num">34</span><span class="report-stat-label"> DMs</span></span>
+          <span class="report-stat"><span class="report-stat-num">7</span><span class="report-stat-label"> replies</span><span class="report-stat-change"> 21%</span></span>
+        </div>
+      </div>
+
+      <div class="report-section">
+        <div class="report-section-title">What worked</div>
+        <div class="report-text">
+          • Posts about <strong style="color:#2196F3">engineering hiring</strong> yielded 12% ICP match rate (3x your average)<br>
+          • Comment-reference DMs got <strong style="color:#2196F3">23% reply rate</strong> — your best angle by far<br>
+          • Your LinkedIn post attracted 47 engagers, 12 were ICP — inbound is working
+        </div>
+      </div>
+
+      <div class="report-section">
+        <div class="report-section-title">What didn't</div>
+        <div class="report-text">
+          • Posts about product launches yielded only 4% ICP match rate — avoid<br>
+          • Generic DMs (no comment reference) got 8% reply rate — stop using<br>
+          • Weekend scrapes returned 40% fewer ICP matches — stick to weekdays
+        </div>
+      </div>
+
+      <div class="report-section">
+        <div class="report-section-title">DM angle comparison</div>
+        <div class="compare">
+          <div class="compare-item winner">
+            <div class="compare-num" style="color:#4caf50">23%</div>
+            <div class="compare-label">Comment reference</div>
+          </div>
+          <div class="compare-item">
+            <div class="compare-num" style="color:#FF8A65">12%</div>
+            <div class="compare-label">Title-based</div>
+          </div>
+          <div class="compare-item">
+            <div class="compare-num" style="color:#9aa0b3">8%</div>
+            <div class="compare-label">Generic</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="report-section">
+        <div class="report-section-title">Inbound vs outbound</div>
+        <div class="compare">
+          <div class="compare-item winner">
+            <div class="compare-num" style="color:#4caf50">33%</div>
+            <div class="compare-label">Inbound reply rate</div>
+          </div>
+          <div class="compare-item">
+            <div class="compare-num" style="color:#FF8A65">18%</div>
+            <div class="compare-label">Outbound reply rate</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="report-section">
+        <div class="report-section-title">Next week — recommended actions</div>
+        <div class="report-recommendation">
+          <strong>1.</strong> Scrape 5 posts about engineering hiring (your best topic)<br>
+          <strong>2.</strong> Always reference the lead's comment in DMs (23% vs 8%)<br>
+          <strong>3.</strong> Publish 2 LinkedIn posts about hiring — your inbound is converting at 33%<br>
+          <strong>4.</strong> Add <strong>"VP Infrastructure"</strong> to your ICP — appeared 8 times but isn't tracked<br>
+          <strong>5.</strong> Scrape on Tuesday-Thursday (best ICP engagement days)
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="sep"></div>
+
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-num">How it evolves</div>
+  <div class="section-title">Week 1 vs Month 3</div>
+
+  <div class="brain-card" style="border-color:rgba(200,200,210,0.3);background:rgba(200,200,210,0.04);">
+    <div class="brain-label"><div class="brain-dot" style="background:#d8e2ea"></div> Week 1</div>
+    <div class="brain-text" style="color:#6a7088">Not enough data yet. Keep scraping — the brain needs at least 5 scrapes and 10 DMs to start seeing patterns.</div>
+    <div class="brain-confidence">
+      <div class="conf-bar"><div class="conf-fill conf-low" style="width:10%"></div></div>
+      Collecting data...
+    </div>
+  </div>
+
+  <div class="brain-card" style="border-color:rgba(255,138,101,0.2);background:rgba(255,138,101,0.04);">
+    <div class="brain-label"><div class="brain-dot" style="background:#FF8A65"></div> Week 3</div>
+    <div class="brain-text">Early signal: posts about <strong>engineering hiring</strong> seem to attract more ICP leads (12% vs 6% average). <em>Comment-reference</em> DMs may have a higher reply rate but need more data.</div>
+    <div class="brain-confidence">
+      <div class="conf-bar"><div class="conf-fill conf-med" style="width:45%"></div></div>
+      Medium confidence · 8 scrapes, 15 DMs
+    </div>
+  </div>
+
+  <div class="brain-card">
+    <div class="brain-label"><div class="brain-dot"></div> Month 3</div>
+    <div class="brain-text">Nevara's market responds to <strong>engineering hiring content</strong> (14% ICP rate, high confidence). VP-level titles reply <strong>2.5x more</strong> than Director-level. <em>Comment-reference DMs</em> are your best channel (25% reply rate). Inbound content converts <strong>33% better</strong> than outbound cold DMs. Post on <strong>Tuesdays</strong> for maximum ICP engagement.</div>
+    <div class="brain-confidence">
+      <div class="conf-bar"><div class="conf-fill conf-high" style="width:90%"></div></div>
+      High confidence · 45 scrapes, 120 DMs, 28 replies
+    </div>
+  </div>
+</div>
+
+<div class="watermark">
+  The brain is not a separate page. It lives inside the app — insight cards at the top, nudges where you work, weekly report every Friday.
+</div>
+
+</div>
+</body>
+</html>
