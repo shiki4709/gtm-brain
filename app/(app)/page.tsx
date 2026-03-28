@@ -56,10 +56,10 @@ export default function WatchlistFeed() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function fetchFeed() {
+  async function fetchFeed(forceRefresh = false) {
     setLoadingFeed(true)
     try {
-      const res = await fetch('/api/watchlist/feed')
+      const res = await fetch(`/api/watchlist/feed${forceRefresh ? '?refresh=1' : ''}`)
       const json = await res.json()
       if (json.success) setFeed(json.items ?? [])
     } catch { /* silently fail */ }
@@ -383,7 +383,7 @@ export default function WatchlistFeed() {
   // ═══ RETURNING USER — TASK QUEUE ═══
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Compact add */}
+      {/* Compact add + refresh */}
       <div className="flex gap-2 mb-6">
         <input
           type="text"
@@ -395,6 +395,9 @@ export default function WatchlistFeed() {
         />
         <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
           {adding ? '...' : '+ Watch'}
+        </button>
+        <button onClick={() => fetchFeed(true)} disabled={loadingFeed} className="btn-outline" title="Refresh feed">
+          {loadingFeed ? '...' : '↻'}
         </button>
       </div>
 

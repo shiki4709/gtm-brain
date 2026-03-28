@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 
+// Cache feed results for 5 minutes per user
+const feedCache = new Map<string, { items: FeedItem[]; timestamp: number }>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
 interface FeedItem {
   platform: 'linkedin' | 'x'
   author: string
@@ -11,9 +15,21 @@ interface FeedItem {
   engagement?: { likes?: number; replies?: number; retweets?: number }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await getAuthUser()
   if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  const forceRefresh = searchParams.get('refresh') === '1'
+
+  // Check cache (unless force refresh)
+  const cacheKey = auth.dbUser.id
+  if (!forceRefresh) {
+    const cached = feedCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return NextResponse.json({ success: true, items: cached.items, cached: true })
+    }
+  }
 
   const { data: watchlist } = await auth.sb
     .from('sb_watchlist')
@@ -181,5 +197,8 @@ export async function GET() {
     .update({ last_checked: now })
     .eq('user_id', auth.dbUser.id)
 
-  return NextResponse.json({ success: true, items })
+  // Cache the results
+  feedCache.set(cacheKey, { items, timestamp: Date.now() })
+
+  return NextResponse.json({ success: true, items, cached: false })
 }
