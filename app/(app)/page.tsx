@@ -144,78 +144,77 @@ export default function WatchlistFeed() {
     const comments = item.engagement?.replies ?? 0
     const rts = item.engagement?.retweets ?? 0
     const totalEngagement = likes + comments + rts
+    const textLower = item.text.toLowerCase()
+    const matchedTopic = insights?.topics?.find(t => textLower.includes(t.topic.toLowerCase()))
+    const hasQuestion = item.text.includes('?')
+    const isLinkedIn = item.platform === 'linkedin'
 
-    if (item.platform === 'linkedin') {
-      const textLower = item.text.toLowerCase()
-      const matchedTopic = insights?.topics?.find(t => textLower.includes(t.topic.toLowerCase()))
-      const hasQuestion = item.text.includes('?')
-      const actions: Array<{ label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }> = []
+    type Action = { label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }
+    const actions: Action[] = []
 
-      // High comments = highest quality leads (comments have 15x weight of likes)
-      if (comments >= 10) {
+    // ═══ HIGH ENGAGEMENT — multiple actions available ═══
+
+    // Viral / very high engagement
+    if ((isLinkedIn && comments >= 10) || (!isLinkedIn && (likes >= 100 || comments >= 20))) {
+      // Primary: scrape on LinkedIn, reply on X
+      if (isLinkedIn) {
         actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
-        if (matchedTopic) {
-          return { actions, reason: `${comments} comments (15x more valuable than likes). Topic "${matchedTopic.topic}" yields ${Math.round(matchedTopic.avg_icp_rate * 100)}% ICP match.` }
-        }
-        return { actions, reason: `${comments} comments — commenters are the highest-quality leads to DM. They've already shown interest.` }
-      }
-
-      // High engagement + topic match = scrape
-      if (totalEngagement >= 20 && matchedTopic) {
-        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
-        return { actions, reason: `${totalEngagement} engagers + topic "${matchedTopic.topic}" matches your best-performing ICP topic (${Math.round(matchedTopic.avg_icp_rate * 100)}%).` }
-      }
-
-      // Question posts get 40-60% more comments = great for scraping
-      if (hasQuestion && totalEngagement >= 10) {
-        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
-        return { actions, reason: `Question post with ${totalEngagement} engagers. Question posts get 40-60% more comments — great lead quality.` }
-      }
-
-      // Good engagement = scrape + consider content regen
-      if (totalEngagement >= 20) {
+        actions.push({ label: 'Reply on post', type: 'reply', priority: 'medium' })
+      } else {
+        actions.push({ label: 'Reply now', type: 'reply', priority: 'high' })
         actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
-        actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
-        return { actions, reason: `${totalEngagement} engagers. Scrape for ICP leads. This topic resonates — consider writing your own take.` }
       }
-
-      // Moderate engagement = still worth scraping
-      if (totalEngagement >= 5) {
-        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
-        return { actions, reason: `${totalEngagement} engagers — worth scraping for ICP leads.` }
-      }
-
-      // Low engagement = maybe use as content idea
       actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
-      actions.push({ label: 'Skip', type: 'skip', priority: 'low' })
-      return { actions, reason: `Low engagement (${totalEngagement}). Not worth scraping, but the topic might inspire your own post.` }
+
+      const topicNote = matchedTopic ? ` Topic "${matchedTopic.topic}" yields ${Math.round(matchedTopic.avg_icp_rate * 100)}% ICP match.` : ''
+      if (isLinkedIn) {
+        return { actions, reason: `${comments} comments (15x more valuable than likes). Scrape for leads, reply to build visibility.${topicNote}` }
+      }
+      return { actions, reason: `🔥 ${likes} likes, ${comments} replies. Reply ASAP for visibility. Scrape engagers for leads too.${topicNote}` }
     }
 
-    // ═══ X ═══
-    const actions: Array<{ label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }> = []
-
-    // Viral tweet = reply ASAP for maximum visibility
-    if (likes >= 100 || comments >= 20) {
-      actions.push({ label: 'Reply now', type: 'reply', priority: 'high' })
-      return { actions, reason: `🔥 Viral — ${likes} likes, ${comments} replies. First 60-90 min matter most. Your reply gets seen by everyone in the thread.` }
+    // High engagement + topic match
+    if (totalEngagement >= 20 && matchedTopic) {
+      actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
+      actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'medium' })
+      actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
+      return { actions, reason: `${totalEngagement} engagers + topic "${matchedTopic.topic}" matches your ICP (${Math.round(matchedTopic.avg_icp_rate * 100)}%). Scrape for leads and engage.` }
     }
 
-    // High likes but low replies = underserved thread, your reply stands out
-    if (likes >= 30 && comments < 5) {
+    // X: high likes but low replies = underserved thread
+    if (!isLinkedIn && likes >= 30 && comments < 5) {
       actions.push({ label: 'Reply — you\'ll stand out', type: 'reply', priority: 'high' })
-      return { actions, reason: `${likes} likes but only ${comments} replies. Underserved thread — your reply will be one of few and get disproportionate visibility.` }
+      actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'low' })
+      return { actions, reason: `${likes} likes but only ${comments} replies. Your reply will stand out. Scrape likers for leads too.` }
     }
 
-    // Good engagement = worth replying
-    if (likes >= 10 || comments >= 5) {
-      actions.push({ label: 'Draft reply', type: 'reply', priority: 'medium' })
-      return { actions, reason: `${totalEngagement} total engagement. Replying builds visibility with ${item.author}'s audience.` }
+    // Question posts = high comment potential
+    if (hasQuestion && totalEngagement >= 10) {
+      actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
+      actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'medium' })
+      return { actions, reason: `Question post with ${totalEngagement} engagers. Question posts get 40-60% more comments — great for both leads and visibility.` }
     }
 
-    // Low engagement = skip or low priority
-    actions.push({ label: 'Draft reply', type: 'reply', priority: 'low' })
+    // ═══ MODERATE ENGAGEMENT ═══
+
+    if (totalEngagement >= 10) {
+      actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
+      actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'medium' })
+      actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
+      return { actions, reason: `${totalEngagement} engagers. Worth scraping for leads and replying for visibility. Topic could inspire your own content.` }
+    }
+
+    if (totalEngagement >= 5) {
+      actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'low' })
+      actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'low' })
+      return { actions, reason: `${totalEngagement} engagers. Moderate — scrape if the topic fits your ICP, reply if you have something valuable to add.` }
+    }
+
+    // ═══ LOW ENGAGEMENT ═══
+
+    actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
     actions.push({ label: 'Skip', type: 'skip', priority: 'low' })
-    return { actions, reason: `Low engagement (${totalEngagement}). Reply if you have something genuinely valuable to add, otherwise skip.` }
+    return { actions, reason: `Low engagement (${totalEngagement}). Not worth scraping or replying. The topic might inspire your own post.` }
   }
 
   function timeAgo(dateStr: string): string {
@@ -478,11 +477,29 @@ export default function WatchlistFeed() {
                         </div>
                       )}
                       <div className="text-[11px] leading-relaxed mb-3" style={{ color: 'var(--accent-orange)' }}>→ {rec.reason}</div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}
-                          className={rec.actions[0]?.priority === 'high' ? 'btn-primary' : 'btn-accent'}>
-                          {draftingUrl === item.url ? 'Drafting...' : rec.actions[0]?.label ?? 'Draft reply'}
-                        </button>
+                      <div className="flex flex-wrap gap-2">
+                        {rec.actions.map((a, j) => {
+                          if (a.type === 'reply') return (
+                            <button key={j} onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}
+                              className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}>
+                              {draftingUrl === item.url ? 'Drafting...' : a.label}
+                            </button>
+                          )
+                          if (a.type === 'scrape') return (
+                            <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
+                              className={a.priority === 'high' ? 'btn-primary' : 'btn-outline'}
+                              onClick={() => markDone(item.url)}>
+                              {a.label}
+                            </Link>
+                          )
+                          if (a.type === 'content') return (
+                            <Link key={j} href={`/build-presence?topic=${encodeURIComponent(item.text.slice(0, 100))}`}
+                              className="btn-outline" onClick={() => markDone(item.url)}>
+                              {a.label}
+                            </Link>
+                          )
+                          return null
+                        })}
                         <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">Open on X</a>
                         <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
                       </div>
