@@ -11,30 +11,26 @@ interface PipelineCounts {
   converted: number
 }
 
-interface TopicInsight {
-  topic: string
-  avg_icp_rate: number
-  scrape_count: number
-  total_icp_leads: number
-  confidence: number
-}
-
-interface DmInsight {
-  angle: string
-  sent: number
-  replies: number
-  reply_rate: number
-}
-
-interface Insights {
-  topic_performance?: TopicInsight[]
-  dm_effectiveness?: DmInsight[]
+interface LinkedInInsights {
+  topics?: Array<{ topic: string; scrapes: number; avg_icp_rate: number; total_leads: number; confidence: number }>
+  dm_by_tone?: Array<{ value: string; sent: number; replied: number; reply_rate: number }>
+  dm_by_length?: Array<{ value: string; sent: number; replied: number; reply_rate: number }>
+  dm_by_personalization?: Array<{ value: string; sent: number; replied: number; reply_rate: number }>
+  total_dms_classified?: number
   timing?: { best_day: string; best_rate: number }
+}
+
+interface XInsights {
+  reply_by_style?: Array<{ style: string; count: number; avg_likes: number; total_engagement: number }>
+  best_accounts?: Array<{ handle: string; name: string; replies: number; totalLikes: number }>
+  total_replies_classified?: number
+  total_with_engagement?: number
 }
 
 export default function BrainHome() {
   const [pipeline, setPipeline] = useState<PipelineCounts | null>(null)
-  const [insights, setInsights] = useState<Insights | null>(null)
+  const [liInsights, setLiInsights] = useState<LinkedInInsights | null>(null)
+  const [xInsights, setXInsights] = useState<XInsights | null>(null)
   const [weeklySummary, setWeeklySummary] = useState('')
   const [generatingSummary, setGeneratingSummary] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -42,11 +38,13 @@ export default function BrainHome() {
   useEffect(() => {
     Promise.all([
       fetch('/api/pipeline').then(r => r.json()),
-      fetch('/api/insights').then(r => r.json()),
+      fetch('/api/insights/linkedin').then(r => r.json()),
+      fetch('/api/insights/x').then(r => r.json()),
     ])
-      .then(([pipelineJson, insightsJson]) => {
+      .then(([pipelineJson, liJson, xJson]) => {
         if (pipelineJson.success) setPipeline(pipelineJson.data)
-        if (insightsJson.success) setInsights(insightsJson.data)
+        if (liJson.success) setLiInsights(liJson.data)
+        if (xJson.success) setXInsights(xJson.data)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -63,8 +61,9 @@ export default function BrainHome() {
   }
 
   const p = pipeline ?? { scraped: 0, icp: 0, dm_drafted: 0, dm_sent: 0, replied: 0, converted: 0 }
-  const topTopic = insights?.topic_performance?.[0]
-  const topAngle = insights?.dm_effectiveness?.[0]
+  const topTopic = liInsights?.topics?.[0]
+  const topDmTone = liInsights?.dm_by_tone?.[0]
+  const topReplyStyle = xInsights?.reply_by_style?.[0]
   const hasData = p.scraped > 0
 
   if (loading) return <div className="text-sm text-ink-4 py-8 text-center">Loading...</div>
@@ -171,8 +170,8 @@ export default function BrainHome() {
     actions.push({
       count: drafted,
       text: 'DMs drafted, ready to send',
-      reason: topAngle
-        ? `${topAngle.angle.replace('_', ' ')} DMs get ${Math.round(topAngle.reply_rate * 100)}% reply rate`
+      reason: topDmTone
+        ? `${topDmTone.value} tone DMs get ${Math.round(topDmTone.reply_rate * 100)}% reply rate`
         : 'DMs are ready — copy and send on LinkedIn',
       href: '/find-leads',
       color: 'blue',
@@ -222,58 +221,96 @@ export default function BrainHome() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Brain Summary */}
-      <div className="brain-card mb-8" style={{ padding: '24px 28px' }}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full gradient-dot" />
-            <span className="font-head text-sm font-bold text-ink">Brain</span>
-          </div>
-          {!weeklySummary && (
-            <button onClick={generateSummary} disabled={generatingSummary}
-              className="text-xs text-accent font-semibold hover:underline">
-              {generatingSummary ? 'Thinking...' : 'Generate summary'}
-            </button>
-          )}
+      {/* LinkedIn Brain */}
+      <div className="bg-white border border-rule rounded-[var(--radius)] p-5 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full bg-accent" />
+          <span className="font-head text-sm font-bold text-ink">LinkedIn Brain</span>
+          {liInsights?.total_dms_classified ? (
+            <span className="text-[11px] text-ink-4">{liInsights.total_dms_classified} DMs classified</span>
+          ) : null}
         </div>
 
-        {weeklySummary ? (
-          <p className="text-sm leading-relaxed text-ink-2">{weeklySummary}</p>
+        {topTopic ? (
+          <p className="text-sm leading-relaxed text-ink-2 mb-2">
+            Posts about <strong className="text-accent">{topTopic.topic}</strong> yield{' '}
+            <strong className="text-accent">{Math.round(topTopic.avg_icp_rate * 100)}%</strong> ICP match rate
+            ({topTopic.total_leads} leads from {topTopic.scrapes} scrapes).
+            {topDmTone && topDmTone.sent >= 2 && (
+              <> <strong className="text-accent">{topDmTone.value}</strong> tone DMs get{' '}
+              <strong className="text-accent">{Math.round(topDmTone.reply_rate * 100)}%</strong> reply rate.</>
+            )}
+          </p>
         ) : (
-          <p className="text-sm leading-relaxed text-ink-2">
-            {topTopic ? (
-              <>
-                Posts about <strong className="text-accent">{topTopic.topic}</strong> yield{' '}
-                <strong className="text-accent">{Math.round(topTopic.avg_icp_rate * 100)}%</strong> ICP match rate
-                ({topTopic.total_icp_leads} leads from {topTopic.scrape_count} scrapes).
-              </>
-            ) : (
-              <>You&apos;ve scraped <strong className="text-accent">{p.scraped}</strong> engagers and found{' '}
-              <strong className="text-accent">{p.icp}</strong> ICP leads.</>
-            )}
-            {topAngle && topAngle.sent >= 3 && (
-              <> DMs using <strong className="text-orange">{topAngle.angle.replace('_', ' ')}</strong> get{' '}
-              <strong className="text-orange">{Math.round(topAngle.reply_rate * 100)}%</strong> reply rate.</>
-            )}
+          <p className="text-sm text-ink-3">
+            Scraped <strong>{p.scraped}</strong> engagers, found <strong>{p.icp}</strong> ICP leads.
+            {p.dm_sent === 0 ? ' Draft and send DMs to start learning.' : ''}
           </p>
         )}
 
         {topTopic && topTopic.confidence < 1.0 && (
-          <div className="flex items-center gap-1.5 mt-3 text-[11px] text-ink-4">
+          <div className="flex items-center gap-1.5 text-[11px] text-ink-4">
             <div className="conf-bar">
               <div className={`conf-fill ${topTopic.confidence >= 0.7 ? 'conf-high' : topTopic.confidence >= 0.4 ? 'conf-med' : 'conf-low'}`}
                 style={{ width: `${topTopic.confidence * 100}%` }} />
             </div>
-            {topTopic.confidence >= 0.7 ? 'High' : topTopic.confidence >= 0.4 ? 'Medium' : 'Low'} confidence · {topTopic.scrape_count} scrapes
+            {topTopic.confidence >= 0.7 ? 'High' : topTopic.confidence >= 0.4 ? 'Medium' : 'Low'} confidence · {topTopic.scrapes} scrapes
           </div>
         )}
 
-        {insights?.timing && (
-          <div className="mt-3 text-xs text-ink-3">
-            Best day to scrape: <strong className="text-accent">{insights.timing.best_day}s</strong> ({Math.round(insights.timing.best_rate * 100)}% ICP rate)
+        {liInsights?.timing && (
+          <div className="text-xs text-ink-3 mt-2">
+            Best day: <strong className="text-accent">{liInsights.timing.best_day}s</strong> ({Math.round(liInsights.timing.best_rate * 100)}% ICP rate)
           </div>
         )}
       </div>
+
+      {/* X Brain */}
+      <div className="bg-white border border-rule rounded-[var(--radius)] p-5 mb-8">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 rounded-full" style={{ background: 'var(--accent-orange)' }} />
+          <span className="font-head text-sm font-bold text-ink">X Brain</span>
+          {xInsights?.total_replies_classified ? (
+            <span className="text-[11px] text-ink-4">{xInsights.total_replies_classified} replies classified</span>
+          ) : null}
+        </div>
+
+        {topReplyStyle ? (
+          <p className="text-sm leading-relaxed text-ink-2 mb-2">
+            <strong className="text-orange">{topReplyStyle.style}</strong> replies get the most engagement
+            ({topReplyStyle.avg_likes} avg likes, {topReplyStyle.count} replies tracked).
+            {xInsights?.best_accounts?.[0] && (
+              <> Replying to <strong className="text-orange">@{xInsights.best_accounts[0].handle}</strong>&apos;s tweets works best for your ICP.</>
+            )}
+          </p>
+        ) : (
+          <p className="text-sm text-ink-3">
+            No X data yet. Reply to some tweets in Build Presence to start learning which styles get engagement.
+          </p>
+        )}
+
+        {xInsights?.total_with_engagement !== undefined && xInsights.total_with_engagement > 0 && (
+          <div className="text-xs text-ink-4">
+            {xInsights.total_with_engagement} of {xInsights.total_replies_classified} replies have engagement data
+          </div>
+        )}
+      </div>
+
+      {/* Weekly summary */}
+      {weeklySummary && (
+        <div className="brain-card mb-8">
+          <div className="section-label mb-2">Weekly summary</div>
+          <p className="text-sm leading-relaxed text-ink-2">{weeklySummary}</p>
+        </div>
+      )}
+      {!weeklySummary && hasData && (
+        <div className="text-center mb-8">
+          <button onClick={generateSummary} disabled={generatingSummary}
+            className="text-xs text-accent font-semibold hover:underline">
+            {generatingSummary ? 'Generating...' : 'Generate weekly summary'}
+          </button>
+        </div>
+      )}
 
       {/* What to do next */}
       <div className="section-label mb-3">What to do next</div>

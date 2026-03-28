@@ -85,11 +85,65 @@ Write ONE message. Make it feel like something a real person would actually type
         .from('sb_leads')
         .update({ dm_draft: message, dm_angle: angle, status: 'dm_drafted' })
         .eq('id', lead_id)
+
+      // Classify DM style for brain insights (fire and forget)
+      classifyDm(message, lead_id, apiKey).catch(() => {})
     }
 
     return NextResponse.json({ message, angle })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Draft failed'
     return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+
+async function classifyDm(message: string, leadId: string, apiKey: string) {
+  const classifyPrompt = `Classify this LinkedIn DM. Output ONLY a JSON object, nothing else.
+
+DM: "${message}"
+
+Classify:
+- dm_tone: "casual" | "professional" | "direct"
+- dm_length: "short" (under 100 chars) | "medium" (100-200) | "long" (200+)
+- dm_personalization: "high" (references specific comment, role, or company) | "medium" (references post topic) | "low" (generic)
+
+Output format: {"dm_tone":"...","dm_length":"...","dm_personalization":"..."}`
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 100,
+      messages: [{ role: 'user', content: classifyPrompt }],
+    }),
+  })
+
+  if (!resp.ok) return
+
+  const result = await resp.json()
+  const text: string = result.content?.[0]?.text ?? ''
+
+  try {
+    const tags = JSON.parse(text)
+    const sb = createServiceClient()
+
+    // Get user_id from lead
+    const { data: lead } = await sb.from('sb_leads').select('user_id').eq('id', leadId).single()
+    if (!lead) return
+
+    await sb.from('sb_content_tags').insert({
+      user_id: lead.user_id,
+      platform: 'linkedin',
+      content_type: 'dm',
+      reference_id: leadId,
+      tags,
+    })
+  } catch {
+    // JSON parse failed — skip classification
   }
 }

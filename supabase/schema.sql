@@ -98,6 +98,25 @@ CREATE TABLE sb_insights (
   generated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Content classification tags (per-platform brain)
+CREATE TABLE sb_content_tags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES sb_users(id),
+  platform TEXT NOT NULL,
+  -- platform: 'linkedin' | 'x'
+  content_type TEXT NOT NULL,
+  -- content_type: 'dm' | 'reply' | 'post'
+  reference_id UUID,
+  -- references lead_id, x_engage_id, or post_id depending on content_type
+  tags JSONB NOT NULL DEFAULT '{}',
+  -- linkedin dm: { dm_tone, dm_length, dm_personalization }
+  -- x reply: { reply_style, reply_length }
+  -- post: { content_format }
+  engagement JSONB DEFAULT '{}',
+  -- { likes: 0, replies: 0, followers_gained: 0 }
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Indexes for common queries
 CREATE INDEX idx_scrapes_user ON sb_scrapes(user_id);
 CREATE INDEX idx_leads_user ON sb_leads(user_id);
@@ -109,3 +128,5 @@ CREATE INDEX idx_posts_user ON sb_posts(user_id);
 CREATE INDEX idx_x_engage_user ON sb_x_engage(user_id);
 CREATE INDEX idx_insights_user ON sb_insights(user_id);
 CREATE INDEX idx_insights_type ON sb_insights(insight_type);
+CREATE INDEX idx_content_tags_user ON sb_content_tags(user_id);
+CREATE INDEX idx_content_tags_platform ON sb_content_tags(platform);
