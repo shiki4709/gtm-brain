@@ -223,131 +223,169 @@ export default function WatchlistFeed() {
   }
 
   // ═══ RETURNING USER — feed ═══
+  const linkedinWatchlist = watchlist.filter(w => w.platform === 'linkedin')
+  const xWatchlist = watchlist.filter(w => w.platform === 'x')
+  const linkedinFeed = feed.filter(f => f.platform === 'linkedin')
+  const xFeed = feed.filter(f => f.platform === 'x')
+
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Add person (compact) */}
-      <div className="flex gap-3 mb-4">
-        <input
-          type="text"
-          value={addInput}
-          onChange={e => setAddInput(e.target.value)}
-          placeholder="Add person: LinkedIn URL or @handle..."
-          className="input flex-1 py-2.5 px-4 text-sm"
-          onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
-        />
-        <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
-          {adding ? '...' : '+ Watch'}
-        </button>
-      </div>
-
-      {/* Watching */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {watchlist.map(w => (
-          <span key={w.id} className={`badge flex items-center gap-1.5 text-xs py-1.5 px-3 ${
-            w.platform === 'linkedin'
-              ? 'badge-icp'
-              : ''
-          }`} style={w.platform === 'x' ? { background: '#fff3e0', color: 'var(--accent-orange-deep)' } : undefined}>
-            {w.platform === 'x' ? '@' : ''}{w.display_name ?? w.username}
-            <button onClick={() => removeFromWatchlist(w.id)} className="hover:text-ink ml-0.5 text-[10px]">×</button>
-          </span>
-        ))}
-      </div>
-
-      {/* Feed */}
-      {loadingFeed ? (
-        <div className="text-sm text-ink-4 py-8 text-center">Loading feed...</div>
-      ) : feed.length > 0 ? (
-        <div className="flex flex-col gap-3">
-          {feed.map((item, i) => {
-            const nudge = getTopicNudge(item.text)
-            const draftReply = draftReplies[item.url]
-            return (
-              <div key={i} className="bg-white border border-rule rounded-[var(--radius)] p-4 hover:border-accent transition-colors">
-                {/* Header */}
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`w-2 h-2 rounded-full ${item.platform === 'linkedin' ? 'bg-accent' : ''}`}
-                    style={item.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
-                  <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
-                  <span className="text-[11px] text-ink-4">
-                    {item.platform === 'linkedin' ? 'LinkedIn' : 'X'} · {timeAgo(item.time)}
-                  </span>
-                </div>
-
-                {/* Content */}
-                <div className="text-sm text-ink-2 leading-relaxed mb-3">
-                  {item.text}
-                </div>
-
-                {/* Engagement (X only) */}
-                {item.engagement && (
-                  <div className="text-[11px] text-ink-4 mb-3">
-                    {item.engagement.likes?.toLocaleString()} likes · {item.engagement.replies} replies · {item.engagement.retweets} RTs
-                  </div>
-                )}
-
-                {/* Brain nudge */}
-                {nudge && (
-                  <div className="text-[11px] text-accent mb-3">
-                    Brain: {nudge}
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2">
-                  {item.platform === 'linkedin' && (
-                    <>
-                      <Link href={`/find-leads?scrape=${encodeURIComponent(item.url)}`} className="btn-primary">
-                        Scrape engagers
-                      </Link>
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
-                        View post
-                      </a>
-                    </>
-                  )}
-                  {item.platform === 'x' && (
-                    <>
-                      <button
-                        onClick={() => handleDraftReply(item)}
-                        disabled={draftingUrl === item.url}
-                        className="btn-accent"
-                      >
-                        {draftingUrl === item.url ? '...' : 'Draft reply'}
-                      </button>
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
-                        Open on X
-                      </a>
-                    </>
-                  )}
-                </div>
-
-                {/* Draft reply (inline) */}
-                {draftReply && (
-                  <div className="mt-3 pt-3 border-t border-rule-light">
-                    <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">
-                      {draftReply}
-                    </div>
-                    <div className="flex gap-2">
-                      <button className="btn-primary" onClick={() => copyAndOpen(draftReply, item.url)}>
-                        {copied === item.url ? 'Copied' : 'Copy & Open'}
-                      </button>
-                      <button className="btn-outline" onClick={() => handleDraftReply(item)}>Rewrite</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+      {/* ═══ LINKEDIN SECTION ═══ */}
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-2 h-2 rounded-full bg-accent" />
+          <h2 className="font-head text-base font-bold text-ink">LinkedIn</h2>
+          <span className="text-xs text-ink-4">Scrape engagers from their posts to find ICP leads</span>
         </div>
-      ) : (
-        <div className="text-center py-12 text-ink-4">
-          <div className="text-sm mb-2">No recent posts from your watch list</div>
-          <div className="text-xs">Add more people above, or check back later</div>
-          <div className="mt-4">
-            <Link href="/find-leads" className="btn-outline">Search for posts manually →</Link>
+
+        {/* Add LinkedIn profile */}
+        <div className="flex gap-2 mb-3">
+          <input
+            type="text"
+            value={addPlatform === 'linkedin' ? addInput : ''}
+            onChange={e => { setAddInput(e.target.value); setAddPlatform('linkedin') }}
+            placeholder="Paste LinkedIn profile URL..."
+            className="input flex-1 py-2.5 px-4 text-sm"
+            onKeyDown={e => { if (e.key === 'Enter') { setAddPlatform('linkedin'); addToWatchlist() } }}
+          />
+          <button onClick={() => { setAddPlatform('linkedin'); addToWatchlist() }} disabled={adding || !addInput.trim() || addPlatform !== 'linkedin'} className="btn-accent">
+            {adding && addPlatform === 'linkedin' ? '...' : '+ Watch'}
+          </button>
+        </div>
+
+        {/* Watching badges */}
+        {linkedinWatchlist.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {linkedinWatchlist.map(w => (
+              <span key={w.id} className="badge badge-icp flex items-center gap-1.5 text-xs py-1.5 px-3">
+                {w.display_name ?? w.username}
+                <button onClick={() => removeFromWatchlist(w.id)} className="hover:text-ink ml-0.5 text-[10px]">×</button>
+              </span>
+            ))}
           </div>
+        )}
+
+        {/* LinkedIn posts */}
+        {loadingFeed ? (
+          <div className="text-sm text-ink-4 py-4">Loading posts...</div>
+        ) : linkedinFeed.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {linkedinFeed.map((item, i) => {
+              const nudge = getTopicNudge(item.text)
+              return (
+                <div key={i} className="bg-white border border-rule rounded-[var(--radius)] p-4 hover:border-accent transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
+                      <span className="text-[11px] text-ink-4">{timeAgo(item.time)}</span>
+                    </div>
+                    {item.engagement && (item.engagement.likes ?? 0) > 0 && (
+                      <span className="text-[11px] text-ink-4">
+                        {item.engagement.likes} likes · {item.engagement.replies} comments
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-ink-2 leading-relaxed mb-3">{item.text}</div>
+                  {nudge && <div className="text-[11px] text-accent mb-3">Brain: {nudge}</div>}
+                  <div className="flex gap-2">
+                    <Link href={`/find-leads?scrape=${encodeURIComponent(item.url)}`} className="btn-primary">
+                      Scrape engagers
+                    </Link>
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
+                      View post
+                    </a>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : linkedinWatchlist.length > 0 ? (
+          <div className="text-center py-6 text-ink-4 text-sm">No recent posts from watched profiles</div>
+        ) : null}
+      </div>
+
+      {/* ═══ X SECTION ═══ */}
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-2 h-2 rounded-full" style={{ background: 'var(--accent-orange)' }} />
+          <h2 className="font-head text-base font-bold text-ink">X</h2>
+          <span className="text-xs text-ink-4">Reply to their tweets to build visibility with their audience</span>
         </div>
-      )}
+
+        {/* Add X account */}
+        <div className="flex gap-2 mb-3">
+          <input
+            type="text"
+            value={addPlatform === 'x' ? addInput : ''}
+            onChange={e => { setAddInput(e.target.value); setAddPlatform('x') }}
+            placeholder="@handle (e.g. markroberge)"
+            className="input flex-1 py-2.5 px-4 text-sm"
+            onKeyDown={e => { if (e.key === 'Enter') { setAddPlatform('x'); addToWatchlist() } }}
+          />
+          <button onClick={() => { setAddPlatform('x'); addToWatchlist() }} disabled={adding || !addInput.trim() || addPlatform !== 'x'} className="btn-accent">
+            {adding && addPlatform === 'x' ? '...' : '+ Watch'}
+          </button>
+        </div>
+
+        {/* Watching badges */}
+        {xWatchlist.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {xWatchlist.map(w => (
+              <span key={w.id} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: '#fff3e0', color: 'var(--accent-orange-deep)' }}>
+                @{w.display_name ?? w.username}
+                <button onClick={() => removeFromWatchlist(w.id)} className="hover:text-ink ml-0.5 text-[10px]">×</button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* X tweets */}
+        {loadingFeed ? (
+          <div className="text-sm text-ink-4 py-4">Loading tweets...</div>
+        ) : xFeed.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {xFeed.map((item, i) => {
+              const draftReply = draftReplies[item.url]
+              return (
+                <div key={i} className="bg-white border border-rule rounded-[var(--radius)] p-4 hover:border-accent transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
+                      <span className="text-[11px] text-ink-4">@{item.authorHandle} · {timeAgo(item.time)}</span>
+                    </div>
+                  </div>
+                  <div className="text-sm text-ink-2 leading-relaxed mb-2">{item.text}</div>
+                  {item.engagement && (
+                    <div className="text-[11px] text-ink-4 mb-3">
+                      {item.engagement.likes?.toLocaleString()} likes · {item.engagement.replies} replies · {item.engagement.retweets} RTs
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url} className="btn-accent">
+                      {draftingUrl === item.url ? '...' : 'Draft reply'}
+                    </button>
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">Open on X</a>
+                  </div>
+
+                  {draftReply && (
+                    <div className="mt-3 pt-3 border-t border-rule-light">
+                      <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">{draftReply}</div>
+                      <div className="flex gap-2">
+                        <button className="btn-primary" onClick={() => copyAndOpen(draftReply, item.url)}>
+                          {copied === item.url ? 'Copied' : 'Copy & Open'}
+                        </button>
+                        <button className="btn-outline" onClick={() => handleDraftReply(item)}>Rewrite</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        ) : xWatchlist.length > 0 ? (
+          <div className="text-center py-6 text-ink-4 text-sm">No recent tweets from watched accounts</div>
+        ) : null}
+      </div>
     </div>
   )
 }
