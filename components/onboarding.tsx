@@ -27,8 +27,13 @@ const SUGGESTED_EXCLUDES = [
 ]
 
 export default function Onboarding({ onComplete, initialTitles, initialExcludes }: OnboardingProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(initialTitles ? 2 : 1)
+  const [step, setStep] = useState<1 | 2 | 3 | '1b'>(initialTitles ? 2 : 1)
   const [problem, setProblem] = useState('')
+  const [clarifyQuestions, setClarifyQuestions] = useState<string[]>([])
+  const [clarifyAnswers, setClarifyAnswers] = useState<string[]>([])
+  const [currentClarifyIndex, setCurrentClarifyIndex] = useState(0)
+  const [clarifyInput, setClarifyInput] = useState('')
+  const [loadingQuestions, setLoadingQuestions] = useState(false)
   const [titles, setTitles] = useState<string[]>(initialTitles ?? [])
   const [titleInput, setTitleInput] = useState('')
   const [excludes, setExcludes] = useState<string[]>(initialExcludes ?? [])
@@ -39,13 +44,38 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const isEditing = !!initialTitles
 
-  async function fetchSuggestions(problemText: string) {
-    setLoadingSuggestions(true)
+  async function fetchClarifyQuestions() {
+    setLoadingQuestions(true)
     try {
       const res = await fetch('/api/suggest-icp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ problem: problemText }),
+        body: JSON.stringify({ problem: problem.trim(), mode: 'clarify' }),
+      })
+      const json = await res.json()
+      if (json.questions && json.questions.length > 0) {
+        setClarifyQuestions(json.questions)
+        setClarifyAnswers(new Array(json.questions.length).fill(''))
+        setCurrentClarifyIndex(0)
+        setStep('1b')
+      } else {
+        fetchSuggestions(problem.trim(), [])
+      }
+    } catch {
+      fetchSuggestions(problem.trim(), [])
+    } finally {
+      setLoadingQuestions(false)
+    }
+  }
+
+  async function fetchSuggestions(problemText: string, answers: string[]) {
+    setLoadingSuggestions(true)
+    setStep(2)
+    try {
+      const res = await fetch('/api/suggest-icp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ problem: problemText, answers, mode: 'suggest' }),
       })
       const json = await res.json()
       if (json.titles && json.titles.length > 0) {
@@ -59,9 +89,24 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
   }
 
   function goToStep2() {
-    setStep(2)
-    if (problem.trim() && !isEditing) {
-      fetchSuggestions(problem.trim())
+    if (isEditing) {
+      setStep(2)
+    } else {
+      fetchClarifyQuestions()
+    }
+  }
+
+  function answerClarify() {
+    const newAnswers = [...clarifyAnswers]
+    newAnswers[currentClarifyIndex] = clarifyInput.trim()
+    setClarifyAnswers(newAnswers)
+    setClarifyInput('')
+
+    if (currentClarifyIndex < clarifyQuestions.length - 1) {
+      setCurrentClarifyIndex(currentClarifyIndex + 1)
+    } else {
+      // All questions answered — fetch suggestions
+      fetchSuggestions(problem.trim(), newAnswers)
     }
   }
 
@@ -126,7 +171,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
           <div className="flex items-center justify-center gap-2 mb-6">
             {[1, 2, 3].map(s => (
               <div key={s} className={`w-2 h-2 rounded-full transition-colors ${
-                s === step ? 'bg-accent' : s < step ? 'bg-green' : 'bg-[var(--rule)]'
+                (s === step || (s === 1 && step === '1b')) ? 'bg-accent' : (typeof step === 'number' && s < step) || (step === '1b' && s < 1) ? 'bg-green' : 'bg-[var(--rule)]'
               }`} />
             ))}
           </div>
@@ -180,10 +225,72 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
 
             <button
               onClick={goToStep2}
-              disabled={!problem.trim()}
+              disabled={!problem.trim() || loadingQuestions}
               className="btn-primary px-8 py-3 text-sm"
             >
-              Next — set initial ICP filter
+              {loadingQuestions ? 'Thinking...' : 'Next'}
+            </button>
+          </>
+        )}
+
+        {/* Step 1b: Clarifying questions */}
+        {step === '1b' && clarifyQuestions.length > 0 && (
+          <>
+            <h1 className="font-head text-2xl font-bold text-ink mb-2">
+              A few quick questions
+            </h1>
+            <p className="text-sm text-ink-3 max-w-sm mx-auto mb-8">
+              This helps the brain suggest the right ICP titles for your specific situation.
+            </p>
+
+            {/* Progress */}
+            <div className="text-[11px] text-ink-4 mb-4">
+              Question {currentClarifyIndex + 1} of {clarifyQuestions.length}
+            </div>
+
+            {/* Previous answers */}
+            {currentClarifyIndex > 0 && (
+              <div className="text-left mb-4">
+                {clarifyQuestions.slice(0, currentClarifyIndex).map((q, i) => (
+                  <div key={i} className="mb-2 text-xs">
+                    <div className="text-ink-4">{q}</div>
+                    <div className="text-ink-2 font-medium">{clarifyAnswers[i]}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Current question */}
+            <div className="text-left mb-6">
+              <div className="font-head text-sm font-semibold text-ink mb-3">
+                {clarifyQuestions[currentClarifyIndex]}
+              </div>
+              <input
+                className="input py-3 px-4 text-sm w-full"
+                placeholder="Your answer..."
+                value={clarifyInput}
+                onChange={e => setClarifyInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && clarifyInput.trim()) answerClarify() }}
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setStep(1)} className="btn-outline px-6 py-3 text-sm">Back</button>
+              <button
+                onClick={answerClarify}
+                disabled={!clarifyInput.trim()}
+                className="btn-primary flex-1 py-3 text-sm"
+              >
+                {currentClarifyIndex < clarifyQuestions.length - 1 ? 'Next question' : 'Get suggestions'}
+              </button>
+            </div>
+
+            <button
+              onClick={() => fetchSuggestions(problem.trim(), clarifyAnswers)}
+              className="text-xs text-ink-4 hover:text-ink mt-4 block mx-auto"
+            >
+              Skip remaining questions →
             </button>
           </>
         )}
