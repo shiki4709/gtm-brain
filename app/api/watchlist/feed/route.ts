@@ -35,7 +35,7 @@ export async function GET() {
     const linkedinPromises = linkedinProfiles.map(async (profile) => {
       try {
         const q = `site:linkedin.com/posts/${profile.username}`
-        const apiUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=10&freshness=pm`
+        const apiUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=10`
         const resp = await fetch(apiUrl, {
           headers: { 'X-Subscription-Token': braveKey, Accept: 'application/json' },
           signal: AbortSignal.timeout(8000),
