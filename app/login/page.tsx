@@ -25,6 +25,10 @@ export default function LoginPage() {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: undefined, // Skip confirmation email
+          data: { name: email.split('@')[0] },
+        },
       })
       if (signUpError) {
         setError(signUpError.message)
