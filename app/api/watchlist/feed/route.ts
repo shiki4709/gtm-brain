@@ -29,64 +29,64 @@ export async function GET() {
 
   const items: FeedItem[] = []
 
-  // Fetch LinkedIn posts via Brave Search (parallel)
-  const braveKey = process.env.BRAVE_SEARCH_KEY ?? ''
-  if (braveKey && linkedinProfiles.length > 0) {
+  // Fetch LinkedIn posts via Apify (parallel)
+  const apifyToken = process.env.APIFY_TOKEN ?? ''
+  if (apifyToken && linkedinProfiles.length > 0) {
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
+    const actorId = 'harvestapi~linkedin-profile-posts'
+
     const linkedinPromises = linkedinProfiles.map(async (profile) => {
       try {
-        const q = `site:linkedin.com/posts/${profile.username}`
-        const apiUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=10`
-        const resp = await fetch(apiUrl, {
-          headers: { 'X-Subscription-Token': braveKey, Accept: 'application/json' },
-          signal: AbortSignal.timeout(8000),
-        })
+        const profileUrl = profile.profile_url ?? `https://www.linkedin.com/in/${profile.username}`
+        const resp = await fetch(
+          `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profileUrls: [profileUrl], maxPosts: 5 }),
+            signal: AbortSignal.timeout(30000),
+          }
+        )
 
         if (!resp.ok) return
 
-        const data = await resp.json()
-        const results = (data.web?.results ?? []) as Array<Record<string, string>>
+        const posts = await resp.json() as Array<Record<string, unknown>>
 
-        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
+        for (const post of posts) {
+          const postUrl = (post.postUrl as string) ?? (post.url as string) ?? ''
+          const postText = (post.text as string) ?? (post.postText as string) ?? ''
+          const postDate = (post.postedAt as string) ?? (post.date as string) ?? ''
 
-        for (const r of results) {
-          const url = r.url ?? ''
-          if (!url.includes('linkedin.com/posts/')) continue
-
-          // Extract date from LinkedIn activity ID (first 41 bits = Unix ms)
-          const activityMatch = url.match(/activity[- ](\d+)/)
+          // Filter by date — use postedAt field or activity ID
           let postTimestamp = 0
-          if (activityMatch) {
-            const activityId = BigInt(activityMatch[1])
-            postTimestamp = Number(activityId >> BigInt(22)) // top 41 bits = Unix ms
+          if (postDate) {
+            postTimestamp = new Date(postDate).getTime()
           }
-
-          // Filter out posts older than 30 days
-          if (postTimestamp > 0 && postTimestamp < thirtyDaysAgo) continue
-
-          // Fall back to page_age if no activity ID
-          if (postTimestamp === 0) {
-            const pageAge = r.page_age ?? ''
-            if (pageAge) {
-              const d = new Date(pageAge).getTime()
-              if (!isNaN(d) && d < thirtyDaysAgo) continue
+          if (postTimestamp === 0 || isNaN(postTimestamp)) {
+            const actMatch = postUrl.match(/activity[- ](\d+)/)
+            if (actMatch) {
+              postTimestamp = Number(BigInt(actMatch[1]) >> BigInt(22))
             }
           }
 
-          const cleanUrl = url.replace(/[?&](utm_\w+|trk|rcm)=[^&]*/g, '').replace(/[&?]$/, '')
-          const titleMatch = cleanUrl.match(/posts\/[^_]+[_-](.+?)(?:-activity|-\d|$)/)
-          const title = titleMatch ? titleMatch[1].replace(/-/g, ' ').trim() : ''
+          if (postTimestamp > 0 && postTimestamp < thirtyDaysAgo) continue
 
           items.push({
             platform: 'linkedin',
             author: profile.display_name ?? profile.username,
             authorHandle: profile.username,
-            text: (r.description ?? title ?? '').substring(0, 200),
-            url: cleanUrl,
-            time: postTimestamp > 0 ? new Date(postTimestamp).toISOString() : (r.page_age ?? ''),
+            text: postText.substring(0, 200),
+            url: postUrl || profileUrl,
+            time: postTimestamp > 0 ? new Date(postTimestamp).toISOString() : '',
+            engagement: {
+              likes: (post.numLikes as number) ?? (post.reactions as number) ?? 0,
+              replies: (post.numComments as number) ?? (post.comments as number) ?? 0,
+              retweets: (post.numShares as number) ?? (post.shares as number) ?? 0,
+            },
           })
         }
       } catch {
-        // Skip failed profile
+        // Skip failed profile — Apify timeout or error
       }
     })
 
