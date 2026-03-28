@@ -132,17 +132,26 @@ export async function GET() {
           })
           .slice(0, 5)
 
+        const TWITTER_EPOCH = 1288834974657
+
         for (const tw of tweets) {
-          // Parse Twitter date format: "Thu Mar 27 15:30:00 +0000 2026"
-          const createdAt = tw.created_at ? new Date(tw.created_at as string).toISOString() : ''
+          // Extract timestamp from Twitter snowflake ID: (id >> 22) + epoch
+          let tweetTime = ''
+          const idStr = tw.id_str as string
+          if (idStr) {
+            const tweetMs = (Number(BigInt(idStr) >> BigInt(22))) + TWITTER_EPOCH
+            tweetTime = new Date(tweetMs).toISOString()
+          } else if (tw.created_at) {
+            tweetTime = new Date(tw.created_at as string).toISOString()
+          }
 
           items.push({
             platform: 'x',
             author: tw.user?.name ?? account.display_name ?? account.username,
             authorHandle: tw.user?.screen_name ?? account.username,
             text: ((tw.full_text ?? tw.text ?? '') as string).substring(0, 280),
-            url: `https://x.com/${tw.user?.screen_name ?? account.username}/status/${tw.id_str}`,
-            time: createdAt,
+            url: `https://x.com/${tw.user?.screen_name ?? account.username}/status/${idStr}`,
+            time: tweetTime,
             engagement: {
               likes: tw.favorite_count ?? 0,
               replies: tw.reply_count ?? 0,
