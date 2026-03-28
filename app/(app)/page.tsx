@@ -139,44 +139,83 @@ export default function WatchlistFeed() {
     })
   }
 
-  function getRecommendation(item: FeedItem): { action: string; reason: string } {
+  function getRecommendation(item: FeedItem): { actions: Array<{ label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }>; reason: string } {
+    const likes = item.engagement?.likes ?? 0
+    const comments = item.engagement?.replies ?? 0
+    const rts = item.engagement?.retweets ?? 0
+    const totalEngagement = likes + comments + rts
+
     if (item.platform === 'linkedin') {
-      // Check if brain has topic data
       const textLower = item.text.toLowerCase()
       const matchedTopic = insights?.topics?.find(t => textLower.includes(t.topic.toLowerCase()))
-      if (matchedTopic) {
-        return {
-          action: 'Scrape this',
-          reason: `Posts about "${matchedTopic.topic}" yield ${Math.round(matchedTopic.avg_icp_rate * 100)}% ICP match from your data`,
+      const hasQuestion = item.text.includes('?')
+      const actions: Array<{ label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }> = []
+
+      // High comments = highest quality leads (comments have 15x weight of likes)
+      if (comments >= 10) {
+        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
+        if (matchedTopic) {
+          return { actions, reason: `${comments} comments (15x more valuable than likes). Topic "${matchedTopic.topic}" yields ${Math.round(matchedTopic.avg_icp_rate * 100)}% ICP match.` }
         }
+        return { actions, reason: `${comments} comments — commenters are the highest-quality leads to DM. They've already shown interest.` }
       }
-      const likes = item.engagement?.likes ?? 0
-      const comments = item.engagement?.replies ?? 0
-      if (likes + comments > 20) {
-        return {
-          action: 'Scrape this — high engagement',
-          reason: `${likes + comments} engagers means more ICP leads to find`,
-        }
+
+      // High engagement + topic match = scrape
+      if (totalEngagement >= 20 && matchedTopic) {
+        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
+        return { actions, reason: `${totalEngagement} engagers + topic "${matchedTopic.topic}" matches your best-performing ICP topic (${Math.round(matchedTopic.avg_icp_rate * 100)}%).` }
       }
-      return {
-        action: 'Scrape engagers',
-        reason: 'Find ICP leads who engage with this content',
+
+      // Question posts get 40-60% more comments = great for scraping
+      if (hasQuestion && totalEngagement >= 10) {
+        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
+        return { actions, reason: `Question post with ${totalEngagement} engagers. Question posts get 40-60% more comments — great lead quality.` }
       }
+
+      // Good engagement = scrape + consider content regen
+      if (totalEngagement >= 20) {
+        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
+        actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
+        return { actions, reason: `${totalEngagement} engagers. Scrape for ICP leads. This topic resonates — consider writing your own take.` }
+      }
+
+      // Moderate engagement = still worth scraping
+      if (totalEngagement >= 5) {
+        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
+        return { actions, reason: `${totalEngagement} engagers — worth scraping for ICP leads.` }
+      }
+
+      // Low engagement = maybe use as content idea
+      actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
+      actions.push({ label: 'Skip', type: 'skip', priority: 'low' })
+      return { actions, reason: `Low engagement (${totalEngagement}). Not worth scraping, but the topic might inspire your own post.` }
     }
 
-    // X
-    const likes = item.engagement?.likes ?? 0
-    const replies = item.engagement?.replies ?? 0
-    if (likes > 50 || replies > 10) {
-      return {
-        action: 'Reply now — high visibility',
-        reason: `${replies} people in this thread. Your reply gets seen by all of them.`,
-      }
+    // ═══ X ═══
+    const actions: Array<{ label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }> = []
+
+    // Viral tweet = reply ASAP for maximum visibility
+    if (likes >= 100 || comments >= 20) {
+      actions.push({ label: 'Reply now', type: 'reply', priority: 'high' })
+      return { actions, reason: `🔥 Viral — ${likes} likes, ${comments} replies. First 60-90 min matter most. Your reply gets seen by everyone in the thread.` }
     }
-    return {
-      action: 'Draft a reply',
-      reason: `Build visibility with ${item.author}'s audience`,
+
+    // High likes but low replies = underserved thread, your reply stands out
+    if (likes >= 30 && comments < 5) {
+      actions.push({ label: 'Reply — you\'ll stand out', type: 'reply', priority: 'high' })
+      return { actions, reason: `${likes} likes but only ${comments} replies. Underserved thread — your reply will be one of few and get disproportionate visibility.` }
     }
+
+    // Good engagement = worth replying
+    if (likes >= 10 || comments >= 5) {
+      actions.push({ label: 'Draft reply', type: 'reply', priority: 'medium' })
+      return { actions, reason: `${totalEngagement} total engagement. Replying builds visibility with ${item.author}'s audience.` }
+    }
+
+    // Low engagement = skip or low priority
+    actions.push({ label: 'Draft reply', type: 'reply', priority: 'low' })
+    actions.push({ label: 'Skip', type: 'skip', priority: 'low' })
+    return { actions, reason: `Low engagement (${totalEngagement}). Reply if you have something genuinely valuable to add, otherwise skip.` }
   }
 
   function timeAgo(dateStr: string): string {
@@ -310,31 +349,51 @@ export default function WatchlistFeed() {
               <div className="flex flex-col gap-2">
                 {linkedinTodo.map((item, i) => {
                   const rec = getRecommendation(item)
+                  const primaryAction = rec.actions[0]
                   return (
-                    <div key={i} className="bg-white border border-rule rounded-[var(--radius)] p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
-                            <span className="text-[11px] text-ink-4">{timeAgo(item.time)}</span>
-                            {item.engagement && (item.engagement.likes ?? 0) > 0 && (
-                              <span className="text-[11px] text-ink-4">{item.engagement.likes} likes · {item.engagement.replies} comments</span>
-                            )}
-                          </div>
-                          <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
-                          <div className="text-[11px] text-accent font-semibold mb-3">→ {rec.action} — {rec.reason}</div>
-                          <div className="flex gap-2">
-                            <Link
-                              href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
-                              className="btn-primary"
-                              onClick={() => markDone(item.url)}
-                            >
-                              Scrape engagers
-                            </Link>
-                            <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">View post</a>
-                            <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
-                          </div>
+                    <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${
+                      primaryAction?.priority === 'high' ? 'border-accent' : 'border-rule'
+                    }`}>
+                      {primaryAction?.priority === 'high' && (
+                        <div className="text-[10px] text-accent font-bold uppercase tracking-wider mb-2">High priority</div>
+                      )}
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
+                        <span className="text-[11px] text-ink-4">{timeAgo(item.time)}</span>
+                      </div>
+                      {item.engagement && (
+                        <div className="flex gap-3 text-[11px] text-ink-4 mb-2">
+                          {(item.engagement.likes ?? 0) > 0 && <span>{item.engagement.likes} likes</span>}
+                          {(item.engagement.replies ?? 0) > 0 && <span className="font-semibold text-accent">{item.engagement.replies} comments</span>}
+                          {(item.engagement.retweets ?? 0) > 0 && <span>{item.engagement.retweets} shares</span>}
                         </div>
+                      )}
+                      <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
+                      <div className="text-[11px] text-accent leading-relaxed mb-3">→ {rec.reason}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {rec.actions.map((a, j) => {
+                          if (a.type === 'scrape') return (
+                            <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
+                              className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}
+                              onClick={() => markDone(item.url)}>
+                              {a.label}
+                            </Link>
+                          )
+                          if (a.type === 'content') return (
+                            <Link key={j} href={`/build-presence?topic=${encodeURIComponent(item.text.slice(0, 100))}`}
+                              className="btn-outline" onClick={() => markDone(item.url)}>
+                              {a.label}
+                            </Link>
+                          )
+                          if (a.type === 'skip') return (
+                            <button key={j} onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink">Skip</button>
+                          )
+                          return null
+                        })}
+                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">View post</a>
+                        {!rec.actions.find(a => a.type === 'skip') && (
+                          <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
+                        )}
                       </div>
                     </div>
                   )
@@ -396,21 +455,33 @@ export default function WatchlistFeed() {
                   const rec = getRecommendation(item)
                   const draftReply = draftReplies[item.url]
                   return (
-                    <div key={i} className="bg-white border border-rule rounded-[var(--radius)] p-4">
+                    <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${
+                      rec.actions[0]?.priority === 'high' ? 'border-[var(--accent-orange)]' : 'border-rule'
+                    }`}>
+                      {rec.actions[0]?.priority === 'high' && (
+                        <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--accent-orange)' }}>
+                          {(item.engagement?.likes ?? 0) >= 100 ? '🔥 Viral — reply now' : 'High priority'}
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
                         <span className="text-[11px] text-ink-4">@{item.authorHandle} · {timeAgo(item.time)}</span>
                       </div>
                       <div className="text-xs text-ink-2 leading-relaxed mb-1">{item.text}</div>
                       {item.engagement && (
-                        <div className="text-[11px] text-ink-4 mb-2">
-                          {item.engagement.likes?.toLocaleString()} likes · {item.engagement.replies} replies · {item.engagement.retweets} RTs
+                        <div className="flex gap-3 text-[11px] text-ink-4 mb-2">
+                          <span>{item.engagement.likes?.toLocaleString()} likes</span>
+                          {(item.engagement.replies ?? 0) > 0 && (
+                            <span className="font-semibold" style={{ color: 'var(--accent-orange)' }}>{item.engagement.replies} replies</span>
+                          )}
+                          <span>{item.engagement.retweets} RTs</span>
                         </div>
                       )}
-                      <div className="text-[11px] font-semibold mb-3" style={{ color: 'var(--accent-orange)' }}>→ {rec.action} — {rec.reason}</div>
+                      <div className="text-[11px] leading-relaxed mb-3" style={{ color: 'var(--accent-orange)' }}>→ {rec.reason}</div>
                       <div className="flex gap-2">
-                        <button onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url} className="btn-accent">
-                          {draftingUrl === item.url ? 'Drafting...' : 'Draft reply'}
+                        <button onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}
+                          className={rec.actions[0]?.priority === 'high' ? 'btn-primary' : 'btn-accent'}>
+                          {draftingUrl === item.url ? 'Drafting...' : rec.actions[0]?.label ?? 'Draft reply'}
                         </button>
                         <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">Open on X</a>
                         <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
