@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { getSupabase } from './supabase'
 import type { SbUser } from './types'
 
 const DEMO_EMAIL = 'maruthi@nevara.io'
@@ -6,6 +6,7 @@ const DEMO_EMAIL = 'maruthi@nevara.io'
 export async function getOrCreateUser(): Promise<SbUser> {
   // Phase 1: single-user mode with hardcoded email
   // Phase 2 will add Supabase Auth with magic link
+  const supabase = getSupabase()
   const { data: existing } = await supabase
     .from('sb_users')
     .select('*')
@@ -14,7 +15,7 @@ export async function getOrCreateUser(): Promise<SbUser> {
 
   if (existing) return existing as SbUser
 
-  const { data: created, error } = await supabase
+  const { data: created, error } = await getSupabase()
     .from('sb_users')
     .insert({ email: DEMO_EMAIL, name: 'Maruthi' })
     .select()
