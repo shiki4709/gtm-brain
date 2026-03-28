@@ -124,16 +124,25 @@ export async function GET() {
         if (!resp.ok) return
 
         const data = await resp.json()
-        const tweets = (data.tweets ?? []).slice(0, 5)
+        // Filter: skip replies (start with @), skip RTs, keep only original tweets
+        const tweets = (data.tweets ?? [])
+          .filter((tw: Record<string, unknown>) => {
+            const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
+            return !text.startsWith('RT @') && !text.startsWith('@')
+          })
+          .slice(0, 5)
 
         for (const tw of tweets) {
+          // Parse Twitter date format: "Thu Mar 27 15:30:00 +0000 2026"
+          const createdAt = tw.created_at ? new Date(tw.created_at as string).toISOString() : ''
+
           items.push({
             platform: 'x',
             author: tw.user?.name ?? account.display_name ?? account.username,
             authorHandle: tw.user?.screen_name ?? account.username,
-            text: (tw.full_text ?? tw.text ?? '').substring(0, 280),
+            text: ((tw.full_text ?? tw.text ?? '') as string).substring(0, 280),
             url: `https://x.com/${tw.user?.screen_name ?? account.username}/status/${tw.id_str}`,
-            time: tw.created_at ?? '',
+            time: createdAt,
             engagement: {
               likes: tw.favorite_count ?? 0,
               replies: tw.reply_count ?? 0,
