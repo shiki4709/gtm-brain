@@ -160,14 +160,14 @@ export default function Inbound() {
     <div className="max-w-2xl mx-auto">
       {/* ═══ PUBLISH ═══ */}
       <h1 className="font-head text-2xl font-bold text-ink mb-2">
-        Create content that attracts your ICP
+        Build Presence
       </h1>
       <p className="text-sm text-ink-3 mb-1 leading-relaxed">
-        Generate platform-native drafts, then publish with{' '}
+        Create content and engage on X to attract your ICP. Publish with{' '}
         <a href="https://foxxi-azure.vercel.app" target="_blank" rel="noopener noreferrer" className="text-accent font-semibold hover:underline">
           Foxxi
         </a>
-        . After publishing, scrape your own post&apos;s engagers in Outbound.
+        , then scrape your post&apos;s engagers in Find Leads to close the loop.
       </p>
       <p className="text-[11px] text-ink-4 mb-8">
         Builds authority: inbound ICP leads · content engagement · audience growth

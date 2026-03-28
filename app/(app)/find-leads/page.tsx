@@ -283,10 +283,10 @@ export default function Outbound() {
     <div className="max-w-2xl mx-auto">
       {/* Hero */}
       <h1 className="font-head text-2xl font-bold text-ink mb-2">
-        Find qualified leads from any LinkedIn post
+        Find Leads
       </h1>
       <p className="text-sm text-ink-3 mb-1 leading-relaxed">
-        Paste a post URL or search for posts by keyword. We scrape every engager, filter to your ICP, and draft personalized DMs.
+        Scrape any LinkedIn post to discover ICP leads. The brain filters, drafts DMs, and tracks every outcome.
       </p>
       <p className="text-[11px] text-ink-4 mb-8">
         Builds pipeline: ICP leads found · DMs sent · reply rate · meetings booked
