@@ -205,9 +205,14 @@ export default function WatchlistFeed() {
     }
 
     if (totalEngagement >= 5) {
+      if (matchedTopic) {
+        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
+        actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'low' })
+        return { actions, reason: `${totalEngagement} engagers on a topic your ICP cares about. Scrape for leads.` }
+      }
+      actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'medium' })
       actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'low' })
-      actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'low' })
-      return { actions, reason: `${totalEngagement} engagers. Moderate — scrape if the topic fits your ICP, reply if you have something valuable to add.` }
+      return { actions, reason: `${totalEngagement} engagers. Reply to get visible with ${item.author}'s audience.` }
     }
 
     // ═══ LOW ENGAGEMENT ═══
