@@ -35,7 +35,35 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
   const [excludeInput, setExcludeInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [suggestedTitles, setSuggestedTitles] = useState<string[]>(SUGGESTED_TITLES)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const isEditing = !!initialTitles
+
+  async function fetchSuggestions(problemText: string) {
+    setLoadingSuggestions(true)
+    try {
+      const res = await fetch('/api/suggest-icp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ problem: problemText }),
+      })
+      const json = await res.json()
+      if (json.titles && json.titles.length > 0) {
+        setSuggestedTitles(json.titles)
+      }
+    } catch {
+      // Keep default suggestions
+    } finally {
+      setLoadingSuggestions(false)
+    }
+  }
+
+  function goToStep2() {
+    setStep(2)
+    if (problem.trim() && !isEditing) {
+      fetchSuggestions(problem.trim())
+    }
+  }
 
   function addTitle(title: string) {
     const trimmed = title.trim()
@@ -80,7 +108,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
     }
   }
 
-  const availableTitles = SUGGESTED_TITLES.filter(t => !titles.includes(t))
+  const availableTitles = suggestedTitles.filter(t => !titles.includes(t))
   const availableExcludes = SUGGESTED_EXCLUDES.filter(t => !excludes.includes(t))
 
   return (
@@ -120,7 +148,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
                 placeholder="e.g. Help non-technical people learn LLM for work"
                 value={problem}
                 onChange={e => setProblem(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && problem.trim()) setStep(2) }}
+                onKeyDown={e => { if (e.key === 'Enter' && problem.trim()) goToStep2() }}
                 autoFocus
               />
               <div className="text-[11px] text-ink-4 mt-2">
@@ -151,7 +179,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
             </div>
 
             <button
-              onClick={() => setStep(2)}
+              onClick={goToStep2}
               disabled={!problem.trim()}
               className="btn-primary px-8 py-3 text-sm"
             >
@@ -217,16 +245,23 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
             <button className="btn-accent" onClick={() => addTitle(titleInput)} disabled={!titleInput.trim()}>Add</button>
           </div>
 
-          {availableTitles.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-8">
-              {availableTitles.map(t => (
-                <button key={t} className="text-xs px-2.5 py-1 rounded-md border border-dashed border-rule text-ink-4 hover:border-accent hover:text-accent transition-colors"
-                  onClick={() => addTitle(t)}>
-                  + {t}
-                </button>
-              ))}
+          {loadingSuggestions ? (
+            <div className="text-xs text-ink-4 mb-8">Generating suggestions based on your problem...</div>
+          ) : availableTitles.length > 0 ? (
+            <div className="mb-8">
+              <div className="text-[11px] text-ink-4 mb-2">
+                {suggestedTitles !== SUGGESTED_TITLES ? 'Suggested based on your problem:' : 'Common ICP titles:'}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {availableTitles.map(t => (
+                  <button key={t} className="text-xs px-2.5 py-1 rounded-md border border-dashed border-rule text-ink-4 hover:border-accent hover:text-accent transition-colors"
+                    onClick={() => addTitle(t)}>
+                    + {t}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
+          ) : null}
 
           {/* Preview */}
           {titles.length > 0 && (
