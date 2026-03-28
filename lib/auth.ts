@@ -24,15 +24,18 @@ export async function getAuthUser() {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    console.error('Auth error:', authError?.message ?? 'No user session')
+    return null
+  }
 
-  // Use service client for DB operations
+  // Use service client for DB operations (bypasses RLS)
   const { createServiceClient } = await import('./supabase')
   const sb = createServiceClient()
 
   // Get or create sb_users row
-  const { data: existing } = await sb
+  const { data: existing, error: fetchError } = await sb
     .from('sb_users')
     .select('*')
     .eq('email', user.email)
@@ -40,12 +43,22 @@ export async function getAuthUser() {
 
   if (existing) return { authUser: user, dbUser: existing, sb }
 
+  if (fetchError && fetchError.code !== 'PGRST116') {
+    console.error('DB fetch error:', fetchError.message)
+    return null
+  }
+
   // Create new user
-  const { data: created } = await sb
+  const { data: created, error: createError } = await sb
     .from('sb_users')
     .insert({ email: user.email, name: user.user_metadata?.name ?? user.email?.split('@')[0] })
     .select()
     .single()
+
+  if (createError) {
+    console.error('DB create error:', createError.message)
+    return null
+  }
 
   return created ? { authUser: user, dbUser: created, sb } : null
 }
