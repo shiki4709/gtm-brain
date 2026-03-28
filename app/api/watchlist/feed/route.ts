@@ -35,7 +35,7 @@ export async function GET() {
     const linkedinPromises = linkedinProfiles.map(async (profile) => {
       try {
         const q = `site:linkedin.com/posts/${profile.username}`
-        const apiUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=5&freshness=p2w`
+        const apiUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=10&freshness=pm`
         const resp = await fetch(apiUrl, {
           headers: { 'X-Subscription-Token': braveKey, Accept: 'application/json' },
           signal: AbortSignal.timeout(8000),
@@ -46,9 +46,18 @@ export async function GET() {
         const data = await resp.json()
         const results = (data.web?.results ?? []) as Array<Record<string, string>>
 
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
+
         for (const r of results) {
           const url = r.url ?? ''
           if (!url.includes('linkedin.com/posts/')) continue
+
+          // Filter out posts older than 30 days
+          const pageAge = r.page_age ?? ''
+          if (pageAge) {
+            const postDate = new Date(pageAge)
+            if (!isNaN(postDate.getTime()) && postDate.getTime() < thirtyDaysAgo) continue
+          }
 
           // Extract post title from URL
           const titleMatch = url.match(/posts\/[^_]+[_-](.+?)(?:-activity|-\d|$)/)
@@ -60,7 +69,7 @@ export async function GET() {
             authorHandle: profile.username,
             text: (r.description ?? title ?? '').substring(0, 200),
             url: url.replace(/[?&](utm_\w+|trk|rcm)=[^&]*/g, '').replace(/[&?]$/, ''),
-            time: r.page_age ?? '',
+            time: pageAge,
           })
         }
       } catch {
