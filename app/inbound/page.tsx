@@ -1,162 +1,271 @@
-"use client";
-import { useState } from "react";
+'use client'
+import { useState, useEffect } from 'react'
 
-const tweets = [
-  {
-    author: "Mark Roberge", handle: "markroberge", time: "2h",
-    text: "Hot take: the best AEs in 2026 aren't \"closers.\" They're consultants who happen to sell. The playbook shifted and most orgs haven't caught up.",
-    likes: 342, replies: 89, rts: 45,
-  },
-  {
-    author: "Gergely Orosz", handle: "GergelyOrosz", time: "5h",
-    text: "Engineering leaders still doing stack ranking in 2026 are losing their best people. Thread on what actually works.",
-    likes: 1200, replies: 234, rts: 178,
-  },
-];
+interface Tweet {
+  id: string
+  text: string
+  username: string
+  name: string
+  followers: number
+  likes: number
+  retweets: number
+  replies: number
+}
+
+interface ContentResult {
+  coreInsight: string
+  results: { linkedin: string; x: string }
+}
+
+interface TopicInsight {
+  topic: string
+  avg_icp_rate: number
+}
 
 export default function Inbound() {
-  const [source, setSource] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState(false);
-  const [draftReply, setDraftReply] = useState<number | null>(null);
+  const [source, setSource] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [content, setContent] = useState<ContentResult | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
 
-  function handleGenerate() {
-    if (!source.trim()) return;
-    setGenerating(true);
-    setTimeout(() => { setGenerating(false); setGenerated(true); }, 2000);
+  const [tweets, setTweets] = useState<Tweet[]>([])
+  const [loadingTweets, setLoadingTweets] = useState(false)
+  const [draftingId, setDraftingId] = useState<string | null>(null)
+  const [draftReplies, setDraftReplies] = useState<Record<string, string>>({})
+
+  const [user, setUser] = useState<{ x_accounts: string[]; x_topics: string[] } | null>(null)
+  const [topTopic, setTopTopic] = useState<TopicInsight | null>(null)
+
+  useEffect(() => {
+    fetch('/api/user').then(r => r.json()).then(json => {
+      if (json.success && json.data) {
+        setUser(json.data)
+        const accounts = json.data.x_accounts ?? []
+        const topics = json.data.x_topics ?? []
+        if (accounts.length > 0 || topics.length > 0) fetchTweets(accounts, topics)
+      }
+    }).catch(() => {})
+
+    fetch('/api/insights').then(r => r.json()).then(json => {
+      if (json.success && json.data?.topic_performance?.[0]) setTopTopic(json.data.topic_performance[0])
+    }).catch(() => {})
+  }, [])
+
+  async function fetchTweets(accounts: string[], topics: string[]) {
+    setLoadingTweets(true)
+    try {
+      const res = await fetch('/api/x-engage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accounts, topics }),
+      })
+      const json = await res.json()
+      if (json.tweets) setTweets(json.tweets)
+    } catch { /* silently fail */ }
+    finally { setLoadingTweets(false) }
+  }
+
+  async function handleGenerate() {
+    if (!source.trim()) return
+    setGenerating(true)
+    setContent(null)
+    try {
+      const res = await fetch('/api/generate-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, platforms: ['linkedin', 'x'] }),
+      })
+      const json = await res.json()
+      if (json.results) setContent(json)
+    } catch { /* silently fail */ }
+    finally { setGenerating(false) }
+  }
+
+  async function handleDraftReply(tweet: Tweet) {
+    setDraftingId(tweet.id)
+    try {
+      const res = await fetch('/api/draft-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tweet_text: tweet.text, author_name: tweet.name, author_handle: tweet.username }),
+      })
+      const json = await res.json()
+      if (json.reply) setDraftReplies(prev => ({ ...prev, [tweet.id]: json.reply }))
+    } catch { /* silently fail */ }
+    finally { setDraftingId(null) }
+  }
+
+  function copyToClipboard(text: string, key: string) {
+    navigator.clipboard.writeText(text)
+    setCopied(key)
+    setTimeout(() => setCopied(null), 2000)
   }
 
   return (
-    <>
-      <p className="text-sm text-ink-3 mb-5">
-        Post content → attract engagement → stay active on X → leads come to you
+    <div className="max-w-2xl mx-auto">
+      {/* ═══ PUBLISH ═══ */}
+      <h1 className="font-head text-2xl font-bold text-ink mb-2">
+        Create content that attracts your ICP
+      </h1>
+      <p className="text-sm text-ink-3 mb-1 leading-relaxed">
+        Generate platform-native drafts, then publish with{' '}
+        <a href="https://foxxi-azure.vercel.app" target="_blank" rel="noopener noreferrer" className="text-accent font-semibold hover:underline">
+          Foxxi
+        </a>
+        . After publishing, scrape your own post&apos;s engagers in Outbound.
+      </p>
+      <p className="text-[11px] text-ink-4 mb-8">
+        Builds authority: inbound ICP leads · content engagement · audience growth
       </p>
 
-      {/* Content generation */}
-      <div className="section-label">Create content</div>
-      <div className="flex gap-2 mb-3">
+      {/* Content input */}
+      <div className="flex gap-3 mb-2">
         <input
           type="text"
           value={source}
           onChange={(e) => setSource(e.target.value)}
           placeholder="Paste a URL or topic to write about..."
-          className="input flex-1"
+          className="input flex-1 py-3 px-4 text-sm"
+          onKeyDown={(e) => { if (e.key === 'Enter') handleGenerate() }}
+          disabled={generating}
         />
-        <button onClick={handleGenerate} disabled={generating} className="btn-primary">
-          {generating ? "Generating..." : "Generate"}
+        <button onClick={handleGenerate} disabled={generating || !source.trim()} className="btn-primary px-6 py-3">
+          {generating ? 'Drafting...' : 'Draft'}
         </button>
       </div>
 
-      {/* Brain suggestion */}
-      <div className="brain-nudge mb-6">
-        <div className="brain-nudge-icon">B</div>
-        <div className="flex-1 text-sm">
-          Based on your lead data, posts about <strong className="text-accent">engineering hiring</strong> attract the most ICP leads.
-          <button className="text-accent font-semibold ml-1 hover:underline" onClick={() => setSource("engineering hiring challenges in 2026")}>
-            Generate about hiring →
-          </button>
-        </div>
-      </div>
-
-      {/* Generated content */}
-      {generated && (
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="card-flat">
-            <div className="flex justify-between items-center mb-3">
-              <span className="font-head text-[11px] font-bold uppercase tracking-wider text-accent">LinkedIn</span>
-              <button className="btn-outline text-[11px] py-1 px-2.5">Copy</button>
-            </div>
-            <div className="text-xs text-ink-2 leading-relaxed whitespace-pre-line">
-{`Most GTM playbooks were written for a world that no longer exists.
-
-The shift isn't coming — it already happened:
-
-→ Buyers do 80% of research before talking to sales
-→ Cold outbound reply rates dropped 40% in 2 years
-→ The best pipeline comes from content + warm engagement
-
-The founders winning right now aren't hiring more SDRs. They're building systems that find the right people at the right moment.
-
-What's working in your GTM right now?
-
-#GTM #B2BSales #StartupGrowth`}
-            </div>
-          </div>
-          <div className="card-flat">
-            <div className="flex justify-between items-center mb-3">
-              <span className="font-head text-[11px] font-bold uppercase tracking-wider text-accent">X Thread</span>
-              <button className="btn-outline text-[11px] py-1 px-2.5">Copy</button>
-            </div>
-            <div className="text-xs text-ink-2 leading-relaxed whitespace-pre-line">
-{`most GTM playbooks for 2026 are already dead. here's what replaced them:
-
----
-
-cold outbound reply rates dropped 40% in 2 years. hiring more SDRs isn't the fix. the channel is saturated.
-
----
-
-what's working: find the people already engaging with your space. they're commenting on posts, liking content. reach them there.
-
----
-
-build systems, not headcount. content attracts. scraping identifies. AI drafts. human reviews and sends.`}
-            </div>
+      {topTopic && (
+        <div className="border-l-2 border-rule pl-4 mb-8 mt-4">
+          <div className="text-xs text-ink-3">
+            Brain: posts about <strong className="text-accent">{topTopic.topic}</strong> get {Math.round(topTopic.avg_icp_rate * 100)}% ICP match rate.{' '}
+            <button className="text-accent font-semibold hover:underline"
+              onClick={() => setSource(`${topTopic.topic} challenges and trends`)}>
+              Use this topic →
+            </button>
           </div>
         </div>
       )}
 
-      <hr className="border-rule-light my-6" />
-
-      {/* X Engage */}
-      <div className="section-label">X — Tweets to reply to</div>
-      <div className="text-[11px] text-ink-4 mb-3">
-        Watching: @markroberge, @kelseyhightower, @GergelyOrosz · Topics: engineering leadership, tech hiring
-      </div>
-
-      <div className="flex flex-col gap-2 mb-6">
-        {tweets.map((tw, idx) => (
-          <div key={idx} className="card">
-            <div className="text-sm mb-1">
-              <strong className="font-head">{tw.author}</strong>
-              <span className="text-ink-4 font-normal"> @{tw.handle} · {tw.time}</span>
-            </div>
-            <div className="text-sm text-ink-2 leading-relaxed mb-2">{tw.text}</div>
-            <div className="text-[11px] text-ink-4 mb-2">
-              {tw.likes.toLocaleString()} likes · {tw.replies} replies · {tw.rts} RTs
-            </div>
-            <div className="flex gap-1.5">
-              <button onClick={() => setDraftReply(idx)} className="btn-accent">Draft Reply</button>
-              <button className="btn-outline">View on X</button>
-            </div>
-
-            {draftReply === idx && (
-              <div className="mt-3 pt-3 border-t border-rule-light">
-                <div className="text-xs text-ink-4 mb-1">Your draft reply:</div>
-                <div className="text-sm text-ink font-medium mb-2">
-                  &quot;seeing the same shift. best reps we work with lead with diagnosis, not demo. the ones who ask better questions close more.&quot;
+      {/* Generated content */}
+      {content && (
+        <div className="mb-8">
+          {content.coreInsight && (
+            <div className="text-xs text-ink-4 mb-3">Core insight: <em>{content.coreInsight}</em></div>
+          )}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            {content.results.linkedin && (
+              <div className="bg-white border border-rule rounded-[var(--radius)] p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+                    <span className="section-label mb-0">LinkedIn</span>
+                  </div>
+                  <button className="btn-outline text-[11px] py-1 px-2.5"
+                    onClick={() => copyToClipboard(content.results.linkedin, 'linkedin')}>
+                    {copied === 'linkedin' ? 'Copied' : 'Copy'}
+                  </button>
                 </div>
-                <div className="flex gap-1.5">
-                  <button className="btn-accent">Copy &amp; Post</button>
-                  <button className="btn-outline">Rewrite</button>
+                <div className="text-xs text-ink-2 leading-relaxed whitespace-pre-line bg-[var(--bg-warm)] rounded-lg p-3 max-h-64 overflow-y-auto">
+                  {content.results.linkedin}
+                </div>
+              </div>
+            )}
+            {content.results.x && (
+              <div className="bg-white border border-rule rounded-[var(--radius)] p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-orange" />
+                    <span className="section-label mb-0">X Thread</span>
+                  </div>
+                  <button className="btn-outline text-[11px] py-1 px-2.5"
+                    onClick={() => copyToClipboard(content.results.x, 'x')}>
+                    {copied === 'x' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <div className="text-xs text-ink-2 leading-relaxed whitespace-pre-line bg-[var(--bg-warm)] rounded-lg p-3 max-h-64 overflow-y-auto">
+                  {content.results.x}
                 </div>
               </div>
             )}
           </div>
-        ))}
-      </div>
-
-      <hr className="border-rule-light my-6" />
-
-      {/* Your posts */}
-      <div className="section-label">Your posts — engagement</div>
-      <div className="card flex items-center justify-between">
-        <div>
-          <div className="text-sm font-semibold font-head">&quot;Why your GTM playbook is outdated&quot;</div>
-          <div className="text-[11px] text-ink-4">LinkedIn · 3h ago · 47 engagers · 12 ICP matches</div>
+          <div className="text-center">
+            <a href="https://foxxi-azure.vercel.app" target="_blank" rel="noopener noreferrer" className="btn-primary px-6 py-3">
+              Open Foxxi to publish →
+            </a>
+          </div>
         </div>
-        <button className="btn-orange">Scrape engagers →</button>
+      )}
+
+      <hr className="border-rule-light my-10" />
+
+      {/* ═══ ENGAGE ═══ */}
+      <h2 className="font-head text-xl font-bold text-ink mb-2">
+        Engage on X
+      </h2>
+      <p className="text-sm text-ink-3 mb-1 leading-relaxed">
+        Surface high-engagement tweets from accounts and topics you care about. Draft thoughtful replies to build visibility with your ICP.
+      </p>
+      <p className="text-[11px] text-ink-4 mb-6">
+        Builds visibility: follower growth · reply impressions · brand awareness
+      </p>
+
+      <div className="text-[11px] text-ink-4 mb-4">
+        {user?.x_accounts?.length
+          ? `Watching: ${user.x_accounts.map(a => `@${a}`).join(', ')}`
+          : 'No X accounts configured'
+        }
+        {user?.x_topics?.length ? ` · Topics: ${user.x_topics.join(', ')}` : ''}
       </div>
-    </>
-  );
+
+      {loadingTweets ? (
+        <div className="text-sm text-ink-4 py-8 text-center">Loading tweets...</div>
+      ) : tweets.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          {tweets.map((tw) => (
+            <div key={tw.id} className="bg-white border border-rule rounded-[var(--radius)] p-4 hover:border-accent transition-colors">
+              <div className="text-sm mb-1">
+                <strong className="font-head">{tw.name}</strong>
+                <span className="text-ink-4 font-normal"> @{tw.username}</span>
+              </div>
+              <div className="text-sm text-ink-2 leading-relaxed mb-2">{tw.text}</div>
+              <div className="text-[11px] text-ink-4 mb-3">
+                {tw.likes.toLocaleString()} likes · {tw.replies} replies · {tw.retweets} RTs
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => handleDraftReply(tw)} disabled={draftingId === tw.id} className="btn-accent">
+                  {draftingId === tw.id ? '...' : 'Draft Reply'}
+                </button>
+                <a href={`https://x.com/${tw.username}/status/${tw.id}`} target="_blank" rel="noopener noreferrer" className="btn-outline">
+                  Open on X
+                </a>
+              </div>
+
+              {draftReplies[tw.id] && (
+                <div className="mt-3 pt-3 border-t border-rule-light">
+                  <div className="text-xs text-ink-4 mb-1">Your draft reply:</div>
+                  <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">
+                    {draftReplies[tw.id]}
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="btn-primary" onClick={() => {
+                      copyToClipboard(draftReplies[tw.id], `reply-${tw.id}`)
+                      window.open(`https://x.com/${tw.username}/status/${tw.id}`, '_blank')
+                    }}>
+                      {copied === `reply-${tw.id}` ? 'Copied' : 'Copy & Open'}
+                    </button>
+                    <button className="btn-outline" onClick={() => handleDraftReply(tw)}>Rewrite</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-16 text-ink-4">
+          <div className="text-4xl mb-3">@</div>
+          <div className="text-sm">No tweets surfaced. Add X accounts and topics to your settings to get started.</div>
+        </div>
+      )}
+    </div>
+  )
 }

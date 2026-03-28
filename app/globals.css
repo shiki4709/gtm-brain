@@ -147,45 +147,39 @@ body {
   color: var(--accent-orange-deep);
 }
 
-/* ═══ Buttons ═══ */
-.btn-primary {
+/* ═══ Buttons ═══
+   System:
+   - btn-primary  → Main CTA per section (gradient, bold). One per context.
+   - btn-accent   → Secondary actions (solid blue). Draft DM, Search, Add.
+   - btn-outline  → Tertiary / cancel / navigation (border only).
+   All share the same base sizing for consistency.
+═══ */
+.btn-primary, .btn-accent, .btn-outline {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 8px 16px; border-radius: var(--radius-sm); border: none;
-  font-family: var(--font-head); font-size: 13px; font-weight: 600;
-  color: #fff; background: var(--gradient-main); cursor: pointer;
-  box-shadow: 0 2px 8px rgba(33,150,243,0.15);
-  transition: opacity 0.15s, transform 0.15s;
+  padding: 7px 15px; border-radius: 6px;
+  font-family: var(--font-head); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s, transform 0.15s;
+  white-space: nowrap;
 }
-.btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-primary:disabled, .btn-accent:disabled, .btn-outline:disabled {
+  opacity: 0.45; cursor: not-allowed; transform: none;
+}
+
+.btn-primary {
+  border: none; color: #fff; background: var(--gradient-main);
+  box-shadow: 0 2px 8px rgba(33,150,243,0.15);
+}
+.btn-primary:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
 
 .btn-accent {
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 6px 14px; border-radius: 6px; border: none;
-  font-family: var(--font-head); font-size: 12px; font-weight: 600;
-  color: #fff; background: var(--accent-blue); cursor: pointer;
-  transition: opacity 0.15s;
+  border: none; color: #fff; background: var(--accent-blue);
 }
-.btn-accent:hover { opacity: 0.88; }
-
-.btn-orange {
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 6px 14px; border-radius: 6px; border: none;
-  font-family: var(--font-head); font-size: 12px; font-weight: 600;
-  color: #fff; background: var(--accent-orange); cursor: pointer;
-  transition: opacity 0.15s;
-}
-.btn-orange:hover { opacity: 0.88; }
+.btn-accent:hover:not(:disabled) { opacity: 0.88; }
 
 .btn-outline {
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 6px 14px; border-radius: 6px;
-  border: 1.5px solid var(--rule); background: transparent;
-  font-family: var(--font-head); font-size: 12px; font-weight: 600;
-  color: var(--ink-3); cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+  border: 1.5px solid var(--rule); background: transparent; color: var(--ink-3);
 }
-.btn-outline:hover { border-color: var(--ink-4); color: var(--ink); }
+.btn-outline:hover:not(:disabled) { border-color: var(--ink-4); color: var(--ink); }
 
 /* ═══ Badges ═══ */
 .badge { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 100px; display: inline-flex; align-items: center; }

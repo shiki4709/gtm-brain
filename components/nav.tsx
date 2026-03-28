@@ -1,15 +1,24 @@
-"use client";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+'use client'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
-const tabs = [
-  { href: "/", label: "Overview" },
-  { href: "/outbound", label: "Outbound", badge: 23 },
-  { href: "/inbound", label: "Inbound", badge: 5 },
-];
+interface NavProps {
+  icpTitles?: string[]
+  userName?: string
+  email?: string
+  outboundBadge?: number
+  inboundBadge?: number
+  onEditIcp?: () => void
+}
 
-export default function Nav() {
-  const path = usePathname();
+export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inboundBadge = 0, onEditIcp }: NavProps) {
+  const path = usePathname()
+
+  const tabs = [
+    { href: '/', label: 'Overview', badge: 0 },
+    { href: '/outbound', label: 'Outbound', badge: outboundBadge },
+    { href: '/inbound', label: 'Inbound', badge: inboundBadge },
+  ]
 
   return (
     <header className="border-b border-rule">
@@ -17,11 +26,11 @@ export default function Nav() {
         {/* Top bar */}
         <div className="flex items-center justify-between py-3 text-sm">
           <div className="text-ink-3">
-            Logged in as <strong className="text-ink">maruthi@nevara.io</strong>
+            {userName ?? email ?? 'GTM Brain'}
           </div>
           <div className="text-xs text-ink-4">
-            ICP: VP Engineering, CTO, Head of Product ·{" "}
-            <button className="text-accent hover:underline">Edit</button>
+            ICP: {icpTitles?.join(', ') ?? 'Not configured'} ·{' '}
+            <button className="text-accent hover:underline" onClick={onEditIcp}>Edit</button>
           </div>
         </div>
 
@@ -29,7 +38,7 @@ export default function Nav() {
         <nav className="flex gap-0" role="tablist" aria-label="Main navigation">
           {tabs.map((tab) => {
             const isActive =
-              tab.href === "/" ? path === "/" : path.startsWith(tab.href);
+              tab.href === '/' ? path === '/' : path.startsWith(tab.href)
             return (
               <Link
                 key={tab.href}
@@ -40,20 +49,20 @@ export default function Nav() {
                   font-[family-name:var(--font-head)] text-sm font-semibold
                   px-5 py-3 border-b-[2.5px] transition-colors
                   ${isActive
-                    ? "text-ink border-accent"
-                    : "text-ink-4 border-transparent hover:text-ink-3"
+                    ? 'text-ink border-accent'
+                    : 'text-ink-4 border-transparent hover:text-ink-3'
                   }
                 `}
               >
                 {tab.label}
-                {tab.badge && (
+                {tab.badge > 0 && (
                   <span className="ml-1.5 badge-count">{tab.badge}</span>
                 )}
               </Link>
-            );
+            )
           })}
         </nav>
       </div>
     </header>
-  );
+  )
 }
