@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Onboarding from './onboarding'
 import Nav from './nav'
+import { createAuthClientBrowser } from '@/lib/supabase/client'
 import type { SbUser } from '@/lib/types'
 
 interface AppShellProps {
@@ -15,6 +17,7 @@ interface BadgeCounts {
 }
 
 export default function AppShell({ children }: AppShellProps) {
+  const router = useRouter()
   const [user, setUser] = useState<SbUser | null>(null)
   const [badges, setBadges] = useState<BadgeCounts>({ outbound: 0, inbound: 0 })
   const [loading, setLoading] = useState(true)
@@ -104,6 +107,11 @@ export default function AppShell({ children }: AppShellProps) {
         outboundBadge={badges.outbound}
         inboundBadge={badges.inbound}
         onEditIcp={() => setEditingIcp(true)}
+        onSignOut={async () => {
+          const supabase = createAuthClientBrowser()
+          await supabase.auth.signOut()
+          router.push('/login')
+        }}
       />
       <main id="main-content" className="flex-1">
         <div className="max-w-5xl mx-auto px-6 py-8">

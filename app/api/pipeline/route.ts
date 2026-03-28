@@ -1,19 +1,11 @@
-import { createServiceClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
-import { DEMO_EMAIL } from '@/lib/config'
+import { getAuthUser } from '@/lib/auth'
 
 export async function GET() {
-  const sb = createServiceClient()
-
-  const { data: user } = await sb
-    .from('sb_users')
-    .select('id')
-    .eq('email', DEMO_EMAIL)
-    .single()
-
-  if (!user) {
-    return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
-  }
+  const auth = await getAuthUser()
+  if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  const user = auth.dbUser
+  const sb = auth.sb
 
   // Get counts per status for outbound leads
   const statuses = ['scraped', 'icp_filtered', 'dm_drafted', 'dm_sent', 'replied', 'converted']

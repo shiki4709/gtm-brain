@@ -1,19 +1,11 @@
-import { createServiceClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
-import { DEMO_EMAIL } from '@/lib/config'
+import { getAuthUser } from '@/lib/auth'
 
 export async function GET() {
-  const sb = createServiceClient()
-
-  const { data: user } = await sb
-    .from('sb_users')
-    .select('id')
-    .eq('email', DEMO_EMAIL)
-    .single()
-
-  if (!user) {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 })
-  }
+  const auth = await getAuthUser()
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = auth.dbUser
+  const sb = auth.sb
 
   const { data: leads } = await sb
     .from('sb_leads')

@@ -9,9 +9,10 @@ interface NavProps {
   outboundBadge?: number
   inboundBadge?: number
   onEditIcp?: () => void
+  onSignOut?: () => void
 }
 
-export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inboundBadge = 0, onEditIcp }: NavProps) {
+export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inboundBadge = 0, onEditIcp, onSignOut }: NavProps) {
   const path = usePathname()
 
   const tabs = [
@@ -27,6 +28,11 @@ export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inb
         <div className="flex items-center justify-between py-3 text-sm">
           <div className="text-ink-3">
             {userName ?? email ?? 'GTM Brain'}
+            {onSignOut && (
+              <button onClick={onSignOut} className="text-ink-4 hover:text-ink ml-2 text-xs">
+                Sign out
+              </button>
+            )}
           </div>
           <div className="text-xs text-ink-4">
             ICP: {icpTitles?.join(', ') ?? 'Not configured'} ·{' '}

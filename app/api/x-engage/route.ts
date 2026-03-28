@@ -1,6 +1,5 @@
-import { createServiceClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
-import { DEMO_EMAIL } from '@/lib/config'
+import { getAuthUser } from '@/lib/auth'
 
 interface Tweet {
   id: string
@@ -83,14 +82,10 @@ export async function POST(request: Request) {
 
   // Save to Supabase
   if (allTweets.length > 0) {
-    const sb = createServiceClient()
-    const { data: user } = await sb
-      .from('sb_users')
-      .select('id')
-      .eq('email', DEMO_EMAIL)
-      .single()
-
-    if (user) {
+    const auth = await getAuthUser()
+    if (auth) {
+      const user = auth.dbUser
+      const sb = auth.sb
       const rows = allTweets.map(tw => ({
         user_id: user.id,
         tweet_id: tw.id,

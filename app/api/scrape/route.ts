@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
-import { DEMO_EMAIL } from '@/lib/config'
+import { getAuthUser } from '@/lib/auth'
 
 export async function POST(request: Request) {
   const body = await request.json()
@@ -19,7 +19,10 @@ export async function POST(request: Request) {
 
       // If done, save to Supabase
       if (result.status === 'done' && result.leads.length > 0) {
-        await saveToSupabase(url, result)
+        const auth = await getAuthUser()
+        if (auth) {
+          await saveToSupabase(url, result, auth.dbUser.id, auth.dbUser.icp_config)
+        }
       }
 
       return NextResponse.json(result)
@@ -204,21 +207,12 @@ function extractCompany(headline: string): string {
   return ''
 }
 
-async function saveToSupabase(postUrl: string, result: CheckResult) {
+async function saveToSupabase(postUrl: string, result: CheckResult, userId: string, icpConfig: Record<string, unknown> | null) {
   const sb = createServiceClient()
 
-  // Get user
-  const { data: user } = await sb
-    .from('sb_users')
-    .select('id, icp_config')
-    .eq('email', DEMO_EMAIL)
-    .single()
-
-  if (!user) return
-
   // Get ICP titles for filtering
-  const icpTitles: string[] = user.icp_config?.titles ?? []
-  const icpExclude: string[] = user.icp_config?.exclude ?? []
+  const icpTitles: string[] = (icpConfig?.titles as string[]) ?? []
+  const icpExclude: string[] = (icpConfig?.exclude as string[]) ?? []
 
   // Filter leads by ICP
   const leadsWithIcp = result.leads.map(lead => {
@@ -234,7 +228,7 @@ async function saveToSupabase(postUrl: string, result: CheckResult) {
   const { data: scrape, error: scrapeErr } = await sb
     .from('sb_scrapes')
     .insert({
-      user_id: user.id,
+      user_id: userId,
       post_url: postUrl,
       post_author: '',
       platform: 'linkedin',
@@ -249,7 +243,7 @@ async function saveToSupabase(postUrl: string, result: CheckResult) {
   // Insert leads
   const leadRows = leadsWithIcp.map(l => ({
     scrape_id: scrape.id,
-    user_id: user.id,
+    user_id: userId,
     name: l.name,
     title: l.title,
     company: l.company,

@@ -1,6 +1,5 @@
-import { createServiceClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
-import { DEMO_EMAIL } from '@/lib/config'
+import { getAuthUser } from '@/lib/auth'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -10,17 +9,10 @@ export async function GET(request: Request) {
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200)
   const offset = parseInt(searchParams.get('offset') ?? '0')
 
-  const sb = createServiceClient()
-
-  const { data: user } = await sb
-    .from('sb_users')
-    .select('id')
-    .eq('email', DEMO_EMAIL)
-    .single()
-
-  if (!user) {
-    return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
-  }
+  const auth = await getAuthUser()
+  if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  const user = auth.dbUser
+  const sb = auth.sb
 
   let query = sb
     .from('sb_leads')
@@ -60,7 +52,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: false, error: 'lead_id and status required' }, { status: 400 })
   }
 
-  const sb = createServiceClient()
+  const auth = await getAuthUser()
+  if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+  const sb = auth.sb
+
   const updates: Record<string, unknown> = { status }
   if (dm_sent_at) updates.dm_sent_at = dm_sent_at
 
