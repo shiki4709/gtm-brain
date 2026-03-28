@@ -768,6 +768,80 @@ Even at L4, the agent has hard limits:
 | `shiki4709/syval-landing` | Landing page at syvalapp.com. Links to nevara-gtm after launch. |
 | `shiki4709/nevara-gtm` | The unified product. Eventually renamed to `syval-app`. |
 
+## ICP Discovery Framework — "Follow the Intent Signal Upstream"
+
+### Core principle
+
+Instead of asking "who is my ICP?" ask "where is my ICP already revealing themselves through behavior?"
+
+Traditional B2B targeting: define ICP by job titles + company size → hope they're interested.
+Behavior-based targeting: find people already engaging with your topic → THAT's your ICP.
+
+### The logic chain
+
+```
+1. Your ICP has a need         → people wanting to learn about [your topic]
+2. That need drives behavior   → they search, follow, engage with content
+3. Behavior is visible         → likes, comments, shares are public signals
+4. Someone aggregates them     → creators who post about this topic attract your ICP
+5. You intercept there         → scrape the engagers = demand harvesting
+```
+
+This is **demand harvesting vs. demand creation**. You're not convincing people they need your solution — you're finding people who already want it and are actively seeking it out.
+
+### Intent signal hierarchy
+
+| Signal | Strength | What it tells you |
+|--------|----------|------------------|
+| Comment on a post | Strongest | They care enough to write. Active right now. Topic-specific. |
+| Like/reaction | Medium | Interested but passive. Still a recency signal. |
+| Follow a creator | Weak but persistent | Long-term interest in the topic. |
+| View (invisible) | — | Can't track, but dwell time matters to algorithms. |
+
+A comment on a post is a stronger intent signal than any demographic filter. It tells you what they care about (the topic), that they're active right now (recency), and how much they care (comment > like > view).
+
+### Watering hole strategy
+
+The Brain automates "pattern of life analysis":
+1. **Watch the watering holes** — creators who post about your topic
+2. **Observe who shows up** — engagers on their posts
+3. **Filter for fit** — ICP match on title/company
+4. **Reach out** — DM with context (they commented on X, they liked Y)
+5. **Learn** — which watering holes yield the best leads
+
+### ICP discovery workflow (onboarding)
+
+The onboarding flow should discover ICP from behavior, not force users to guess job titles:
+
+**Step 1: What problem do you solve?**
+User describes their value prop in plain language.
+Example: "Help non-technical people learn LLM for work"
+
+**Step 2: Brain finds watering holes**
+Brain searches for LinkedIn creators posting about this topic.
+Suggests 5-10 profiles to watch.
+User picks which ones to follow.
+
+**Step 3: Watch → observe → the ICP reveals itself**
+Feed shows engagers on watched profiles' posts.
+After 3-5 scrapes, the brain sees patterns:
+- "VP Product appears 47 times across your scrapes"
+- "Head of L&D commented on 3 of 5 posts you scraped"
+- Brain suggests: "Add 'VP Product' and 'Head of L&D' to your ICP filter?"
+
+**Step 4: Refine ICP from data**
+Job title filter becomes a refinement step AFTER behavior is observed.
+Brain continuously suggests new ICP titles based on who keeps appearing.
+
+### ICP drift detection
+
+Over time, the brain watches for:
+- New titles appearing frequently that aren't in your ICP filter
+- Existing ICP titles that never engage (maybe they're not the real ICP)
+- Seasonal patterns (different people engage at different times)
+
+Surfaces as nudges: "VP of AI appeared 23 times this month but isn't in your ICP. Add it?"
+
 ## ROI Estimation Framework
 
 Every post in the watch list feed shows estimated ROI for three actions: Scrape, Reply, and Content repurposing. Estimates use the user's historical data when available, falling back to industry benchmarks.
