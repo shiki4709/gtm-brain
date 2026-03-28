@@ -35,6 +35,9 @@ export default function Inbound() {
 
   const [user, setUser] = useState<{ x_accounts: string[]; x_topics: string[] } | null>(null)
   const [topTopic, setTopTopic] = useState<TopicInsight | null>(null)
+  const [accountInput, setAccountInput] = useState('')
+  const [topicInput, setTopicInput] = useState('')
+  const [savingX, setSavingX] = useState(false)
 
   useEffect(() => {
     fetch('/api/user').then(r => r.json()).then(json => {
@@ -50,6 +53,58 @@ export default function Inbound() {
       if (json.success && json.data?.topic_performance?.[0]) setTopTopic(json.data.topic_performance[0])
     }).catch(() => {})
   }, [])
+
+  async function addAccount(handle: string) {
+    const clean = handle.trim().replace(/^@/, '')
+    if (!clean) return
+    const accounts = [...(user?.x_accounts ?? []), clean].filter((v, i, a) => a.indexOf(v) === i)
+    setSavingX(true)
+    await fetch('/api/user/x-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ x_accounts: accounts, x_topics: user?.x_topics ?? [] }),
+    })
+    setUser(prev => prev ? { ...prev, x_accounts: accounts } : prev)
+    setAccountInput('')
+    setSavingX(false)
+    fetchTweets(accounts, user?.x_topics ?? [])
+  }
+
+  async function removeAccount(handle: string) {
+    const accounts = (user?.x_accounts ?? []).filter(a => a !== handle)
+    await fetch('/api/user/x-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ x_accounts: accounts, x_topics: user?.x_topics ?? [] }),
+    })
+    setUser(prev => prev ? { ...prev, x_accounts: accounts } : prev)
+  }
+
+  async function addTopic(topic: string) {
+    const clean = topic.trim()
+    if (!clean) return
+    const topics = [...(user?.x_topics ?? []), clean].filter((v, i, a) => a.indexOf(v) === i)
+    setSavingX(true)
+    await fetch('/api/user/x-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ x_accounts: user?.x_accounts ?? [], x_topics: topics }),
+    })
+    setUser(prev => prev ? { ...prev, x_topics: topics } : prev)
+    setTopicInput('')
+    setSavingX(false)
+    fetchTweets(user?.x_accounts ?? [], topics)
+  }
+
+  async function removeTopic(topic: string) {
+    const topics = (user?.x_topics ?? []).filter(t => t !== topic)
+    await fetch('/api/user/x-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ x_accounts: user?.x_accounts ?? [], x_topics: topics }),
+    })
+    setUser(prev => prev ? { ...prev, x_topics: topics } : prev)
+  }
 
   async function fetchTweets(accounts: string[], topics: string[]) {
     setLoadingTweets(true)
@@ -209,14 +264,59 @@ export default function Inbound() {
         Builds visibility: follower growth · reply impressions · brand awareness
       </p>
 
-      <div className="text-[11px] text-ink-4 mb-4">
-        {user?.x_accounts?.length
-          ? `Watching: ${user.x_accounts.map(a => `@${a}`).join(', ')}`
-          : 'No X accounts configured'
-        }
-        {user?.x_topics?.length ? ` · Topics: ${user.x_topics.join(', ')}` : ''}
+      {/* Accounts */}
+      <div className="mb-4">
+        <div className="section-label mb-2">Accounts to watch</div>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {(user?.x_accounts ?? []).map(a => (
+            <span key={a} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: '#fff3e0', color: 'var(--accent-orange-deep)' }}>
+              @{a}
+              <button onClick={() => removeAccount(a)} className="hover:text-ink ml-0.5">×</button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            className="input flex-1 py-2 px-3 text-sm"
+            placeholder="@handle (e.g. markroberge)"
+            value={accountInput}
+            onChange={e => setAccountInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAccount(accountInput) } }}
+            disabled={savingX}
+          />
+          <button className="btn-accent" onClick={() => addAccount(accountInput)} disabled={!accountInput.trim() || savingX}>
+            {savingX ? '...' : 'Add'}
+          </button>
+        </div>
       </div>
 
+      {/* Topics */}
+      <div className="mb-6">
+        <div className="section-label mb-2">Topics to watch</div>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {(user?.x_topics ?? []).map(t => (
+            <span key={t} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: '#fff3e0', color: 'var(--accent-orange-deep)' }}>
+              {t}
+              <button onClick={() => removeTopic(t)} className="hover:text-ink ml-0.5">×</button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            className="input flex-1 py-2 px-3 text-sm"
+            placeholder="e.g. GTM strategy, sales hiring"
+            value={topicInput}
+            onChange={e => setTopicInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTopic(topicInput) } }}
+            disabled={savingX}
+          />
+          <button className="btn-accent" onClick={() => addTopic(topicInput)} disabled={!topicInput.trim() || savingX}>
+            {savingX ? '...' : 'Add'}
+          </button>
+        </div>
+      </div>
+
+      {/* Tweets */}
       {loadingTweets ? (
         <div className="text-sm text-ink-4 py-8 text-center">Loading tweets...</div>
       ) : tweets.length > 0 ? (
@@ -263,7 +363,7 @@ export default function Inbound() {
       ) : (
         <div className="text-center py-16 text-ink-4">
           <div className="text-4xl mb-3">@</div>
-          <div className="text-sm">No tweets surfaced. Add X accounts and topics to your settings to get started.</div>
+          <div className="text-sm">No tweets surfaced. Add accounts and topics above to get started.</div>
         </div>
       )}
     </div>
