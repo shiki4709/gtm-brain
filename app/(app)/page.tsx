@@ -439,6 +439,11 @@ export default function WatchlistFeed() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
                         <span className="text-[11px] text-ink-4">{timeAgo(item.time)}</span>
+                        {(() => { const v = getVelocity(item); return v.velocity >= 2 ? (
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${v.velocity >= 10 ? 'bg-accent text-white' : 'bg-[var(--rule-light)] text-ink-3'}`}>
+                            {v.velocity}/hr
+                          </span>
+                        ) : null })()}
                       </div>
                       {item.engagement && (
                         <div className="flex gap-3 text-[11px] text-ink-4 mb-2">
@@ -545,6 +550,12 @@ export default function WatchlistFeed() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
                         <span className="text-[11px] text-ink-4">@{item.authorHandle} · {timeAgo(item.time)}</span>
+                        {(() => { const v = getVelocity(item); return v.velocity >= 2 ? (
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${v.velocity >= 10 ? 'text-white' : 'bg-[var(--rule-light)] text-ink-3'}`}
+                            style={v.velocity >= 10 ? { background: 'var(--accent-orange)' } : undefined}>
+                            {v.velocity}/hr
+                          </span>
+                        ) : null })()}
                       </div>
                       <div className="text-xs text-ink-2 leading-relaxed mb-1">{item.text}</div>
                       {item.engagement && (

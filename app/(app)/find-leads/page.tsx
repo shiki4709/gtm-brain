@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 interface Lead {
   id: string
@@ -52,6 +53,8 @@ function timeAgo(date: string): string {
 }
 
 export default function Outbound() {
+  const searchParams = useSearchParams()
+  const autoScrapeTriggered = useRef(false)
   const [scrapeUrl, setScrapeUrl] = useState('')
   const [scraping, setScraping] = useState(false)
   const [scrapeStatus, setScrapeStatus] = useState('')
@@ -91,7 +94,16 @@ export default function Outbound() {
       fetch('/api/user').then(r => r.json()).then(json => {
         if (json.success && json.data) setUser(json.data)
       }).catch(() => {}),
-    ]).finally(() => setLoading(false))
+    ]).finally(() => {
+      setLoading(false)
+      // Auto-scrape from query param (e.g. from Brain feed "Scrape engagers" button)
+      const scrapeParam = searchParams.get('scrape')
+      if (scrapeParam && !autoScrapeTriggered.current) {
+        autoScrapeTriggered.current = true
+        setScrapeUrl(scrapeParam)
+        setTimeout(() => handleScrape(scrapeParam), 500)
+      }
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
