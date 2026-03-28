@@ -123,12 +123,22 @@ export default function WatchlistFeed() {
     setTimeout(() => setCopied(null), 2000)
   }
 
-  function markDone(url: string) {
+  function markDone(url: string, actionType?: string) {
     setTasks(prev => ({ ...prev, [url]: 'done' }))
+    const item = feed.find(f => f.url === url)
+    if (item) {
+      const rec = getRecommendation(item)
+      logBrainDecision(item, actionType ?? rec.actions[0]?.type ?? 'unknown', rec.actions[0]?.priority ?? 'medium', rec.reason, 'followed')
+    }
   }
 
   function markSkipped(url: string) {
     setTasks(prev => ({ ...prev, [url]: 'skipped' }))
+    const item = feed.find(f => f.url === url)
+    if (item) {
+      const rec = getRecommendation(item)
+      logBrainDecision(item, rec.actions[0]?.type ?? 'unknown', rec.actions[0]?.priority ?? 'medium', rec.reason, 'skipped')
+    }
   }
 
   function undoTask(url: string) {
@@ -139,18 +149,83 @@ export default function WatchlistFeed() {
     })
   }
 
+  // Calculate engagement velocity: engagement per hour since posted
+  function getVelocity(item: FeedItem): { velocity: number; ageHours: number } {
+    const totalEngagement = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
+    if (!item.time) return { velocity: totalEngagement, ageHours: 0 }
+    const ageMs = Date.now() - new Date(item.time).getTime()
+    const ageHours = Math.max(ageMs / (1000 * 60 * 60), 0.5) // min 30 min
+    return { velocity: Math.round((totalEngagement / ageHours) * 10) / 10, ageHours: Math.round(ageHours * 10) / 10 }
+  }
+
+  // Log brain decision (fire and forget)
+  function logBrainDecision(item: FeedItem, action: string, priority: string, reason: string, userAction: string) {
+    const { velocity, ageHours } = getVelocity(item)
+    fetch('/api/brain-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source_url: item.url,
+        platform: item.platform,
+        author_handle: item.authorHandle,
+        recommended_action: action,
+        priority,
+        reason,
+        engagement_at_time: {
+          likes: item.engagement?.likes ?? 0,
+          comments: item.engagement?.replies ?? 0,
+          shares: item.engagement?.retweets ?? 0,
+          age_hours: ageHours,
+          velocity,
+        },
+        user_action: userAction,
+      }),
+    }).catch(() => {})
+  }
+
   function getRecommendation(item: FeedItem): { actions: Array<{ label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }>; reason: string } {
     const likes = item.engagement?.likes ?? 0
     const comments = item.engagement?.replies ?? 0
     const rts = item.engagement?.retweets ?? 0
     const totalEngagement = likes + comments + rts
+    const { velocity, ageHours } = getVelocity(item)
     const textLower = item.text.toLowerCase()
     const matchedTopic = insights?.topics?.find(t => textLower.includes(t.topic.toLowerCase()))
     const hasQuestion = item.text.includes('?')
     const isLinkedIn = item.platform === 'linkedin'
 
+    // Velocity boost: a fresh post with decent velocity is worth more than an old post with raw numbers
+    const isHot = velocity >= 10 && ageHours < 6 // 10+ engagements per hour in first 6 hours
+    const isFresh = ageHours < 2
+
     type Action = { label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }
     const actions: Action[] = []
+
+    // ═══ VELOCITY-BASED — fresh posts with momentum ═══
+
+    if (isHot) {
+      if (isLinkedIn) {
+        actions.push({ label: 'Scrape now — trending', type: 'scrape', priority: 'high' })
+        actions.push({ label: 'Reply on post', type: 'reply', priority: 'medium' })
+      } else {
+        actions.push({ label: 'Reply now — trending', type: 'reply', priority: 'high' })
+        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
+      }
+      actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
+      const topicNote = matchedTopic ? ` ICP topic "${matchedTopic.topic}".` : ''
+      return { actions, reason: `🔥 ${velocity} engagements/hr — posted ${ageHours < 1 ? 'just now' : `${Math.round(ageHours)}h ago`}. Engagement is accelerating.${topicNote}` }
+    }
+
+    if (isFresh && totalEngagement >= 3) {
+      if (isLinkedIn) {
+        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
+        actions.push({ label: 'Reply on post', type: 'reply', priority: 'medium' })
+      } else {
+        actions.push({ label: 'Draft reply', type: 'reply', priority: 'medium' })
+        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'low' })
+      }
+      return { actions, reason: `Fresh (${Math.round(ageHours * 60)}min ago) with ${totalEngagement} engagers. Early engagement = likely to grow. Act now.` }
+    }
 
     // ═══ HIGH ENGAGEMENT — multiple actions available ═══
 
@@ -379,13 +454,13 @@ export default function WatchlistFeed() {
                           if (a.type === 'scrape') return (
                             <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
                               className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}
-                              onClick={() => markDone(item.url)}>
+                              onClick={() => markDone(item.url, a.type)}>
                               {a.label}
                             </Link>
                           )
                           if (a.type === 'content') return (
                             <Link key={j} href={`/build-presence?topic=${encodeURIComponent(item.text.slice(0, 100))}`}
-                              className="btn-outline" onClick={() => markDone(item.url)}>
+                              className="btn-outline" onClick={() => markDone(item.url, a.type)}>
                               {a.label}
                             </Link>
                           )
@@ -493,13 +568,13 @@ export default function WatchlistFeed() {
                           if (a.type === 'scrape') return (
                             <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
                               className={a.priority === 'high' ? 'btn-primary' : 'btn-outline'}
-                              onClick={() => markDone(item.url)}>
+                              onClick={() => markDone(item.url, a.type)}>
                               {a.label}
                             </Link>
                           )
                           if (a.type === 'content') return (
                             <Link key={j} href={`/build-presence?topic=${encodeURIComponent(item.text.slice(0, 100))}`}
-                              className="btn-outline" onClick={() => markDone(item.url)}>
+                              className="btn-outline" onClick={() => markDone(item.url, a.type)}>
                               {a.label}
                             </Link>
                           )
@@ -513,7 +588,7 @@ export default function WatchlistFeed() {
                         <div className="mt-3 pt-3 border-t border-rule-light">
                           <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">{draftReply}</div>
                           <div className="flex gap-2">
-                            <button className="btn-primary" onClick={() => { copyAndOpen(draftReply, item.url); markDone(item.url) }}>
+                            <button className="btn-primary" onClick={() => { copyAndOpen(draftReply, item.url); markDone(item.url, 'reply') }}>
                               {copied === item.url ? 'Copied' : 'Copy & Open'}
                             </button>
                             <button className="btn-outline" onClick={() => handleDraftReply(item)}>Rewrite</button>

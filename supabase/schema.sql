@@ -132,6 +132,29 @@ CREATE TABLE sb_content_tags (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Brain decision log (tracks recommendations + outcomes)
+CREATE TABLE sb_brain_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES sb_users(id),
+  platform TEXT NOT NULL,
+  -- platform: 'linkedin' | 'x'
+  source_url TEXT NOT NULL,
+  author_handle TEXT,
+  recommended_action TEXT NOT NULL,
+  -- recommended_action: 'scrape' | 'reply' | 'content' | 'skip'
+  priority TEXT NOT NULL,
+  -- priority: 'high' | 'medium' | 'low'
+  reason TEXT,
+  engagement_at_time JSONB DEFAULT '{}',
+  -- { likes, comments, shares, age_hours, velocity }
+  user_action TEXT,
+  -- user_action: 'followed' | 'skipped' | 'different' (null = pending)
+  outcome JSONB DEFAULT '{}',
+  -- linkedin scrape: { icp_leads, total_engagers, reply_rate }
+  -- x reply: { likes_gained, replies_gained }
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Indexes for common queries
 CREATE INDEX idx_scrapes_user ON sb_scrapes(user_id);
 CREATE INDEX idx_leads_user ON sb_leads(user_id);
@@ -146,3 +169,5 @@ CREATE INDEX idx_insights_type ON sb_insights(insight_type);
 CREATE INDEX idx_content_tags_user ON sb_content_tags(user_id);
 CREATE INDEX idx_content_tags_platform ON sb_content_tags(platform);
 CREATE INDEX idx_watchlist_user ON sb_watchlist(user_id);
+CREATE INDEX idx_brain_log_user ON sb_brain_log(user_id);
+CREATE INDEX idx_brain_log_action ON sb_brain_log(recommended_action);
