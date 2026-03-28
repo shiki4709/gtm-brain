@@ -19,6 +19,7 @@ export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inb
     { href: '/', label: 'Overview', badge: 0 },
     { href: '/outbound', label: 'Outbound', badge: outboundBadge },
     { href: '/inbound', label: 'Inbound', badge: inboundBadge },
+    { href: '/settings', label: 'Settings', badge: 0 },
   ]
 
   return (
@@ -35,8 +36,7 @@ export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inb
             )}
           </div>
           <div className="text-xs text-ink-4">
-            ICP: {icpTitles?.join(', ') ?? 'Not configured'} ·{' '}
-            <button className="text-accent hover:underline" onClick={onEditIcp}>Edit</button>
+            ICP: {icpTitles?.join(', ') ?? 'Not configured'}
           </div>
         </div>
 
