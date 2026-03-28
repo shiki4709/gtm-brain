@@ -52,15 +52,28 @@ export async function GET() {
           const url = r.url ?? ''
           if (!url.includes('linkedin.com/posts/')) continue
 
-          // Filter out posts older than 30 days
-          const pageAge = r.page_age ?? ''
-          if (pageAge) {
-            const postDate = new Date(pageAge)
-            if (!isNaN(postDate.getTime()) && postDate.getTime() < thirtyDaysAgo) continue
+          // Extract date from LinkedIn activity ID (first 41 bits = Unix ms)
+          const activityMatch = url.match(/activity[- ](\d+)/)
+          let postTimestamp = 0
+          if (activityMatch) {
+            const activityId = BigInt(activityMatch[1])
+            postTimestamp = Number(activityId >> BigInt(22)) // top 41 bits = Unix ms
           }
 
-          // Extract post title from URL
-          const titleMatch = url.match(/posts\/[^_]+[_-](.+?)(?:-activity|-\d|$)/)
+          // Filter out posts older than 30 days
+          if (postTimestamp > 0 && postTimestamp < thirtyDaysAgo) continue
+
+          // Fall back to page_age if no activity ID
+          if (postTimestamp === 0) {
+            const pageAge = r.page_age ?? ''
+            if (pageAge) {
+              const d = new Date(pageAge).getTime()
+              if (!isNaN(d) && d < thirtyDaysAgo) continue
+            }
+          }
+
+          const cleanUrl = url.replace(/[?&](utm_\w+|trk|rcm)=[^&]*/g, '').replace(/[&?]$/, '')
+          const titleMatch = cleanUrl.match(/posts\/[^_]+[_-](.+?)(?:-activity|-\d|$)/)
           const title = titleMatch ? titleMatch[1].replace(/-/g, ' ').trim() : ''
 
           items.push({
@@ -68,8 +81,8 @@ export async function GET() {
             author: profile.display_name ?? profile.username,
             authorHandle: profile.username,
             text: (r.description ?? title ?? '').substring(0, 200),
-            url: url.replace(/[?&](utm_\w+|trk|rcm)=[^&]*/g, '').replace(/[&?]$/, ''),
-            time: pageAge,
+            url: cleanUrl,
+            time: postTimestamp > 0 ? new Date(postTimestamp).toISOString() : (r.page_age ?? ''),
           })
         }
       } catch {
