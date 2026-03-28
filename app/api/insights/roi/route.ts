@@ -13,7 +13,7 @@ export async function GET() {
     .select('total_engagers, icp_matches')
     .eq('user_id', user.id)
 
-  let avgIcpRate = 0.15 // benchmark
+  let avgIcpRate = 0.03 // benchmark: 2.9% from Cclarity 2026 study (7,793 engagements analyzed)
   let scrapeCount = 0
   if (scrapes && scrapes.length > 0) {
     scrapeCount = scrapes.length
@@ -37,7 +37,7 @@ export async function GET() {
 
   const sent = dmsSent ?? 0
   const replied = dmsReplied ?? 0
-  let dmReplyRate = 0.12 // benchmark
+  let dmReplyRate = 0.10 // benchmark: 10.3% avg LinkedIn DM response rate (SalesBread 2026)
   if (sent >= 3) dmReplyRate = replied / sent
 
   // 3. Meeting conversion rate from leads
@@ -47,7 +47,7 @@ export async function GET() {
     .eq('user_id', user.id)
     .eq('status', 'converted')
 
-  let meetingRate = 0.25 // benchmark
+  let meetingRate = 0.30 // benchmark: 25-35% interest rate from LinkedIn replies (LeadLoft 2026)
   if (replied >= 3) meetingRate = (meetings ?? 0) / replied
 
   // 4. Per-topic ICP rates

@@ -167,7 +167,7 @@ export default function WatchlistFeed() {
     const comments = item.engagement?.replies ?? 0
     const rts = item.engagement?.retweets ?? 0
     const totalEngagement = likes + comments + rts
-    const r = roi ?? { avg_icp_rate: 0.15, dm_reply_rate: 0.12, meeting_rate: 0.25, topic_rates: {}, avg_reply_likes: 0, confidence: 'benchmark' as const }
+    const r = roi ?? { avg_icp_rate: 0.03, dm_reply_rate: 0.10, meeting_rate: 0.30, topic_rates: {}, avg_reply_likes: 0, confidence: 'benchmark' as const }
     const prefix = r.confidence === 'benchmark' ? '~' : ''
 
     // Check for topic-specific rate

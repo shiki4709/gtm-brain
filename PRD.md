@@ -767,3 +767,97 @@ Even at L4, the agent has hard limits:
 | `shiki4709/foxxi` | Stays alive as standalone content generator. Generate prompt ported. |
 | `shiki4709/syval-landing` | Landing page at syvalapp.com. Links to nevara-gtm after launch. |
 | `shiki4709/nevara-gtm` | The unified product. Eventually renamed to `syval-app`. |
+
+## ROI Estimation Framework
+
+Every post in the watch list feed shows estimated ROI for three actions: Scrape, Reply, and Content repurposing. Estimates use the user's historical data when available, falling back to industry benchmarks.
+
+### 1. Scrape ROI — Find leads from engagers
+
+```
+ICP leads     = total engagers × ICP match rate
+DM replies    = ICP leads × DM reply rate
+Meetings      = DM replies × meeting conversion rate
+```
+
+| Variable | User's data source | Benchmark (fallback) | Benchmark source |
+|----------|-------------------|---------------------|-----------------|
+| ICP match rate | `sb_scrapes` avg(icp_matches / total_engagers) | 2.9% | Cclarity 2026: 7,793 LinkedIn engagements analyzed, 2.9% matched ICP |
+| DM reply rate | `sb_leads` count(replied) / count(dm_sent) | 10% | SalesBread 2026: 10.3% avg LinkedIn DM response rate |
+| Meeting rate | `sb_leads` count(converted) / count(replied) | 30% | LeadLoft 2026: 25-35% interest rate from LinkedIn replies |
+
+Topic-specific override: if the brain recognizes the post topic from `sb_scrapes.post_topic`, it uses the topic-specific ICP rate instead of the overall average.
+
+### 2. Reply ROI — Build visibility by engaging
+
+```
+Thread visibility  = likes + comments + (retweets × 3)
+Your impressions   = thread visibility × impression share rate
+Followers gained   = impressions × follow rate
+```
+
+| Variable | User's data source | Benchmark (fallback) | Benchmark source |
+|----------|-------------------|---------------------|-----------------|
+| RT multiplier | — | 3× | Estimated: each RT exposes to a new audience network |
+| Impression share | `sb_brain_log` avg reply impressions | 15% | Estimated: a reply in a thread gets ~15% of total eyeballs |
+| Follow rate | `sb_brain_log` followers / impressions | 2% | Derived: X avg engagement 0.5-1.5%, follow-from-reply is higher (WebFX 2026) |
+
+### 3. Content ROI — Repurpose the topic
+
+```
+Expected engagers  = avg engagers on your posts (or 50 benchmark)
+Inbound ICP leads  = expected engagers × topic ICP rate
+```
+
+| Variable | User's data source | Benchmark (fallback) | Benchmark source |
+|----------|-------------------|---------------------|-----------------|
+| Avg post engagers | `sb_posts` avg(engagers_scraped) | 50 | Estimated: typical LinkedIn post engagement for solo founder |
+| Topic ICP rate | `sb_scrapes` grouped by post_topic | 2.9% | Same as scrape ICP rate benchmark |
+
+### Engagement velocity scoring
+
+Posts are scored by engagement per hour, not raw numbers. A post with 5 likes in 30 minutes is hotter than a post with 50 likes over 3 days.
+
+```
+velocity = total_engagement / max(age_hours, 0.5)
+```
+
+| Velocity | Classification | UI treatment |
+|----------|---------------|-------------|
+| 10+/hr in first 6h | 🔥 Hot | Highlighted badge, top priority |
+| 2-9/hr | Active | Subtle badge |
+| <2/hr | Normal | No badge |
+| Fresh (<2h) + 3+ engagers | Early momentum | Flagged as "act now" |
+
+### Confidence levels
+
+| Data points | Level | UI treatment |
+|------------|-------|-------------|
+| 0 | Benchmark | All estimates show `~` prefix, labeled "estimated" |
+| 1-4 | Low | Mix of real + benchmark data |
+| 5-9 | Medium | Mostly real data |
+| 10+ | High | No `~` prefix, numbers from actual history |
+
+Data points = scrapes completed + DMs sent + reply engagement logged.
+
+### Brain decision logging
+
+Every recommendation is logged to `sb_brain_log` with:
+- `engagement_at_time`: { likes, comments, shares, age_hours, velocity }
+- `recommended_action`: scrape / reply / content / skip
+- `priority`: high / medium / low
+- `reason`: the brain's explanation
+- `user_action`: followed / skipped / different
+- `outcome`: filled later with actual results (ICP leads found, reply engagement)
+
+This creates a feedback loop: recommendation accuracy is measurable. Over time, the brain can be evaluated: "did high-priority scrape recommendations actually yield more ICP leads than medium-priority ones?"
+
+### Sources
+
+- [Cclarity LinkedIn Lead Generation Statistics 2026](https://cclarity.io/linkedin-lead-generation-statistics) — 2.9% ICP match rate
+- [SalesBread LinkedIn Outreach Stats 2026](https://salesbread.com/linkedin-outreach-stats/) — 10.3% DM response rate
+- [LeadLoft LinkedIn Benchmarks 2026](https://www.leadloft.com/blog/linkedin-benchmarks) — 25-35% interest rate
+- [LinkedIn Engagement Metrics 2026](https://meet-lea.com/en/blog/linkedin-engagement-metrics-benchmarks) — comments 15x weight of likes
+- [LinkedIn Algorithm 2026](https://www.dataslayer.ai/blog/linkedin-algorithm-february-2026-whats-working-now) — document posts 6.6% engagement
+- [WebFX X Marketing Benchmarks 2026](https://www.webfx.com/blog/social-media/x-twitter-marketing-benchmarks/) — X engagement rates
+- [Tweet Archivist Engagement Benchmarks 2026](https://www.tweetarchivist.com/twitter-engagement-benchmarks-2025) — reply visibility strategy
