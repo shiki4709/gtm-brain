@@ -12,8 +12,10 @@ export async function POST(request: Request) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
   if (!apiKey) {
-    return NextResponse.json({ error: 'API key not configured' }, { status: 400 })
+    return NextResponse.json({ error: 'API key not configured', questions: [], titles: [] }, { status: 400 })
   }
+
+  console.log('suggest-icp called:', { mode, problem: problem.slice(0, 50), hasKey: !!apiKey })
 
   // MODE 1: Generate clarifying questions
   if (mode === 'clarify') {
@@ -50,10 +52,15 @@ Rules:
         }),
       })
 
-      if (!resp.ok) return NextResponse.json({ questions: [] })
+      if (!resp.ok) {
+        const errText = await resp.text()
+        console.error('Clarify API error:', resp.status, errText.slice(0, 200))
+        return NextResponse.json({ questions: [] })
+      }
 
       const result = await resp.json()
       const text: string = result.content?.[0]?.text ?? ''
+      console.log('Clarify response:', text.slice(0, 200))
 
       try {
         const questions = JSON.parse(text)
