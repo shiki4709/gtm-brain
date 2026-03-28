@@ -2,74 +2,157 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
-interface PipelineCounts {
-  scraped: number
-  icp: number
-  dm_drafted: number
-  dm_sent: number
-  replied: number
-  converted: number
+interface FeedItem {
+  platform: 'linkedin' | 'x'
+  author: string
+  authorHandle: string
+  text: string
+  url: string
+  time: string
+  engagement?: { likes?: number; replies?: number; retweets?: number }
+}
+
+interface WatchlistEntry {
+  id: string
+  platform: string
+  username: string
+  display_name: string
+  profile_url: string
 }
 
 interface LinkedInInsights {
-  topics?: Array<{ topic: string; scrapes: number; avg_icp_rate: number; total_leads: number; confidence: number }>
-  dm_by_tone?: Array<{ value: string; sent: number; replied: number; reply_rate: number }>
-  dm_by_length?: Array<{ value: string; sent: number; replied: number; reply_rate: number }>
-  dm_by_personalization?: Array<{ value: string; sent: number; replied: number; reply_rate: number }>
-  total_dms_classified?: number
-  timing?: { best_day: string; best_rate: number }
+  topics?: Array<{ topic: string; avg_icp_rate: number }>
 }
 
-interface XInsights {
-  reply_by_style?: Array<{ style: string; count: number; avg_likes: number; total_engagement: number }>
-  best_accounts?: Array<{ handle: string; name: string; replies: number; totalLikes: number }>
-  total_replies_classified?: number
-  total_with_engagement?: number
-}
-
-export default function BrainHome() {
-  const [pipeline, setPipeline] = useState<PipelineCounts | null>(null)
-  const [liInsights, setLiInsights] = useState<LinkedInInsights | null>(null)
-  const [xInsights, setXInsights] = useState<XInsights | null>(null)
-  const [weeklySummary, setWeeklySummary] = useState('')
-  const [generatingSummary, setGeneratingSummary] = useState(false)
+export default function WatchlistFeed() {
+  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
+  const [feed, setFeed] = useState<FeedItem[]>([])
+  const [insights, setInsights] = useState<LinkedInInsights | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingFeed, setLoadingFeed] = useState(false)
+  const [addInput, setAddInput] = useState('')
+  const [addPlatform, setAddPlatform] = useState<'linkedin' | 'x'>('linkedin')
+  const [adding, setAdding] = useState(false)
+
+  // Draft reply state for inline X replies
+  const [draftingUrl, setDraftingUrl] = useState<string | null>(null)
+  const [draftReplies, setDraftReplies] = useState<Record<string, string>>({})
+  const [copied, setCopied] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/pipeline').then(r => r.json()),
+      fetch('/api/watchlist').then(r => r.json()),
       fetch('/api/insights/linkedin').then(r => r.json()),
-      fetch('/api/insights/x').then(r => r.json()),
-    ])
-      .then(([pipelineJson, liJson, xJson]) => {
-        if (pipelineJson.success) setPipeline(pipelineJson.data)
-        if (liJson.success) setLiInsights(liJson.data)
-        if (xJson.success) setXInsights(xJson.data)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    ]).then(([wlJson, liJson]) => {
+      if (wlJson.success) setWatchlist(wlJson.data ?? [])
+      if (liJson.success) setInsights(liJson.data)
+      if (wlJson.data?.length > 0) fetchFeed()
+    }).catch(() => {}).finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function generateSummary() {
-    setGeneratingSummary(true)
+  async function fetchFeed() {
+    setLoadingFeed(true)
     try {
-      const res = await fetch('/api/insights', { method: 'POST' })
+      const res = await fetch('/api/watchlist/feed')
       const json = await res.json()
-      if (json.summary) setWeeklySummary(json.summary)
+      if (json.success) setFeed(json.items ?? [])
     } catch { /* silently fail */ }
-    finally { setGeneratingSummary(false) }
+    finally { setLoadingFeed(false) }
   }
 
-  const p = pipeline ?? { scraped: 0, icp: 0, dm_drafted: 0, dm_sent: 0, replied: 0, converted: 0 }
-  const topTopic = liInsights?.topics?.[0]
-  const topDmTone = liInsights?.dm_by_tone?.[0]
-  const topReplyStyle = xInsights?.reply_by_style?.[0]
-  const hasData = p.scraped > 0
+  async function addToWatchlist() {
+    if (!addInput.trim()) return
+    setAdding(true)
+
+    // Auto-detect platform from input
+    let platform = addPlatform
+    let username = addInput.trim()
+
+    if (username.includes('linkedin.com/in/')) {
+      platform = 'linkedin'
+      username = username.replace(/.*linkedin\.com\/in\//, '').replace(/\/$/, '')
+    } else if (username.includes('x.com/') || username.includes('twitter.com/')) {
+      platform = 'x'
+      username = username.replace(/.*(?:x|twitter)\.com\//, '').replace(/\/$/, '').replace(/^@/, '')
+    } else if (username.startsWith('@')) {
+      platform = 'x'
+      username = username.replace(/^@/, '')
+    }
+
+    try {
+      const res = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, username }),
+      })
+      const json = await res.json()
+      if (json.success && json.data) {
+        setWatchlist(prev => [json.data, ...prev.filter(w => w.id !== json.data.id)])
+        setAddInput('')
+        fetchFeed()
+      }
+    } catch { /* silently fail */ }
+    finally { setAdding(false) }
+  }
+
+  async function removeFromWatchlist(id: string) {
+    await fetch(`/api/watchlist?id=${id}`, { method: 'DELETE' })
+    setWatchlist(prev => prev.filter(w => w.id !== id))
+  }
+
+  async function handleDraftReply(item: FeedItem) {
+    setDraftingUrl(item.url)
+    try {
+      const res = await fetch('/api/draft-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tweet_text: item.text,
+          author_name: item.author,
+          author_handle: item.authorHandle,
+        }),
+      })
+      const json = await res.json()
+      if (json.reply) setDraftReplies(prev => ({ ...prev, [item.url]: json.reply }))
+    } catch { /* silently fail */ }
+    finally { setDraftingUrl(null) }
+  }
+
+  function copyAndOpen(text: string, url: string) {
+    navigator.clipboard.writeText(text)
+    setCopied(url)
+    window.open(url, '_blank')
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  function getTopicNudge(text: string): string | null {
+    if (!insights?.topics) return null
+    const textLower = text.toLowerCase()
+    for (const t of insights.topics) {
+      if (textLower.includes(t.topic.toLowerCase())) {
+        return `Posts about "${t.topic}" yield ${Math.round(t.avg_icp_rate * 100)}% ICP match`
+      }
+    }
+    return null
+  }
+
+  function timeAgo(dateStr: string): string {
+    if (!dateStr) return ''
+    const diff = Date.now() - new Date(dateStr).getTime()
+    if (isNaN(diff)) return ''
+    const mins = Math.floor(diff / 60000)
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    const days = Math.floor(hrs / 24)
+    return `${days}d ago`
+  }
 
   if (loading) return <div className="text-sm text-ink-4 py-8 text-center">Loading...</div>
 
-  // ═══ NEW USER — zero data ═══
-  if (!hasData) {
+  // ═══ NEW USER — no watch list ═══
+  if (watchlist.length === 0) {
     return (
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-10 pt-8">
@@ -78,69 +161,60 @@ export default function BrainHome() {
             <span className="font-head text-xl font-bold text-ink">GTM Brain</span>
           </div>
           <h1 className="font-head text-2xl font-bold text-ink mb-3">
-            Your second brain for GTM
+            Your GTM starts with people
           </h1>
           <p className="text-sm text-ink-3 max-w-md mx-auto leading-relaxed">
-            Every scrape, DM, and reply teaches it what works for your market. The more you use it, the smarter it gets.
+            Add influencers and thought leaders your ICP follows. When they post, you&apos;ll see it here with one-click actions.
           </p>
         </div>
 
-        {/* How it works */}
-        <div className="brain-card mb-8">
-          <div className="section-label mb-4">How it works</div>
-          <div className="flex flex-col gap-6">
-            <div className="flex gap-4">
-              <div className="w-7 h-7 rounded-full bg-accent text-white flex items-center justify-center text-xs font-bold shrink-0">1</div>
-              <div>
-                <div className="font-head text-sm font-semibold text-ink mb-0.5">Find Leads</div>
-                <div className="text-xs text-ink-3 leading-relaxed">
-                  Scrape a LinkedIn post to discover who engages with content in your space. The brain filters to your ICP and drafts personalized DMs.
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <div className="w-7 h-7 rounded-full bg-orange text-white flex items-center justify-center text-xs font-bold shrink-0">2</div>
-              <div>
-                <div className="font-head text-sm font-semibold text-ink mb-0.5">Build Presence</div>
-                <div className="text-xs text-ink-3 leading-relaxed">
-                  Create content and engage on X to attract your ICP to you. When they engage with your posts, scrape the engagers to close the loop.
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: 'var(--gradient-main)', color: '#fff' }}>3</div>
-              <div>
-                <div className="font-head text-sm font-semibold text-ink mb-0.5">Brain Learns</div>
-                <div className="text-xs text-ink-3 leading-relaxed">
-                  After a few scrapes, the brain spots patterns — which topics attract your ICP, which DM angles get replies, when to scrape. It gets smarter every cycle.
-                </div>
-              </div>
-            </div>
+        {/* Add person */}
+        <div className="bg-white border border-rule rounded-[var(--radius)] p-6 mb-6">
+          <div className="flex gap-3 mb-3">
+            <input
+              type="text"
+              value={addInput}
+              onChange={e => setAddInput(e.target.value)}
+              placeholder="Paste a LinkedIn profile URL or @handle..."
+              className="input flex-1 py-3 px-4 text-sm"
+              onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
+            />
+            <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-primary px-6 py-3">
+              {adding ? '...' : 'Watch'}
+            </button>
+          </div>
+          <div className="text-[11px] text-ink-4">
+            Examples: linkedin.com/in/markroberge · @GergelyOrosz · linkedin.com/in/landon-tracy
           </div>
         </div>
 
-        <div className="text-center">
-          <Link href="/find-leads" className="btn-primary px-8 py-3 text-sm">
-            Find your first leads →
-          </Link>
-        </div>
-
-        {/* Loop diagram */}
-        <div className="mt-12 flex justify-center">
-          <div className="flex items-center gap-4 text-[11px] text-ink-4">
-            <div className="text-center">
-              <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-head text-xs font-bold mb-1">FL</div>
-              <div>Find Leads</div>
+        {/* How it works */}
+        <div className="brain-card">
+          <div className="section-label mb-4">How it works</div>
+          <div className="flex flex-col gap-5">
+            <div className="flex gap-4">
+              <div className="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-[10px] font-bold shrink-0">1</div>
+              <div className="text-xs text-ink-3 leading-relaxed">
+                <strong className="text-ink">They post</strong> → you see it here instantly
+              </div>
             </div>
-            <div>→</div>
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center font-head text-xs font-bold mb-1" style={{ background: 'var(--gradient-main)', color: '#fff' }}>Brain</div>
-              <div>Learns</div>
+            <div className="flex gap-4">
+              <div className="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-[10px] font-bold shrink-0">2</div>
+              <div className="text-xs text-ink-3 leading-relaxed">
+                <strong className="text-ink">LinkedIn post</strong> → scrape engagers → find ICP leads → draft DMs
+              </div>
             </div>
-            <div>←</div>
-            <div className="text-center">
-              <div className="w-10 h-10 rounded-full text-white flex items-center justify-center font-head text-xs font-bold mb-1" style={{ background: 'var(--accent-orange)' }}>BP</div>
-              <div>Build Presence</div>
+            <div className="flex gap-4">
+              <div className="w-6 h-6 rounded-full text-white flex items-center justify-center text-[10px] font-bold shrink-0" style={{ background: 'var(--accent-orange)' }}>3</div>
+              <div className="text-xs text-ink-3 leading-relaxed">
+                <strong className="text-ink">X tweet</strong> → draft reply → build visibility with their audience
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ background: 'var(--gradient-main)', color: '#fff' }}>B</div>
+              <div className="text-xs text-ink-3 leading-relaxed">
+                <strong className="text-ink">Brain learns</strong> → which topics, DM styles, and reply approaches work for your ICP
+              </div>
             </div>
           </div>
         </div>
@@ -148,231 +222,130 @@ export default function BrainHome() {
     )
   }
 
-  // ═══ RETURNING USER — has data ═══
-  // Build action items with brain reasoning
-  const actions: Array<{ count: number; text: string; reason: string; href: string; color: 'blue' | 'orange' }> = []
-
-  const newIcp = p.icp - p.dm_drafted
-  if (newIcp > 0) {
-    actions.push({
-      count: newIcp,
-      text: 'new ICP leads to review',
-      reason: topTopic
-        ? `Posts about "${topTopic.topic}" yield ${Math.round(topTopic.avg_icp_rate * 100)}% ICP rate`
-        : 'Scrape results ready for review',
-      href: '/find-leads',
-      color: 'blue',
-    })
-  }
-
-  const drafted = p.dm_drafted - p.dm_sent
-  if (drafted > 0) {
-    actions.push({
-      count: drafted,
-      text: 'DMs drafted, ready to send',
-      reason: topDmTone
-        ? `${topDmTone.value} tone DMs get ${Math.round(topDmTone.reply_rate * 100)}% reply rate`
-        : 'DMs are ready — copy and send on LinkedIn',
-      href: '/find-leads',
-      color: 'blue',
-    })
-  }
-
-  if (p.replied > 0) {
-    const replyRate = p.dm_sent > 0 ? Math.round((p.replied / p.dm_sent) * 100) : 0
-    actions.push({
-      count: p.replied,
-      text: `leads replied (${replyRate}% reply rate)`,
-      reason: 'Follow up to book meetings',
-      href: '/find-leads',
-      color: 'blue',
-    })
-  }
-
-  if (p.converted > 0) {
-    actions.push({
-      count: p.converted,
-      text: 'meetings booked',
-      reason: 'The loop is working',
-      href: '/find-leads',
-      color: 'blue',
-    })
-  }
-
-  if (topTopic) {
-    actions.push({
-      count: 0,
-      text: `Write about "${topTopic.topic}"`,
-      reason: `${Math.round(topTopic.avg_icp_rate * 100)}% ICP match rate — your best-performing topic`,
-      href: `/build-presence?topic=${encodeURIComponent(topTopic.topic + ' challenges and trends')}`,
-      color: 'orange',
-    })
-  }
-
-  if (actions.length === 0) {
-    actions.push({
-      count: 0,
-      text: 'Scrape a new post to feed the brain',
-      reason: 'The brain needs more data to give you better recommendations',
-      href: '/find-leads',
-      color: 'blue',
-    })
-  }
-
+  // ═══ RETURNING USER — feed ═══
   return (
     <div className="max-w-2xl mx-auto">
-      {/* LinkedIn Brain */}
-      <div className="bg-white border border-rule rounded-[var(--radius)] p-5 mb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-2 h-2 rounded-full bg-accent" />
-          <span className="font-head text-sm font-bold text-ink">LinkedIn Brain</span>
-          {liInsights?.total_dms_classified ? (
-            <span className="text-[11px] text-ink-4">{liInsights.total_dms_classified} DMs classified</span>
-          ) : null}
-        </div>
-
-        {topTopic ? (
-          <p className="text-sm leading-relaxed text-ink-2 mb-2">
-            Posts about <strong className="text-accent">{topTopic.topic}</strong> yield{' '}
-            <strong className="text-accent">{Math.round(topTopic.avg_icp_rate * 100)}%</strong> ICP match rate
-            ({topTopic.total_leads} leads from {topTopic.scrapes} scrapes).
-            {topDmTone && topDmTone.sent >= 2 && (
-              <> <strong className="text-accent">{topDmTone.value}</strong> tone DMs get{' '}
-              <strong className="text-accent">{Math.round(topDmTone.reply_rate * 100)}%</strong> reply rate.</>
-            )}
-          </p>
-        ) : (
-          <p className="text-sm text-ink-3">
-            Scraped <strong>{p.scraped}</strong> engagers, found <strong>{p.icp}</strong> ICP leads.
-            {p.dm_sent === 0 ? ' Draft and send DMs to start learning.' : ''}
-          </p>
-        )}
-
-        {topTopic && topTopic.confidence < 1.0 && (
-          <div className="flex items-center gap-1.5 text-[11px] text-ink-4">
-            <div className="conf-bar">
-              <div className={`conf-fill ${topTopic.confidence >= 0.7 ? 'conf-high' : topTopic.confidence >= 0.4 ? 'conf-med' : 'conf-low'}`}
-                style={{ width: `${topTopic.confidence * 100}%` }} />
-            </div>
-            {topTopic.confidence >= 0.7 ? 'High' : topTopic.confidence >= 0.4 ? 'Medium' : 'Low'} confidence · {topTopic.scrapes} scrapes
-          </div>
-        )}
-
-        {liInsights?.timing && (
-          <div className="text-xs text-ink-3 mt-2">
-            Best day: <strong className="text-accent">{liInsights.timing.best_day}s</strong> ({Math.round(liInsights.timing.best_rate * 100)}% ICP rate)
-          </div>
-        )}
+      {/* Add person (compact) */}
+      <div className="flex gap-3 mb-4">
+        <input
+          type="text"
+          value={addInput}
+          onChange={e => setAddInput(e.target.value)}
+          placeholder="Add person: LinkedIn URL or @handle..."
+          className="input flex-1 py-2.5 px-4 text-sm"
+          onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
+        />
+        <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
+          {adding ? '...' : '+ Watch'}
+        </button>
       </div>
 
-      {/* X Brain */}
-      <div className="bg-white border border-rule rounded-[var(--radius)] p-5 mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-2 h-2 rounded-full" style={{ background: 'var(--accent-orange)' }} />
-          <span className="font-head text-sm font-bold text-ink">X Brain</span>
-          {xInsights?.total_replies_classified ? (
-            <span className="text-[11px] text-ink-4">{xInsights.total_replies_classified} replies classified</span>
-          ) : null}
-        </div>
-
-        {topReplyStyle ? (
-          <p className="text-sm leading-relaxed text-ink-2 mb-2">
-            <strong className="text-orange">{topReplyStyle.style}</strong> replies get the most engagement
-            ({topReplyStyle.avg_likes} avg likes, {topReplyStyle.count} replies tracked).
-            {xInsights?.best_accounts?.[0] && (
-              <> Replying to <strong className="text-orange">@{xInsights.best_accounts[0].handle}</strong>&apos;s tweets works best for your ICP.</>
-            )}
-          </p>
-        ) : (
-          <p className="text-sm text-ink-3">
-            No X data yet. Reply to some tweets in Build Presence to start learning which styles get engagement.
-          </p>
-        )}
-
-        {xInsights?.total_with_engagement !== undefined && xInsights.total_with_engagement > 0 && (
-          <div className="text-xs text-ink-4">
-            {xInsights.total_with_engagement} of {xInsights.total_replies_classified} replies have engagement data
-          </div>
-        )}
-      </div>
-
-      {/* Weekly summary */}
-      {weeklySummary && (
-        <div className="brain-card mb-8">
-          <div className="section-label mb-2">Weekly summary</div>
-          <p className="text-sm leading-relaxed text-ink-2">{weeklySummary}</p>
-        </div>
-      )}
-      {!weeklySummary && hasData && (
-        <div className="text-center mb-8">
-          <button onClick={generateSummary} disabled={generatingSummary}
-            className="text-xs text-accent font-semibold hover:underline">
-            {generatingSummary ? 'Generating...' : 'Generate weekly summary'}
-          </button>
-        </div>
-      )}
-
-      {/* What to do next */}
-      <div className="section-label mb-3">What to do next</div>
-      <div className="flex flex-col gap-2 mb-8">
-        {actions.map((a, i) => (
-          <Link key={i} href={a.href}
-            className="bg-white border border-rule rounded-[var(--radius)] px-5 py-4 hover:border-accent transition-colors block">
-            <div className="flex items-center gap-3 mb-1">
-              <div className={`w-1.5 h-1.5 rounded-full ${a.color === 'blue' ? 'bg-accent' : 'bg-orange'}`} />
-              <span className="text-sm font-semibold text-ink">
-                {a.count > 0 && <strong>{a.count}</strong>} {a.text}
-              </span>
-            </div>
-            <div className="text-[11px] text-ink-4 ml-[18px]">
-              Brain: {a.reason}
-            </div>
-          </Link>
+      {/* Watching */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {watchlist.map(w => (
+          <span key={w.id} className={`badge flex items-center gap-1.5 text-xs py-1.5 px-3 ${
+            w.platform === 'linkedin'
+              ? 'badge-icp'
+              : ''
+          }`} style={w.platform === 'x' ? { background: '#fff3e0', color: 'var(--accent-orange-deep)' } : undefined}>
+            {w.platform === 'x' ? '@' : ''}{w.display_name ?? w.username}
+            <button onClick={() => removeFromWatchlist(w.id)} className="hover:text-ink ml-0.5 text-[10px]">×</button>
+          </span>
         ))}
       </div>
 
-      {/* Loop diagram */}
-      <div className="flex justify-center mb-8">
-        <div className="flex items-center gap-4 text-[11px] text-ink-4">
-          <Link href="/find-leads" className="text-center hover:text-accent transition-colors">
-            <div className="w-10 h-10 rounded-full bg-accent text-white flex items-center justify-center font-head text-xs font-bold mb-1">FL</div>
-            <div>Find Leads</div>
-          </Link>
-          <div>→</div>
-          <div className="text-center">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center font-head text-xs font-bold mb-1" style={{ background: 'var(--gradient-main)', color: '#fff' }}>Brain</div>
-            <div>Learns</div>
-          </div>
-          <div>←</div>
-          <Link href="/build-presence" className="text-center hover:text-orange transition-colors">
-            <div className="w-10 h-10 rounded-full text-white flex items-center justify-center font-head text-xs font-bold mb-1" style={{ background: 'var(--accent-orange)' }}>BP</div>
-            <div>Build Presence</div>
-          </Link>
+      {/* Feed */}
+      {loadingFeed ? (
+        <div className="text-sm text-ink-4 py-8 text-center">Loading feed...</div>
+      ) : feed.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          {feed.map((item, i) => {
+            const nudge = getTopicNudge(item.text)
+            const draftReply = draftReplies[item.url]
+            return (
+              <div key={i} className="bg-white border border-rule rounded-[var(--radius)] p-4 hover:border-accent transition-colors">
+                {/* Header */}
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-2 h-2 rounded-full ${item.platform === 'linkedin' ? 'bg-accent' : ''}`}
+                    style={item.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
+                  <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
+                  <span className="text-[11px] text-ink-4">
+                    {item.platform === 'linkedin' ? 'LinkedIn' : 'X'} · {timeAgo(item.time)}
+                  </span>
+                </div>
+
+                {/* Content */}
+                <div className="text-sm text-ink-2 leading-relaxed mb-3">
+                  {item.text}
+                </div>
+
+                {/* Engagement (X only) */}
+                {item.engagement && (
+                  <div className="text-[11px] text-ink-4 mb-3">
+                    {item.engagement.likes?.toLocaleString()} likes · {item.engagement.replies} replies · {item.engagement.retweets} RTs
+                  </div>
+                )}
+
+                {/* Brain nudge */}
+                {nudge && (
+                  <div className="text-[11px] text-accent mb-3">
+                    Brain: {nudge}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2">
+                  {item.platform === 'linkedin' && (
+                    <>
+                      <Link href={`/find-leads?scrape=${encodeURIComponent(item.url)}`} className="btn-primary">
+                        Scrape engagers
+                      </Link>
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
+                        View post
+                      </a>
+                    </>
+                  )}
+                  {item.platform === 'x' && (
+                    <>
+                      <button
+                        onClick={() => handleDraftReply(item)}
+                        disabled={draftingUrl === item.url}
+                        className="btn-accent"
+                      >
+                        {draftingUrl === item.url ? '...' : 'Draft reply'}
+                      </button>
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
+                        Open on X
+                      </a>
+                    </>
+                  )}
+                </div>
+
+                {/* Draft reply (inline) */}
+                {draftReply && (
+                  <div className="mt-3 pt-3 border-t border-rule-light">
+                    <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">
+                      {draftReply}
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="btn-primary" onClick={() => copyAndOpen(draftReply, item.url)}>
+                        {copied === item.url ? 'Copied' : 'Copy & Open'}
+                      </button>
+                      <button className="btn-outline" onClick={() => handleDraftReply(item)}>Rewrite</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
-      </div>
-
-      {/* Pipeline stats */}
-      <div className="section-label mb-3">Pipeline</div>
-      <div className="grid grid-cols-5 gap-3 mb-6">
-        {[
-          { num: p.icp, label: 'ICP leads', cls: 'text-accent' },
-          { num: p.dm_sent, label: 'DMs sent', cls: 'text-green' },
-          { num: p.replied, label: 'Replies', cls: 'text-orange' },
-          { num: p.converted, label: 'Meetings', cls: 'text-accent' },
-          { num: p.scraped, label: 'Scraped', cls: 'text-ink-3' },
-        ].map((s) => (
-          <div key={s.label} className="bg-white border border-rule rounded-[var(--radius-sm)] py-3 px-2 text-center">
-            <div className={`font-head text-xl font-bold ${s.cls}`}>{s.num}</div>
-            <div className="text-[10px] text-ink-4 mt-0.5">{s.label}</div>
+      ) : (
+        <div className="text-center py-12 text-ink-4">
+          <div className="text-sm mb-2">No recent posts from your watch list</div>
+          <div className="text-xs">Add more people above, or check back later</div>
+          <div className="mt-4">
+            <Link href="/find-leads" className="btn-outline">Search for posts manually →</Link>
           </div>
-        ))}
-      </div>
-
-      {p.icp > 0 && (
-        <div className="text-center py-2">
-          <a href="/api/export-csv" className="text-xs text-accent font-semibold hover:underline">
-            Export {p.icp} ICP leads as Sales Nav CSV
-          </a>
         </div>
       )}
     </div>

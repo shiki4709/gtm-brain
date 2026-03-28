@@ -98,6 +98,21 @@ CREATE TABLE sb_insights (
   generated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Watch list
+CREATE TABLE sb_watchlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES sb_users(id),
+  platform TEXT NOT NULL,
+  -- platform: 'linkedin' | 'x'
+  username TEXT NOT NULL,
+  display_name TEXT,
+  headline TEXT,
+  profile_url TEXT,
+  last_checked TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, platform, username)
+);
+
 -- Content classification tags (per-platform brain)
 CREATE TABLE sb_content_tags (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -130,3 +145,4 @@ CREATE INDEX idx_insights_user ON sb_insights(user_id);
 CREATE INDEX idx_insights_type ON sb_insights(insight_type);
 CREATE INDEX idx_content_tags_user ON sb_content_tags(user_id);
 CREATE INDEX idx_content_tags_platform ON sb_content_tags(platform);
+CREATE INDEX idx_watchlist_user ON sb_watchlist(user_id);
