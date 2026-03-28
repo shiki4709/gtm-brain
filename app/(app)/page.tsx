@@ -24,6 +24,15 @@ interface LinkedInInsights {
   topics?: Array<{ topic: string; avg_icp_rate: number }>
 }
 
+interface RoiData {
+  avg_icp_rate: number
+  dm_reply_rate: number
+  meeting_rate: number
+  topic_rates: Record<string, number>
+  avg_reply_likes: number
+  confidence: 'benchmark' | 'low' | 'medium' | 'high'
+}
+
 interface TaskState {
   [url: string]: 'done' | 'skipped'
 }
@@ -38,6 +47,7 @@ export default function WatchlistFeed() {
   const [addPlatform, setAddPlatform] = useState<'linkedin' | 'x'>('linkedin')
   const [adding, setAdding] = useState(false)
   const [tasks, setTasks] = useState<TaskState>({})
+  const [roi, setRoi] = useState<RoiData | null>(null)
 
   // Draft reply state
   const [draftingUrl, setDraftingUrl] = useState<string | null>(null)
@@ -48,7 +58,9 @@ export default function WatchlistFeed() {
     Promise.all([
       fetch('/api/watchlist').then(r => r.json()),
       fetch('/api/insights/linkedin').then(r => r.json()),
-    ]).then(([wlJson, liJson]) => {
+      fetch('/api/insights/roi').then(r => r.json()),
+    ]).then(([wlJson, liJson, roiJson]) => {
+      if (roiJson.success) setRoi(roiJson.data)
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
       if (liJson.success) setInsights(liJson.data)
       if (wlJson.data?.length > 0) fetchFeed()
@@ -147,6 +159,45 @@ export default function WatchlistFeed() {
       delete next[url]
       return next
     })
+  }
+
+  // Calculate ROI estimates for a post
+  function getEstimatedROI(item: FeedItem) {
+    const likes = item.engagement?.likes ?? 0
+    const comments = item.engagement?.replies ?? 0
+    const rts = item.engagement?.retweets ?? 0
+    const totalEngagement = likes + comments + rts
+    const r = roi ?? { avg_icp_rate: 0.15, dm_reply_rate: 0.12, meeting_rate: 0.25, topic_rates: {}, avg_reply_likes: 0, confidence: 'benchmark' as const }
+    const prefix = r.confidence === 'benchmark' ? '~' : ''
+
+    // Check for topic-specific rate
+    const textLower = item.text.toLowerCase()
+    let icpRate = r.avg_icp_rate
+    for (const [topic, rate] of Object.entries(r.topic_rates)) {
+      if (textLower.includes(topic)) { icpRate = rate; break }
+    }
+
+    // SCRAPE ROI
+    const estIcpLeads = Math.round(totalEngagement * icpRate)
+    const estReplies = Math.round(estIcpLeads * r.dm_reply_rate * 10) / 10
+    const estMeetings = Math.round(estReplies * r.meeting_rate * 10) / 10
+
+    // REPLY ROI
+    const threadVisibility = likes + comments + (rts * 3)
+    const replyImpressions = Math.round(threadVisibility * 0.15)
+    const estFollowers = Math.round(replyImpressions * 0.02 * 10) / 10
+
+    // CONTENT ROI
+    const estContentEngagers = 50 // benchmark: avg engagers on a repurposed post
+    const estInboundLeads = Math.round(estContentEngagers * icpRate)
+
+    return {
+      scrape: { icpLeads: estIcpLeads, replies: estReplies, meetings: estMeetings },
+      reply: { impressions: replyImpressions, followers: estFollowers },
+      content: { inboundLeads: estInboundLeads, icpRate: Math.round(icpRate * 100) },
+      prefix,
+      confidence: r.confidence,
+    }
   }
 
   // Calculate engagement velocity: engagement per hour since posted
@@ -456,7 +507,32 @@ export default function WatchlistFeed() {
                         </div>
                       )}
                       <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
-                      <div className="text-[11px] text-accent leading-relaxed mb-3">→ {rec.reason}</div>
+
+                      {/* ROI estimates */}
+                      {(() => {
+                        const est = getEstimatedROI(item)
+                        const p = est.prefix
+                        return (
+                          <div className="grid grid-cols-3 gap-2 mb-3 text-[11px]">
+                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
+                              <div className="font-semibold text-accent">Scrape</div>
+                              <div className="text-ink-2">{p}{est.scrape.icpLeads} ICP leads</div>
+                              {est.scrape.replies > 0 && <div className="text-ink-4">{p}{est.scrape.replies} replies → {p}{est.scrape.meetings} meetings</div>}
+                            </div>
+                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
+                              <div className="font-semibold text-accent">Reply</div>
+                              <div className="text-ink-2">{p}{est.reply.impressions} impressions</div>
+                              <div className="text-ink-4">{p}{est.reply.followers} followers</div>
+                            </div>
+                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
+                              <div className="font-semibold text-accent">Content</div>
+                              <div className="text-ink-2">{p}{est.content.inboundLeads} inbound leads</div>
+                              <div className="text-ink-4">{est.content.icpRate}% ICP topic</div>
+                            </div>
+                          </div>
+                        )
+                      })()}
+
                       <div className="flex flex-wrap gap-2">
                         {rec.actions.map((a, j) => {
                           if (a.type === 'scrape') return (
@@ -570,7 +646,31 @@ export default function WatchlistFeed() {
                           <span>{item.engagement.retweets} RTs</span>
                         </div>
                       )}
-                      <div className="text-[11px] leading-relaxed mb-3" style={{ color: 'var(--accent-orange)' }}>→ {rec.reason}</div>
+
+                      {/* ROI estimates */}
+                      {(() => {
+                        const est = getEstimatedROI(item)
+                        const p = est.prefix
+                        return (
+                          <div className="grid grid-cols-3 gap-2 mb-3 text-[11px]">
+                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
+                              <div className="font-semibold" style={{ color: 'var(--accent-orange)' }}>Reply</div>
+                              <div className="text-ink-2">{p}{est.reply.impressions} impressions</div>
+                              <div className="text-ink-4">{p}{est.reply.followers} followers</div>
+                            </div>
+                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
+                              <div className="font-semibold" style={{ color: 'var(--accent-orange)' }}>Scrape</div>
+                              <div className="text-ink-2">{p}{est.scrape.icpLeads} ICP leads</div>
+                              {est.scrape.replies > 0 && <div className="text-ink-4">{p}{est.scrape.replies} replies</div>}
+                            </div>
+                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
+                              <div className="font-semibold" style={{ color: 'var(--accent-orange)' }}>Content</div>
+                              <div className="text-ink-2">{p}{est.content.inboundLeads} inbound leads</div>
+                              <div className="text-ink-4">{est.content.icpRate}% ICP topic</div>
+                            </div>
+                          </div>
+                        )
+                      })()}
                       <div className="flex flex-wrap gap-2">
                         {rec.actions.map((a, j) => {
                           if (a.type === 'reply') return (
