@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, DM_Sans } from "next/font/google";
-import AppShell from "@/components/app-shell";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -32,7 +31,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <a href="#main-content" className="skip-link">Skip to content</a>
-        <AppShell>{children}</AppShell>
+        {children}
       </body>
     </html>
   );
