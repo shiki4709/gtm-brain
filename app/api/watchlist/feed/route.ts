@@ -53,16 +53,19 @@ export async function GET() {
         const posts = await resp.json() as Array<Record<string, unknown>>
 
         for (const post of posts) {
-          const postUrl = (post.postUrl as string) ?? (post.url as string) ?? ''
-          const postText = (post.text as string) ?? (post.postText as string) ?? ''
-          const postDate = (post.postedAt as string) ?? (post.date as string) ?? ''
+          // Actual Apify response field mapping
+          const postUrl = (post.linkedinUrl as string) ?? ''
+          const postText = (post.content as string) ?? ''
+          const postedAt = post.postedAt as Record<string, unknown> | null
+          const author = post.author as Record<string, unknown> | null
+          const engagement = post.engagement as Record<string, number> | null
 
-          // Filter by date — use postedAt field or activity ID
+          // Extract date from postedAt.timestamp or activity ID
           let postTimestamp = 0
-          if (postDate) {
-            postTimestamp = new Date(postDate).getTime()
+          if (postedAt?.timestamp) {
+            postTimestamp = postedAt.timestamp as number
           }
-          if (postTimestamp === 0 || isNaN(postTimestamp)) {
+          if (postTimestamp === 0) {
             const actMatch = postUrl.match(/activity[- ](\d+)/)
             if (actMatch) {
               postTimestamp = Number(BigInt(actMatch[1]) >> BigInt(22))
@@ -71,19 +74,30 @@ export async function GET() {
 
           if (postTimestamp > 0 && postTimestamp < thirtyDaysAgo) continue
 
+          // Update display name from Apify response if available
+          const authorName = (author?.name as string) ?? profile.display_name ?? profile.username
+
           items.push({
             platform: 'linkedin',
-            author: profile.display_name ?? profile.username,
+            author: authorName,
             authorHandle: profile.username,
-            text: postText.substring(0, 200),
+            text: postText.substring(0, 300),
             url: postUrl || profileUrl,
             time: postTimestamp > 0 ? new Date(postTimestamp).toISOString() : '',
             engagement: {
-              likes: (post.numLikes as number) ?? (post.reactions as number) ?? 0,
-              replies: (post.numComments as number) ?? (post.comments as number) ?? 0,
-              retweets: (post.numShares as number) ?? (post.shares as number) ?? 0,
+              likes: engagement?.likes ?? 0,
+              replies: engagement?.comments ?? 0,
+              retweets: engagement?.shares ?? 0,
             },
           })
+
+          // Update display name in watchlist if we got a real name
+          if (author?.name && author.name !== profile.display_name) {
+            auth.sb.from('sb_watchlist').update({
+              display_name: author.name as string,
+              headline: (author.info as string) ?? undefined,
+            }).eq('id', profile.id).then(() => {})
+          }
         }
       } catch {
         // Skip failed profile — Apify timeout or error
