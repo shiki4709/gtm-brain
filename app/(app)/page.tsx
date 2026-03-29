@@ -49,6 +49,7 @@ export default function WatchlistFeed() {
   const [tasks, setTasks] = useState<TaskState>({})
   const [roi, setRoi] = useState<RoiData | null>(null)
   const [watchSuggestions, setWatchSuggestions] = useState<Array<{ platform: string; username: string; name: string; reason: string }>>([])
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
 
   // Draft reply state
   const [draftingUrl, setDraftingUrl] = useState<string | null>(null)
@@ -68,9 +69,10 @@ export default function WatchlistFeed() {
         fetchFeed()
       } else {
         // No watchlist — fetch suggestions
+        setLoadingSuggestions(true)
         fetch('/api/suggest-watchlist').then(r => r.json()).then(json => {
           if (json.success && json.suggestions) setWatchSuggestions(json.suggestions)
-        }).catch(() => {})
+        }).catch(() => {}).finally(() => setLoadingSuggestions(false))
       }
     }).catch(() => {}).finally(() => setLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -415,6 +417,9 @@ export default function WatchlistFeed() {
         </div>
 
         {/* AI suggestions */}
+        {loadingSuggestions && (
+          <div className="text-xs text-ink-4 mb-4 text-center">Finding creators your ICP follows...</div>
+        )}
         {watchSuggestions.length > 0 && (
           <div className="mb-6">
             <div className="section-label mb-3">Suggested for your ICP</div>
