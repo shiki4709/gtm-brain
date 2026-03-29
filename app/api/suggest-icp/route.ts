@@ -69,9 +69,10 @@ Rules:
         }
       } catch { /* parse failed */ }
 
-      return NextResponse.json({ questions: [] })
-    } catch {
-      return NextResponse.json({ questions: [] })
+      return NextResponse.json({ questions: [], debug: 'parse_failed', raw: text.slice(0, 200) })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'unknown'
+      return NextResponse.json({ questions: [], debug: 'catch', error: msg })
     }
   }
 
