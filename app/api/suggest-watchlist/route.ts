@@ -19,8 +19,8 @@ export async function GET() {
 
 Suggest 4 LinkedIn influencers and 3 X/Twitter accounts that these buyers follow. Real, well-known thought leaders whose audiences contain these buyer personas.
 
-For LinkedIn: profile URL slug (after linkedin.com/in/)
-For X: handle (without @)
+For LinkedIn: EXACT profile URL slug as it appears after linkedin.com/in/ (e.g. "mark-roberge" not "markroberge"). Get this right — wrong slugs break the link.
+For X: EXACT handle (without @)
 
 Rules:
 - Only REAL people with active accounts

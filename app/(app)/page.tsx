@@ -364,16 +364,15 @@ export default function WatchlistFeed() {
     return { actions, reason: `Low engagement (${totalEngagement}). Not worth scraping or replying. The topic might inspire your own post.` }
   }
 
-  function profileUrl(platform: string, username: string, name: string): string {
-    // LinkedIn slugs from AI are unreliable — use search by name instead
+  function profileUrl(platform: string, username: string): string {
     return platform === 'linkedin'
-      ? `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(name)}`
+      ? `https://www.linkedin.com/in/${username}`
       : `https://x.com/${username}`
   }
 
   function renderSuggestionCard(s: { platform: string; username: string; name: string; reason: string; headline?: string; followers?: number }, i: number) {
     const isAdding = watchingInProgress === s.username
-    const url = profileUrl(s.platform, s.username, s.name)
+    const url = profileUrl(s.platform, s.username)
     return (
       <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
         <div className="flex-1 min-w-0">
