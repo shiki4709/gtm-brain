@@ -26,9 +26,11 @@ Rules:
 - Only REAL people with active accounts
 - Content attracts the specified buyer titles
 - Keep reasons SHORT (under 10 words)
+- Include their headline (one-liner about them, under 15 words)
+- Include approximate follower/connection count as a number
 - Output ONLY a JSON array, nothing else
 
-Format: [{"platform":"linkedin","username":"markroberge","name":"Mark Roberge","reason":"Sales leadership content"},{"platform":"x","username":"GergelyOrosz","name":"Gergely Orosz","reason":"Engineering leadership"}]`
+Format: [{"platform":"linkedin","username":"markroberge","name":"Mark Roberge","reason":"Sales leadership content","headline":"Former HubSpot CRO, Managing Director at Stage 2 Capital","followers":45000},{"platform":"x","username":"GergelyOrosz","name":"Gergely Orosz","reason":"Engineering leadership","headline":"Author of The Pragmatic Engineer newsletter","followers":120000}]`
 
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -48,7 +50,7 @@ Format: [{"platform":"linkedin","username":"markroberge","name":"Mark Roberge","
     if (!resp.ok) {
       const errText = await resp.text()
       console.error('Watchlist suggest API error:', resp.status, errText.slice(0, 200))
-      return NextResponse.json({ success: true, suggestions: [], debug: `api_error_${resp.status}` })
+      return NextResponse.json({ success: true, suggestions: [] })
     }
 
     const result = await resp.json()
@@ -60,12 +62,11 @@ Format: [{"platform":"linkedin","username":"markroberge","name":"Mark Roberge","
       if (Array.isArray(suggestions)) {
         return NextResponse.json({ success: true, suggestions: suggestions.slice(0, 10) })
       }
-      return NextResponse.json({ success: true, suggestions: [], debug: 'not_array' })
+      return NextResponse.json({ success: true, suggestions: [] })
     } catch {
-      return NextResponse.json({ success: true, suggestions: [], debug: 'parse_failed', raw: text.slice(0, 300) })
+      return NextResponse.json({ success: true, suggestions: [] })
     }
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'unknown'
-    return NextResponse.json({ success: true, suggestions: [], debug: 'catch', error: msg })
+  } catch {
+    return NextResponse.json({ success: true, suggestions: [] })
   }
 }

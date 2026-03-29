@@ -48,8 +48,9 @@ export default function WatchlistFeed() {
   const [adding, setAdding] = useState(false)
   const [tasks, setTasks] = useState<TaskState>({})
   const [roi, setRoi] = useState<RoiData | null>(null)
-  const [watchSuggestions, setWatchSuggestions] = useState<Array<{ platform: string; username: string; name: string; reason: string }>>([])
+  const [watchSuggestions, setWatchSuggestions] = useState<Array<{ platform: string; username: string; name: string; reason: string; headline?: string; followers?: number }>>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [watchingInProgress, setWatchingInProgress] = useState<string | null>(null) // username being added
 
   // Draft reply state
   const [draftingUrl, setDraftingUrl] = useState<string | null>(null)
@@ -113,7 +114,7 @@ export default function WatchlistFeed() {
       if (json.success && json.data) {
         setWatchlist(prev => [json.data, ...prev.filter(w => w.id !== json.data.id)])
         setAddInput('')
-        fetchFeed()
+        fetchFeed(true)
       }
     } catch { /* silently fail */ }
     finally { setAdding(false) }
@@ -427,38 +428,53 @@ export default function WatchlistFeed() {
           <div className="mb-6">
             <div className="section-label mb-3">Suggested for your ICP</div>
             <div className="flex flex-col gap-2">
-              {watchSuggestions.map((s, i) => (
-                <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full ${s.platform === 'linkedin' ? 'bg-accent' : ''}`}
-                        style={s.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
-                      <span className="font-head text-sm font-semibold text-ink">
-                        {s.platform === 'x' ? '@' : ''}{s.name}
-                      </span>
+              {watchSuggestions.map((s, i) => {
+                const isAdding = watchingInProgress === s.username
+                return (
+                  <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.platform === 'linkedin' ? 'bg-accent' : ''}`}
+                          style={s.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
+                        <span className="font-head text-sm font-semibold text-ink">
+                          {s.platform === 'x' ? '@' : ''}{s.name}
+                        </span>
+                        {s.followers && s.followers > 0 && (
+                          <span className="text-[10px] text-ink-4">{s.followers >= 1000 ? `${Math.round(s.followers / 1000)}K` : s.followers}</span>
+                        )}
+                      </div>
+                      {s.headline && (
+                        <div className="text-[11px] text-ink-3 ml-[14px] truncate">{s.headline}</div>
+                      )}
+                      <div className="text-[11px] text-ink-4 ml-[14px]">{s.reason}</div>
                     </div>
-                    <div className="text-[11px] text-ink-4 ml-[14px]">{s.reason}</div>
+                    <button
+                      className="btn-accent shrink-0 ml-3"
+                      disabled={isAdding}
+                      onClick={async () => {
+                        setWatchingInProgress(s.username)
+                        try {
+                          const res = await fetch('/api/watchlist', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ platform: s.platform, username: s.username, display_name: s.name }),
+                          })
+                          const json = await res.json()
+                          if (json.success && json.data) {
+                            setWatchlist(prev => [json.data, ...prev])
+                            setWatchSuggestions(prev => prev.filter((_, j) => j !== i))
+                            fetchFeed(true)
+                          }
+                        } finally {
+                          setWatchingInProgress(null)
+                        }
+                      }}
+                    >
+                      {isAdding ? 'Loading...' : '+ Watch'}
+                    </button>
                   </div>
-                  <button
-                    className="btn-accent"
-                    onClick={async () => {
-                      const res = await fetch('/api/watchlist', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ platform: s.platform, username: s.username, display_name: s.name }),
-                      })
-                      const json = await res.json()
-                      if (json.success && json.data) {
-                        setWatchlist(prev => [json.data, ...prev])
-                        setWatchSuggestions(prev => prev.filter((_, j) => j !== i))
-                        if (watchlist.length === 0) fetchFeed()
-                      }
-                    }}
-                  >
-                    + Watch
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
@@ -510,7 +526,10 @@ export default function WatchlistFeed() {
       </div>
 
       {loadingFeed ? (
-        <div className="text-sm text-ink-4 py-8 text-center">Loading your tasks...</div>
+        <div className="text-sm text-ink-4 py-8 text-center">
+          <div className="mb-1">Loading posts from your watchlist...</div>
+          <div className="text-[11px]">This can take 10-30 seconds (fetching from LinkedIn & X)</div>
+        </div>
       ) : (
         <>
           {/* ═══ LINKEDIN TASKS ═══ */}
@@ -620,7 +639,7 @@ export default function WatchlistFeed() {
                 })}
               </div>
             ) : linkedinWatchlist.length > 0 ? (
-              <div className="text-center py-6 text-xs text-ink-4">No new LinkedIn posts. Check back later.</div>
+              <div className="text-center py-6 text-xs text-ink-4">No posts found in the last 30 days. They might not post often — try watching someone more active.</div>
             ) : (
               <div className="border border-dashed border-rule rounded-[var(--radius)] p-4 text-center">
                 <div className="text-xs text-ink-4 mb-2">Add LinkedIn profiles to watch</div>
@@ -771,7 +790,7 @@ export default function WatchlistFeed() {
                 })}
               </div>
             ) : xWatchlist.length > 0 ? (
-              <div className="text-center py-6 text-xs text-ink-4">No new tweets. Check back later.</div>
+              <div className="text-center py-6 text-xs text-ink-4">No recent tweets found. The handle might be wrong or they haven&apos;t posted recently. Try removing and re-adding with the correct handle.</div>
             ) : (
               <div className="border border-dashed border-rule rounded-[var(--radius)] p-4 text-center">
                 <div className="text-xs text-ink-4 mb-2">Add X accounts to watch</div>

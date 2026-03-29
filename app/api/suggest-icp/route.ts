@@ -15,8 +15,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'API key not configured', questions: [], titles: [] }, { status: 400 })
   }
 
-  console.log('suggest-icp called:', { mode, problem: problem.slice(0, 50), hasKey: !!apiKey })
-
   // MODE 1: Generate clarifying questions
   if (mode === 'clarify') {
     const prompt = `A founder is setting up a GTM tool. They described their product as:
@@ -71,9 +69,8 @@ Rules:
       } catch { /* parse failed */ }
 
       return NextResponse.json({ questions: [] })
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'unknown'
-      return NextResponse.json({ questions: [], debug: 'catch', error: msg })
+    } catch {
+      return NextResponse.json({ questions: [] })
     }
   }
 
