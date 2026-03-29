@@ -420,6 +420,9 @@ export default function WatchlistFeed() {
         {loadingSuggestions && (
           <div className="text-xs text-ink-4 mb-4 text-center">Finding creators your ICP follows...</div>
         )}
+        {!loadingSuggestions && watchSuggestions.length === 0 && watchlist.length === 0 && (
+          <div className="text-xs text-ink-4 mb-4 text-center">No suggestions yet — try refreshing the page</div>
+        )}
         {watchSuggestions.length > 0 && (
           <div className="mb-6">
             <div className="section-label mb-3">Suggested for your ICP</div>

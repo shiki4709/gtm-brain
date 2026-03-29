@@ -45,7 +45,11 @@ Format: [{"platform":"linkedin","username":"markroberge","name":"Mark Roberge","
       }),
     })
 
-    if (!resp.ok) return NextResponse.json({ success: true, suggestions: [] })
+    if (!resp.ok) {
+      const errText = await resp.text()
+      console.error('Watchlist suggest API error:', resp.status, errText.slice(0, 200))
+      return NextResponse.json({ success: true, suggestions: [], debug: `api_error_${resp.status}` })
+    }
 
     const result = await resp.json()
     const rawText: string = result.content?.[0]?.text ?? ''
@@ -56,10 +60,12 @@ Format: [{"platform":"linkedin","username":"markroberge","name":"Mark Roberge","
       if (Array.isArray(suggestions)) {
         return NextResponse.json({ success: true, suggestions: suggestions.slice(0, 10) })
       }
-    } catch { /* parse failed */ }
-
-    return NextResponse.json({ success: true, suggestions: [] })
-  } catch {
-    return NextResponse.json({ success: true, suggestions: [] })
+      return NextResponse.json({ success: true, suggestions: [], debug: 'not_array' })
+    } catch {
+      return NextResponse.json({ success: true, suggestions: [], debug: 'parse_failed', raw: text.slice(0, 300) })
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'unknown'
+    return NextResponse.json({ success: true, suggestions: [], debug: 'catch', error: msg })
   }
 }
