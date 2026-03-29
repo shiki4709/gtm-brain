@@ -16,9 +16,8 @@ export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inb
   const path = usePathname()
 
   const tabs = [
-    { href: '/', label: 'Brain', badge: 0, dot: true },
-    { href: '/find-leads', label: 'Find Leads', badge: outboundBadge, dot: false },
-    { href: '/build-presence', label: 'Build Presence', badge: inboundBadge, dot: false },
+    { href: '/', label: 'Feed', badge: 0, dot: true },
+    { href: '/find-leads', label: 'Leads', badge: outboundBadge, dot: false },
   ]
 
   return (

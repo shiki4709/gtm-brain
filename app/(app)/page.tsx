@@ -37,11 +37,9 @@ interface TaskState {
   [url: string]: 'done' | 'skipped'
 }
 
-type BrainTab = 'people' | 'actions'
-
 export default function WatchlistFeed() {
-  const [tab, setTab] = useState<BrainTab>('actions')
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null) // username to drill into
+  const [showPeople, setShowPeople] = useState(false) // collapsible people section
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [insights, setInsights] = useState<LinkedInInsights | null>(null)
@@ -545,7 +543,6 @@ export default function WatchlistFeed() {
 
   // ═══ RETURNING USER ═══
 
-  // People tab: per-person drill-down
   function matchesPerson(f: FeedItem, username: string, displayName?: string): boolean {
     const u = username.toLowerCase()
     return f.authorHandle.toLowerCase() === u
@@ -560,233 +557,197 @@ export default function WatchlistFeed() {
     ? watchlist.find(w => w.username === selectedPerson || w.display_name === selectedPerson)
     : null
 
-  return (
-    <div className="max-w-2xl mx-auto">
-      {/* Tab switcher */}
-      <div className="flex items-center gap-0 mb-5 border-b border-rule">
-        {([['actions', 'Actions'], ['people', 'People']] as const).map(([key, label]) => {
-          const isActive = tab === key
-          const count = key === 'actions'
-            ? feed.filter(f => !tasks[f.url]).length
-            : watchlist.length
-          return (
-            <button
-              key={key}
-              onClick={() => { setTab(key); setSelectedPerson(null) }}
-              className={`font-head text-sm font-semibold px-5 py-3 border-b-[2.5px] transition-colors flex items-center gap-1.5 ${
-                isActive ? 'text-ink border-accent' : 'text-ink-4 border-transparent hover:text-ink-3'
-              }`}
-            >
-              {label}
-              {count > 0 && <span className="badge-count">{count}</span>}
-            </button>
-          )
-        })}
-        <div className="ml-auto flex gap-2 pb-2">
-          <button onClick={() => fetchFeed(true)} disabled={loadingFeed} className="btn-outline text-xs" title="Refresh feed">
-            {loadingFeed ? '...' : '↻'}
-          </button>
-        </div>
-      </div>
-
-      {/* ═══ PEOPLE TAB ═══ */}
-      {tab === 'people' && !selectedPerson && (
-        <>
-          {/* Add input */}
-          <div className="flex gap-2 mb-6">
-            <input
-              type="text"
-              value={addInput}
-              onChange={e => setAddInput(e.target.value)}
-              placeholder="Watch someone: LinkedIn URL or @handle..."
-              className="input flex-1 py-2 px-3 text-sm"
-              onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
-            />
-            <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
-              {adding ? '...' : '+ Watch'}
-            </button>
-          </div>
-
-          {/* Suggestions */}
-          {watchSuggestions.length > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="section-label">Suggested for your ICP</div>
-                <span className="text-[10px] text-ink-4">AI-generated — verify before watching</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                {watchSuggestions.map((s, i) => renderSuggestionCard(s, i))}
-              </div>
-            </div>
+  // ═══ PERSON DRILL-DOWN VIEW ═══
+  if (selectedPerson) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <button onClick={() => setSelectedPerson(null)} className="text-xs text-ink-4 hover:text-ink mb-4">
+          ← Back to feed
+        </button>
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`w-2.5 h-2.5 rounded-full ${selectedEntry?.platform === 'linkedin' ? 'bg-accent' : ''}`}
+            style={selectedEntry?.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
+          <h2 className="font-head text-lg font-bold text-ink">
+            {selectedEntry?.platform === 'x' ? '@' : ''}{selectedEntry?.display_name ?? selectedPerson}
+          </h2>
+          {selectedEntry && (
+            <a href={selectedEntry.profile_url} target="_blank" rel="noopener noreferrer"
+              className="text-[11px] text-accent hover:underline">
+              View profile
+            </a>
           )}
+        </div>
 
-          {/* People list */}
-          <div className="section-label mb-3">Watching ({watchlist.length})</div>
-          <div className="flex flex-col gap-2">
-            {watchlist.map(w => {
-              const postCount = feed.filter(f => matchesPerson(f, w.username, w.display_name)).length
-              const unactedCount = feed.filter(f => matchesPerson(f, w.username, w.display_name) && !tasks[f.url]).length
+        {personFeed.length === 0 ? (
+          <div className="text-center py-8 text-xs text-ink-4">
+            No recent posts found. They might not post often.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {personFeed.map((item, i) => {
+              const isDone = !!tasks[item.url]
+              const rec = getRecommendation(item)
               return (
-                <div key={w.id} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
-                  <button
-                    className="flex-1 text-left flex items-center gap-3"
-                    onClick={() => setSelectedPerson(w.username)}
-                  >
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${w.platform === 'linkedin' ? 'bg-accent' : ''}`}
-                      style={w.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-head text-sm font-semibold text-ink">
-                          {w.platform === 'x' ? '@' : ''}{w.display_name ?? w.username}
-                        </span>
-                        <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                          w.platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
-                        }`} style={w.platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
-                          {w.platform === 'linkedin' ? 'LinkedIn' : 'X'}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-ink-4">
-                        {postCount > 0
-                          ? `${postCount} posts · ${unactedCount > 0 ? `${unactedCount} new` : 'all reviewed'}`
-                          : 'No recent posts'}
+                <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${isDone ? 'border-rule opacity-60' : rec.actions[0]?.priority === 'high' ? 'border-accent' : 'border-rule'}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[11px] text-ink-4">{timeAgo(item.time)}</span>
+                    {isDone && <span className="text-[10px] text-green-600 font-semibold">{tasks[item.url] === 'done' ? 'Done' : 'Skipped'}</span>}
+                    {!isDone && rec.actions[0]?.priority === 'high' && (
+                      <span className="text-[10px] text-accent font-bold uppercase tracking-wider">High priority</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
+                  {item.engagement && (
+                    <div className="flex gap-3 text-[11px] text-ink-4 mb-2">
+                      {(item.engagement.likes ?? 0) > 0 && <span>{item.engagement.likes} likes</span>}
+                      {(item.engagement.replies ?? 0) > 0 && <span className="font-semibold text-accent">{item.engagement.replies} comments</span>}
+                      {(item.engagement.retweets ?? 0) > 0 && <span>{item.engagement.retweets} {item.platform === 'linkedin' ? 'shares' : 'RTs'}</span>}
+                    </div>
+                  )}
+                  {!isDone && (
+                    <div className="flex flex-wrap gap-2">
+                      {rec.actions.map((a, j) => {
+                        if (a.type === 'scrape') return (
+                          <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
+                            className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}
+                            onClick={() => markDone(item.url, a.type)}>
+                            {a.label}
+                          </Link>
+                        )
+                        if (a.type === 'reply') return (
+                          <button key={j} onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}
+                            className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}>
+                            {draftingUrl === item.url ? 'Drafting...' : a.label}
+                          </button>
+                        )
+                        if (a.type === 'content') return (
+                          <button key={j} className="btn-outline" onClick={() => markDone(item.url, a.type)}>
+                            {a.label}
+                          </button>
+                        )
+                        if (a.type === 'skip') return (
+                          <button key={j} onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink">Skip</button>
+                        )
+                        return null
+                      })}
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">View post</a>
+                      {!rec.actions.find(a => a.type === 'skip') && (
+                        <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
+                      )}
+                    </div>
+                  )}
+                  {isDone && (
+                    <button onClick={() => undoTask(item.url)} className="text-[10px] text-ink-4 hover:text-ink">Undo</button>
+                  )}
+                  {draftReplies[item.url] && (
+                    <div className="mt-3 pt-3 border-t border-rule-light">
+                      <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">{draftReplies[item.url]}</div>
+                      <div className="flex gap-2">
+                        <button className="btn-primary" onClick={() => { copyAndOpen(draftReplies[item.url], item.url); markDone(item.url, 'reply') }}>
+                          {copied === item.url ? 'Copied' : 'Copy & Open'}
+                        </button>
+                        <button className="btn-outline" onClick={() => handleDraftReply(item)}>Rewrite</button>
                       </div>
                     </div>
-                  </button>
-                  <div className="flex items-center gap-2">
-                    {unactedCount > 0 && (
-                      <span className="badge-count">{unactedCount}</span>
-                    )}
-                    <button onClick={() => removeFromWatchlist(w.id)} className="text-[11px] text-ink-4 hover:text-ink">×</button>
-                  </div>
+                  )}
                 </div>
               )
             })}
           </div>
+        )}
+      </div>
+    )
+  }
 
-          {watchlist.length === 0 && (
-            <div className="text-center py-8 text-xs text-ink-4">
-              No one watched yet. Add a LinkedIn URL or @handle above.
+  return (
+    <div className="max-w-2xl mx-auto">
+      {/* ═══ PEOPLE SECTION (collapsible) ═══ */}
+      <div className="mb-6">
+        <button
+          onClick={() => setShowPeople(!showPeople)}
+          className="flex items-center gap-2 w-full text-left mb-3"
+        >
+          <span className="text-[11px] text-ink-4">{showPeople ? '▼' : '▶'}</span>
+          <span className="section-label">Watching ({watchlist.length})</span>
+          {!showPeople && watchlist.length > 0 && (
+            <div className="flex gap-1 ml-1">
+              {watchlist.slice(0, 5).map(w => (
+                <span key={w.id} className="text-[10px] text-ink-4 px-2 py-0.5 bg-[var(--rule-light)] rounded-full">
+                  {w.platform === 'x' ? '@' : ''}{w.display_name ?? w.username}
+                </span>
+              ))}
+              {watchlist.length > 5 && <span className="text-[10px] text-ink-4">+{watchlist.length - 5}</span>}
             </div>
           )}
-        </>
-      )}
+        </button>
 
-      {/* ═══ PEOPLE TAB — PERSON DRILL-DOWN ═══ */}
-      {tab === 'people' && selectedPerson && (
-        <>
-          <button onClick={() => setSelectedPerson(null)} className="text-xs text-ink-4 hover:text-ink mb-4">
-            ← Back to people
-          </button>
-          <div className="flex items-center gap-3 mb-4">
-            <div className={`w-2.5 h-2.5 rounded-full ${selectedEntry?.platform === 'linkedin' ? 'bg-accent' : ''}`}
-              style={selectedEntry?.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
-            <h2 className="font-head text-lg font-bold text-ink">
-              {selectedEntry?.platform === 'x' ? '@' : ''}{selectedEntry?.display_name ?? selectedPerson}
-            </h2>
-            {selectedEntry && (
-              <a href={selectedEntry.profile_url} target="_blank" rel="noopener noreferrer"
-                className="text-[11px] text-accent hover:underline">
-                View profile
-              </a>
-            )}
-          </div>
-
-          {personFeed.length === 0 ? (
-            <div className="text-center py-8 text-xs text-ink-4">
-              No recent posts found. They might not post often.
+        {showPeople && (
+          <>
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={addInput}
+                onChange={e => setAddInput(e.target.value)}
+                placeholder="LinkedIn URL or @handle..."
+                className="input flex-1 py-2 px-3 text-sm"
+                onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
+              />
+              <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
+                {adding ? '...' : '+ Watch'}
+              </button>
             </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {personFeed.map((item, i) => {
-                const isDone = !!tasks[item.url]
-                const rec = getRecommendation(item)
+
+            {/* Suggestions */}
+            {watchSuggestions.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] text-ink-4">AI suggestions — verify before watching</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {watchSuggestions.map((s, i) => renderSuggestionCard(s, i))}
+                </div>
+              </div>
+            )}
+
+            {/* People list */}
+            <div className="flex flex-col gap-1.5">
+              {watchlist.map(w => {
+                const postCount = feed.filter(f => matchesPerson(f, w.username, w.display_name)).length
+                const unactedCount = feed.filter(f => matchesPerson(f, w.username, w.display_name) && !tasks[f.url]).length
                 return (
-                  <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${isDone ? 'border-rule opacity-60' : rec.actions[0]?.priority === 'high' ? 'border-accent' : 'border-rule'}`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[11px] text-ink-4">{timeAgo(item.time)}</span>
-                      {isDone && <span className="text-[10px] text-green-600 font-semibold">{tasks[item.url] === 'done' ? 'Done' : 'Skipped'}</span>}
-                      {!isDone && rec.actions[0]?.priority === 'high' && (
-                        <span className="text-[10px] text-accent font-bold uppercase tracking-wider">High priority</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
-                    {item.engagement && (
-                      <div className="flex gap-3 text-[11px] text-ink-4 mb-2">
-                        {(item.engagement.likes ?? 0) > 0 && <span>{item.engagement.likes} likes</span>}
-                        {(item.engagement.replies ?? 0) > 0 && <span className="font-semibold text-accent">{item.engagement.replies} comments</span>}
-                        {(item.engagement.retweets ?? 0) > 0 && <span>{item.engagement.retweets} {item.platform === 'linkedin' ? 'shares' : 'RTs'}</span>}
-                      </div>
-                    )}
-                    {!isDone && (
-                      <div className="flex flex-wrap gap-2">
-                        {rec.actions.map((a, j) => {
-                          if (a.type === 'scrape') return (
-                            <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
-                              className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}
-                              onClick={() => markDone(item.url, a.type)}>
-                              {a.label}
-                            </Link>
-                          )
-                          if (a.type === 'reply') return (
-                            <button key={j} onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}
-                              className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}>
-                              {draftingUrl === item.url ? 'Drafting...' : a.label}
-                            </button>
-                          )
-                          if (a.type === 'content') return (
-                            <Link key={j} href={`/build-presence?topic=${encodeURIComponent(item.text.slice(0, 100))}`}
-                              className="btn-outline" onClick={() => markDone(item.url, a.type)}>
-                              {a.label}
-                            </Link>
-                          )
-                          if (a.type === 'skip') return (
-                            <button key={j} onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink">Skip</button>
-                          )
-                          return null
-                        })}
-                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">View post</a>
-                        {!rec.actions.find(a => a.type === 'skip') && (
-                          <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
-                        )}
-                      </div>
-                    )}
-                    {isDone && (
-                      <button onClick={() => undoTask(item.url)} className="text-[10px] text-ink-4 hover:text-ink">Undo</button>
-                    )}
-                    {draftReplies[item.url] && (
-                      <div className="mt-3 pt-3 border-t border-rule-light">
-                        <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">{draftReplies[item.url]}</div>
-                        <div className="flex gap-2">
-                          <button className="btn-primary" onClick={() => { copyAndOpen(draftReplies[item.url], item.url); markDone(item.url, 'reply') }}>
-                            {copied === item.url ? 'Copied' : 'Copy & Open'}
-                          </button>
-                          <button className="btn-outline" onClick={() => handleDraftReply(item)}>Rewrite</button>
-                        </div>
-                      </div>
-                    )}
+                  <div key={w.id} className="flex items-center gap-3 px-3 py-2 rounded-[var(--radius)] hover:bg-[var(--bg-warm)] transition-colors">
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${w.platform === 'linkedin' ? 'bg-accent' : ''}`}
+                      style={w.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
+                    <button
+                      className="flex-1 text-left min-w-0"
+                      onClick={() => setSelectedPerson(w.username)}
+                    >
+                      <span className="text-sm font-semibold text-ink hover:text-accent transition-colors">
+                        {w.platform === 'x' ? '@' : ''}{w.display_name ?? w.username}
+                      </span>
+                      <span className="text-[11px] text-ink-4 ml-2">
+                        {postCount > 0 ? `${unactedCount} new` : 'no posts'}
+                      </span>
+                    </button>
+                    {unactedCount > 0 && <span className="badge-count text-[9px]">{unactedCount}</span>}
+                    <button onClick={() => removeFromWatchlist(w.id)} className="text-[11px] text-ink-4 hover:text-ink shrink-0">×</button>
                   </div>
                 )
               })}
             </div>
-          )}
-        </>
-      )}
+          </>
+        )}
+      </div>
 
-      {/* ═══ ACTIONS TAB ═══ */}
-      {tab === 'actions' && (
-        <>
-      {/* Compact add + refresh */}
-      <div className="flex gap-2 mb-6">
-        <input
-          type="text"
-          value={addInput}
-          onChange={e => setAddInput(e.target.value)}
-          placeholder="Watch someone: LinkedIn URL or @handle..."
-          className="input flex-1 py-2 px-3 text-sm"
-          onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
-        />
-        <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
-          {adding ? '...' : '+ Watch'}
+      {/* ═══ FEED ═══ */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="section-label">
+          {feed.filter(f => !tasks[f.url]).length > 0
+            ? `${feed.filter(f => !tasks[f.url]).length} actions`
+            : 'No new actions'}
+        </div>
+        <button onClick={() => fetchFeed(true)} disabled={loadingFeed} className="btn-outline text-xs">
+          {loadingFeed ? '...' : '↻ Refresh'}
         </button>
       </div>
 
@@ -1083,8 +1044,6 @@ export default function WatchlistFeed() {
             )}
           </div>
         </>
-      )}
-      </>
       )}
     </div>
   )
