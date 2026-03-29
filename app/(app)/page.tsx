@@ -546,8 +546,15 @@ export default function WatchlistFeed() {
   // ═══ RETURNING USER ═══
 
   // People tab: per-person drill-down
+  function matchesPerson(f: FeedItem, username: string, displayName?: string): boolean {
+    const u = username.toLowerCase()
+    return f.authorHandle.toLowerCase() === u
+      || f.author.toLowerCase() === u
+      || (displayName ? f.author.toLowerCase() === displayName.toLowerCase() : false)
+  }
+
   const personFeed = selectedPerson
-    ? feed.filter(f => f.authorHandle === selectedPerson || f.author === selectedPerson)
+    ? feed.filter(f => matchesPerson(f, selectedPerson, watchlist.find(w => w.username === selectedPerson)?.display_name))
     : []
   const selectedEntry = selectedPerson
     ? watchlist.find(w => w.username === selectedPerson || w.display_name === selectedPerson)
@@ -617,8 +624,8 @@ export default function WatchlistFeed() {
           <div className="section-label mb-3">Watching ({watchlist.length})</div>
           <div className="flex flex-col gap-2">
             {watchlist.map(w => {
-              const postCount = feed.filter(f => f.authorHandle === w.username || f.author === w.display_name).length
-              const unactedCount = feed.filter(f => (f.authorHandle === w.username || f.author === w.display_name) && !tasks[f.url]).length
+              const postCount = feed.filter(f => matchesPerson(f, w.username, w.display_name)).length
+              const unactedCount = feed.filter(f => matchesPerson(f, w.username, w.display_name) && !tasks[f.url]).length
               return (
                 <div key={w.id} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
                   <button
