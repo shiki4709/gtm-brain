@@ -364,15 +364,20 @@ export default function WatchlistFeed() {
     return { actions, reason: `Low engagement (${totalEngagement}). Not worth scraping or replying. The topic might inspire your own post.` }
   }
 
-  function profileUrl(platform: string, username: string): string {
-    return platform === 'linkedin'
-      ? `https://www.linkedin.com/in/${username}`
-      : `https://x.com/${username}`
+  function profileUrl(platform: string, username: string, name: string, headline?: string): string {
+    if (platform === 'linkedin') {
+      // LinkedIn slugs are unreliable from AI — Google site-search always finds the right person
+      const query = headline
+        ? `${name} ${headline} site:linkedin.com/in`
+        : `${name} site:linkedin.com/in`
+      return `https://www.google.com/search?q=${encodeURIComponent(query)}`
+    }
+    return `https://x.com/${username}`
   }
 
   function renderSuggestionCard(s: { platform: string; username: string; name: string; reason: string; headline?: string; followers?: number }, i: number) {
     const isAdding = watchingInProgress === s.username
-    const url = profileUrl(s.platform, s.username)
+    const url = profileUrl(s.platform, s.username, s.name, s.headline)
     return (
       <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
         <div className="flex-1 min-w-0">
