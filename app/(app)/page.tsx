@@ -57,23 +57,28 @@ export default function WatchlistFeed() {
   const [draftReplies, setDraftReplies] = useState<Record<string, string>>({})
   const [copied, setCopied] = useState<string | null>(null)
 
+  function fetchSuggestions() {
+    setLoadingSuggestions(true)
+    fetch('/api/suggest-watchlist').then(r => r.json()).then(json => {
+      if (json.success && json.suggestions) setWatchSuggestions(json.suggestions)
+    }).catch(() => {}).finally(() => setLoadingSuggestions(false))
+  }
+
   useEffect(() => {
     Promise.all([
       fetch('/api/watchlist').then(r => r.json()),
       fetch('/api/insights/linkedin').then(r => r.json()),
       fetch('/api/insights/roi').then(r => r.json()),
-    ]).then(([wlJson, liJson, roiJson]) => {
+    ]).then(async ([wlJson, liJson, roiJson]) => {
       if (roiJson.success) setRoi(roiJson.data)
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
       if (liJson.success) setInsights(liJson.data)
       if (wlJson.data?.length > 0) {
-        fetchFeed()
+        await fetchFeed()
+        // If feed is empty after fetching, show suggestions to help user add better profiles
+        fetchSuggestions()
       } else {
-        // No watchlist — fetch suggestions
-        setLoadingSuggestions(true)
-        fetch('/api/suggest-watchlist').then(r => r.json()).then(json => {
-          if (json.success && json.suggestions) setWatchSuggestions(json.suggestions)
-        }).catch(() => {}).finally(() => setLoadingSuggestions(false))
+        fetchSuggestions()
       }
     }).catch(() => {}).finally(() => setLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -524,6 +529,62 @@ export default function WatchlistFeed() {
           {loadingFeed ? '...' : '↻'}
         </button>
       </div>
+
+      {/* Suggestions for returning users with empty/sparse feeds */}
+      {!loadingFeed && watchSuggestions.length > 0 && feed.length < 3 && (
+        <div className="mb-6">
+          <div className="section-label mb-3">Suggested for your ICP</div>
+          <div className="flex flex-col gap-2">
+            {watchSuggestions.map((s, i) => {
+              const isAdding = watchingInProgress === s.username
+              return (
+                <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.platform === 'linkedin' ? 'bg-accent' : ''}`}
+                        style={s.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
+                      <span className="font-head text-sm font-semibold text-ink">
+                        {s.platform === 'x' ? '@' : ''}{s.name}
+                      </span>
+                      {s.followers && s.followers > 0 && (
+                        <span className="text-[10px] text-ink-4">{s.followers >= 1000 ? `${Math.round(s.followers / 1000)}K` : s.followers}</span>
+                      )}
+                    </div>
+                    {s.headline && (
+                      <div className="text-[11px] text-ink-3 ml-[14px] truncate">{s.headline}</div>
+                    )}
+                    <div className="text-[11px] text-ink-4 ml-[14px]">{s.reason}</div>
+                  </div>
+                  <button
+                    className="btn-accent shrink-0 ml-3"
+                    disabled={isAdding}
+                    onClick={async () => {
+                      setWatchingInProgress(s.username)
+                      try {
+                        const res = await fetch('/api/watchlist', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ platform: s.platform, username: s.username, display_name: s.name }),
+                        })
+                        const json = await res.json()
+                        if (json.success && json.data) {
+                          setWatchlist(prev => [json.data, ...prev])
+                          setWatchSuggestions(prev => prev.filter((_, j) => j !== i))
+                          fetchFeed(true)
+                        }
+                      } finally {
+                        setWatchingInProgress(null)
+                      }
+                    }}
+                  >
+                    {isAdding ? 'Loading...' : '+ Watch'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {loadingFeed ? (
         <div className="text-sm text-ink-4 py-8 text-center">
