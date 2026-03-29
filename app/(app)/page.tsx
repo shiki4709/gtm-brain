@@ -364,31 +364,44 @@ export default function WatchlistFeed() {
     return { actions, reason: `Low engagement (${totalEngagement}). Not worth scraping or replying. The topic might inspire your own post.` }
   }
 
-  function profileUrl(platform: string, username: string, name: string): string {
-    if (platform === 'linkedin') {
-      return `https://www.google.com/search?q=${encodeURIComponent(`"${name}" linkedin`)}`
-    }
+  function profileUrl(platform: string, username: string): string {
     return `https://x.com/${username}`
+  }
+
+  function linkedinSearchUrl(name: string, headline?: string): string {
+    // Extract company/role from headline to disambiguate common names
+    const keywords = headline ? `${name} ${headline.split(',')[0]}` : name
+    return `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(keywords)}`
   }
 
   function renderSuggestionCard(s: { platform: string; username: string; name: string; reason: string; headline?: string; followers?: number }, i: number) {
     const isAdding = watchingInProgress === s.username
-    const url = profileUrl(s.platform, s.username, s.name)
+    const isX = s.platform === 'x'
     return (
       <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-              s.platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
-            }`} style={s.platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
-              {s.platform === 'linkedin' ? 'LinkedIn' : 'X'}
+              !isX ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
+            }`} style={isX ? { color: 'var(--accent-orange)' } : undefined}>
+              {isX ? 'X' : 'LinkedIn'}
             </span>
-            <a href={url} target="_blank" rel="noopener noreferrer"
-              className="font-head text-sm font-semibold text-ink hover:text-accent transition-colors">
-              {s.name}
-            </a>
+            {isX ? (
+              <a href={profileUrl(s.platform, s.username)} target="_blank" rel="noopener noreferrer"
+                className="font-head text-sm font-semibold text-ink hover:text-accent transition-colors">
+                @{s.name}
+              </a>
+            ) : (
+              <span className="font-head text-sm font-semibold text-ink">{s.name}</span>
+            )}
             {s.followers && s.followers > 0 && (
               <span className="text-[10px] text-ink-4">{s.followers >= 1000 ? `${Math.round(s.followers / 1000)}K` : s.followers}</span>
+            )}
+            {!isX && (
+              <a href={linkedinSearchUrl(s.name, s.headline)} target="_blank" rel="noopener noreferrer"
+                className="text-[10px] text-accent hover:underline">
+                Find on LinkedIn
+              </a>
             )}
           </div>
           {s.headline && (
