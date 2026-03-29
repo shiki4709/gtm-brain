@@ -17,18 +17,18 @@ export async function GET() {
 
   const prompt = `Given these target buyer titles: ${icpTitles.join(', ')}
 
-Suggest 6 LinkedIn influencers and 4 X/Twitter accounts that these buyers follow and engage with. These should be real, well-known thought leaders whose audiences contain these buyer personas.
+Suggest 4 LinkedIn influencers and 3 X/Twitter accounts that these buyers follow. Real, well-known thought leaders whose audiences contain these buyer personas.
 
-For LinkedIn: provide the profile URL slug (the part after linkedin.com/in/)
-For X: provide the handle (without @)
+For LinkedIn: profile URL slug (after linkedin.com/in/)
+For X: handle (without @)
 
 Rules:
-- Only suggest REAL people with active accounts
-- Pick people whose content attracts the specified buyer titles
-- Mix of well-known and niche-but-relevant creators
-- Output ONLY a JSON array of objects, nothing else
+- Only REAL people with active accounts
+- Content attracts the specified buyer titles
+- Keep reasons SHORT (under 10 words)
+- Output ONLY a JSON array, nothing else
 
-Format: [{"platform":"linkedin","username":"markroberge","name":"Mark Roberge","reason":"Former HubSpot CRO, posts about sales leadership"},{"platform":"x","username":"GergelyOrosz","name":"Gergely Orosz","reason":"Engineering leadership content"}]`
+Format: [{"platform":"linkedin","username":"markroberge","name":"Mark Roberge","reason":"Sales leadership content"},{"platform":"x","username":"GergelyOrosz","name":"Gergely Orosz","reason":"Engineering leadership"}]`
 
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -40,7 +40,7 @@ Format: [{"platform":"linkedin","username":"markroberge","name":"Mark Roberge","
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 500,
+        max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
