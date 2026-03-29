@@ -364,6 +364,65 @@ export default function WatchlistFeed() {
     return { actions, reason: `Low engagement (${totalEngagement}). Not worth scraping or replying. The topic might inspire your own post.` }
   }
 
+  function profileUrl(platform: string, username: string): string {
+    return platform === 'linkedin'
+      ? `https://www.linkedin.com/in/${username}`
+      : `https://x.com/${username}`
+  }
+
+  function renderSuggestionCard(s: { platform: string; username: string; name: string; reason: string; headline?: string; followers?: number }, i: number) {
+    const isAdding = watchingInProgress === s.username
+    const url = profileUrl(s.platform, s.username)
+    return (
+      <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+              s.platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
+            }`} style={s.platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
+              {s.platform === 'linkedin' ? 'LinkedIn' : 'X'}
+            </span>
+            <a href={url} target="_blank" rel="noopener noreferrer"
+              className="font-head text-sm font-semibold text-ink hover:text-accent transition-colors">
+              {s.name}
+            </a>
+            {s.followers && s.followers > 0 && (
+              <span className="text-[10px] text-ink-4">{s.followers >= 1000 ? `${Math.round(s.followers / 1000)}K` : s.followers}</span>
+            )}
+          </div>
+          {s.headline && (
+            <div className="text-[11px] text-ink-3 ml-0 mt-0.5 truncate">{s.headline}</div>
+          )}
+          <div className="text-[11px] text-ink-4 mt-0.5">{s.reason}</div>
+        </div>
+        <button
+          className="btn-accent shrink-0 ml-3"
+          disabled={isAdding}
+          onClick={async () => {
+            setWatchingInProgress(s.username)
+            try {
+              const res = await fetch('/api/watchlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform: s.platform, username: s.username, display_name: s.name }),
+              })
+              const json = await res.json()
+              if (json.success && json.data) {
+                setWatchlist(prev => [json.data, ...prev])
+                setWatchSuggestions(prev => prev.filter((_, j) => j !== i))
+                fetchFeed(true)
+              }
+            } finally {
+              setWatchingInProgress(null)
+            }
+          }}
+        >
+          {isAdding ? 'Loading...' : '+ Watch'}
+        </button>
+      </div>
+    )
+  }
+
   function timeAgo(dateStr: string): string {
     if (!dateStr) return ''
     const diff = Date.now() - new Date(dateStr).getTime()
@@ -433,53 +492,7 @@ export default function WatchlistFeed() {
           <div className="mb-6">
             <div className="section-label mb-3">Suggested for your ICP</div>
             <div className="flex flex-col gap-2">
-              {watchSuggestions.map((s, i) => {
-                const isAdding = watchingInProgress === s.username
-                return (
-                  <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.platform === 'linkedin' ? 'bg-accent' : ''}`}
-                          style={s.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
-                        <span className="font-head text-sm font-semibold text-ink">
-                          {s.platform === 'x' ? '@' : ''}{s.name}
-                        </span>
-                        {s.followers && s.followers > 0 && (
-                          <span className="text-[10px] text-ink-4">{s.followers >= 1000 ? `${Math.round(s.followers / 1000)}K` : s.followers}</span>
-                        )}
-                      </div>
-                      {s.headline && (
-                        <div className="text-[11px] text-ink-3 ml-[14px] truncate">{s.headline}</div>
-                      )}
-                      <div className="text-[11px] text-ink-4 ml-[14px]">{s.reason}</div>
-                    </div>
-                    <button
-                      className="btn-accent shrink-0 ml-3"
-                      disabled={isAdding}
-                      onClick={async () => {
-                        setWatchingInProgress(s.username)
-                        try {
-                          const res = await fetch('/api/watchlist', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ platform: s.platform, username: s.username, display_name: s.name }),
-                          })
-                          const json = await res.json()
-                          if (json.success && json.data) {
-                            setWatchlist(prev => [json.data, ...prev])
-                            setWatchSuggestions(prev => prev.filter((_, j) => j !== i))
-                            fetchFeed(true)
-                          }
-                        } finally {
-                          setWatchingInProgress(null)
-                        }
-                      }}
-                    >
-                      {isAdding ? 'Loading...' : '+ Watch'}
-                    </button>
-                  </div>
-                )
-              })}
+              {watchSuggestions.map((s, i) => renderSuggestionCard(s, i))}
             </div>
           </div>
         )}
@@ -535,53 +548,7 @@ export default function WatchlistFeed() {
         <div className="mb-6">
           <div className="section-label mb-3">Suggested for your ICP</div>
           <div className="flex flex-col gap-2">
-            {watchSuggestions.map((s, i) => {
-              const isAdding = watchingInProgress === s.username
-              return (
-                <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.platform === 'linkedin' ? 'bg-accent' : ''}`}
-                        style={s.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
-                      <span className="font-head text-sm font-semibold text-ink">
-                        {s.platform === 'x' ? '@' : ''}{s.name}
-                      </span>
-                      {s.followers && s.followers > 0 && (
-                        <span className="text-[10px] text-ink-4">{s.followers >= 1000 ? `${Math.round(s.followers / 1000)}K` : s.followers}</span>
-                      )}
-                    </div>
-                    {s.headline && (
-                      <div className="text-[11px] text-ink-3 ml-[14px] truncate">{s.headline}</div>
-                    )}
-                    <div className="text-[11px] text-ink-4 ml-[14px]">{s.reason}</div>
-                  </div>
-                  <button
-                    className="btn-accent shrink-0 ml-3"
-                    disabled={isAdding}
-                    onClick={async () => {
-                      setWatchingInProgress(s.username)
-                      try {
-                        const res = await fetch('/api/watchlist', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ platform: s.platform, username: s.username, display_name: s.name }),
-                        })
-                        const json = await res.json()
-                        if (json.success && json.data) {
-                          setWatchlist(prev => [json.data, ...prev])
-                          setWatchSuggestions(prev => prev.filter((_, j) => j !== i))
-                          fetchFeed(true)
-                        }
-                      } finally {
-                        setWatchingInProgress(null)
-                      }
-                    }}
-                  >
-                    {isAdding ? 'Loading...' : '+ Watch'}
-                  </button>
-                </div>
-              )
-            })}
+            {watchSuggestions.map((s, i) => renderSuggestionCard(s, i))}
           </div>
         </div>
       )}
