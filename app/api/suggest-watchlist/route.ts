@@ -17,20 +17,20 @@ export async function GET() {
 
   const prompt = `Given these target buyer titles: ${icpTitles.join(', ')}
 
-Suggest 4 LinkedIn influencers and 3 X/Twitter accounts that these buyers follow. Real, well-known thought leaders whose audiences contain these buyer personas.
+Suggest 4 LinkedIn influencers and 3 X/Twitter accounts that these buyers follow.
 
-For LinkedIn: EXACT profile URL slug as it appears after linkedin.com/in/ (e.g. "mark-roberge" not "markroberge"). Get this right — wrong slugs break the link.
-For X: EXACT handle (without @)
-
-Rules:
-- Only REAL people with active accounts
-- Content attracts the specified buyer titles
+CRITICAL RULES:
+- ONLY suggest FAMOUS, widely-known people (50K+ followers). Think tier-1 influencers like Mark Roberge, Chris Walker, Kyle Poyar — NOT obscure people.
+- You MUST be 100% certain the person exists and is known for what you describe. If you're not sure, pick someone more famous instead.
+- Do NOT hallucinate or guess. Every person must be someone you'd bet money on being real and active.
+- For LinkedIn: use their EXACT slug from linkedin.com/in/ (e.g. "kylepoyar" or "chris-walker-"). If unsure of the exact slug, use their most likely format.
+- For X: use their EXACT handle (without @). Must be a real active account.
 - Keep reasons SHORT (under 10 words)
-- Include their headline (one-liner about them, under 15 words)
-- Include approximate follower/connection count as a number
+- Include their real headline/title (under 15 words)
+- Include approximate follower count as a number
 - Output ONLY a JSON array, nothing else
 
-Format: [{"platform":"linkedin","username":"markroberge","name":"Mark Roberge","reason":"Sales leadership content","headline":"Former HubSpot CRO, Managing Director at Stage 2 Capital","followers":45000},{"platform":"x","username":"GergelyOrosz","name":"Gergely Orosz","reason":"Engineering leadership","headline":"Author of The Pragmatic Engineer newsletter","followers":120000}]`
+Format: [{"platform":"linkedin","username":"kylepoyar","name":"Kyle Poyar","reason":"PLG and pricing strategy content","headline":"Partner at OpenView, growth advisor","followers":80000},{"platform":"x","username":"Patticus","name":"Patrick Campbell","reason":"SaaS pricing and metrics","headline":"Founder of ProfitWell, acquired by Paddle","followers":50000}]`
 
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {

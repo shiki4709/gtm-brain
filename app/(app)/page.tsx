@@ -490,7 +490,10 @@ export default function WatchlistFeed() {
         )}
         {watchSuggestions.length > 0 && (
           <div className="mb-6">
-            <div className="section-label mb-3">Suggested for your ICP</div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="section-label">Suggested for your ICP</div>
+              <span className="text-[10px] text-ink-4">AI-generated — verify before watching</span>
+            </div>
             <div className="flex flex-col gap-2">
               {watchSuggestions.map((s, i) => renderSuggestionCard(s, i))}
             </div>
