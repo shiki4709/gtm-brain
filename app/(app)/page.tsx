@@ -48,6 +48,7 @@ export default function WatchlistFeed() {
   const [adding, setAdding] = useState(false)
   const [tasks, setTasks] = useState<TaskState>({})
   const [roi, setRoi] = useState<RoiData | null>(null)
+  const [watchSuggestions, setWatchSuggestions] = useState<Array<{ platform: string; username: string; name: string; reason: string }>>([])
 
   // Draft reply state
   const [draftingUrl, setDraftingUrl] = useState<string | null>(null)
@@ -63,7 +64,14 @@ export default function WatchlistFeed() {
       if (roiJson.success) setRoi(roiJson.data)
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
       if (liJson.success) setInsights(liJson.data)
-      if (wlJson.data?.length > 0) fetchFeed()
+      if (wlJson.data?.length > 0) {
+        fetchFeed()
+      } else {
+        // No watchlist — fetch suggestions
+        fetch('/api/suggest-watchlist').then(r => r.json()).then(json => {
+          if (json.success && json.suggestions) setWatchSuggestions(json.suggestions)
+        }).catch(() => {})
+      }
     }).catch(() => {}).finally(() => setLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -405,6 +413,47 @@ export default function WatchlistFeed() {
             e.g. linkedin.com/in/markroberge · @GergelyOrosz
           </div>
         </div>
+
+        {/* AI suggestions */}
+        {watchSuggestions.length > 0 && (
+          <div className="mb-6">
+            <div className="section-label mb-3">Suggested for your ICP</div>
+            <div className="flex flex-col gap-2">
+              {watchSuggestions.map((s, i) => (
+                <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${s.platform === 'linkedin' ? 'bg-accent' : ''}`}
+                        style={s.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
+                      <span className="font-head text-sm font-semibold text-ink">
+                        {s.platform === 'x' ? '@' : ''}{s.name}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-ink-4 ml-[14px]">{s.reason}</div>
+                  </div>
+                  <button
+                    className="btn-accent"
+                    onClick={async () => {
+                      const res = await fetch('/api/watchlist', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ platform: s.platform, username: s.username, display_name: s.name }),
+                      })
+                      const json = await res.json()
+                      if (json.success && json.data) {
+                        setWatchlist(prev => [json.data, ...prev])
+                        setWatchSuggestions(prev => prev.filter((_, j) => j !== i))
+                        if (watchlist.length === 0) fetchFeed()
+                      }
+                    }}
+                  >
+                    + Watch
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="brain-card">
           <div className="section-label mb-3">How it works</div>

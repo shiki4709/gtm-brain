@@ -59,8 +59,9 @@ Rules:
       }
 
       const result = await resp.json()
-      const text: string = result.content?.[0]?.text ?? ''
-      console.log('Clarify response:', text.slice(0, 200))
+      const rawText: string = result.content?.[0]?.text ?? ''
+      // Strip markdown code fences if present
+      const text = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
 
       try {
         const questions = JSON.parse(text)
@@ -69,7 +70,7 @@ Rules:
         }
       } catch { /* parse failed */ }
 
-      return NextResponse.json({ questions: [], debug: 'parse_failed', raw: text.slice(0, 200) })
+      return NextResponse.json({ questions: [] })
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'unknown'
       return NextResponse.json({ questions: [], debug: 'catch', error: msg })
@@ -113,7 +114,8 @@ Rules:
     if (!resp.ok) return NextResponse.json({ titles: [] })
 
     const result = await resp.json()
-    const text: string = result.content?.[0]?.text ?? ''
+    const rawText: string = result.content?.[0]?.text ?? ''
+    const text = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
 
     try {
       const titles = JSON.parse(text)
