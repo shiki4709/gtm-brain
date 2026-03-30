@@ -1050,30 +1050,35 @@ export default function WatchlistFeed() {
                         </div>
 
                         <div className="flex flex-wrap gap-2">
-                          {rec.actions
-                            .filter(a => actionFilter === 'all' || a.type === actionFilter)
-                            .map((a, j) => {
-                            if (a.type === 'scrape') return (
-                              <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
-                                className="btn-primary"
-                                onClick={() => markDone(item.url, a.type)}>
-                                {a.label}
-                              </Link>
-                            )
-                            if (a.type === 'reply') return (
-                              <button key={j} onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}
-                                className="btn-primary">
-                                {draftingUrl === item.url ? 'Drafting...' : a.label}
-                              </button>
-                            )
-                            if (a.type === 'content') return (
-                              <button key={j} className="btn-primary" onClick={() => handleRepurpose(item)}
-                                disabled={repurposeLoading && repurposeUrl === item.url}>
-                                {repurposeLoading && repurposeUrl === item.url ? 'Generating...' : a.label}
-                              </button>
-                            )
-                            return null
-                          })}
+                          {(() => {
+                            // In All tab: only show primary action. In filtered tabs: show matching action.
+                            const actionsToShow = actionFilter === 'all'
+                              ? rec.actions.slice(0, 1)
+                              : rec.actions.filter(a => a.type === actionFilter)
+
+                            return actionsToShow.map((a, j) => {
+                              if (a.type === 'scrape') return (
+                                <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
+                                  className="btn-primary"
+                                  onClick={() => markDone(item.url, a.type)}>
+                                  {a.label}
+                                </Link>
+                              )
+                              if (a.type === 'reply') return (
+                                <button key={j} onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}
+                                  className="btn-primary">
+                                  {draftingUrl === item.url ? 'Drafting...' : a.label}
+                                </button>
+                              )
+                              if (a.type === 'content') return (
+                                <button key={j} className="btn-primary" onClick={() => handleRepurpose(item)}
+                                  disabled={repurposeLoading && repurposeUrl === item.url}>
+                                  {repurposeLoading && repurposeUrl === item.url ? 'Generating...' : a.label}
+                                </button>
+                              )
+                              return null
+                            })
+                          })()}
                           <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
                             {isLinkedIn ? 'View post' : 'Open on X'}
                           </a>
