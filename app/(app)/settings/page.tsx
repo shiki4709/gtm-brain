@@ -11,6 +11,23 @@ interface UserData {
   x_topics: string[]
 }
 
+interface WatchlistEntry {
+  id: string
+  platform: string
+  username: string
+  display_name: string
+  profile_url: string
+}
+
+interface Suggestion {
+  platform: string
+  username: string
+  name: string
+  reason: string
+  headline?: string
+  followers?: number
+}
+
 export default function Settings() {
   const [user, setUser] = useState<UserData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -29,18 +46,65 @@ export default function Settings() {
   const [xTopics, setXTopics] = useState<string[]>([])
   const [xTopicInput, setXTopicInput] = useState('')
 
+  // Watchlist
+  const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [watchingInProgress, setWatchingInProgress] = useState<string | null>(null)
+
   useEffect(() => {
-    fetch('/api/user').then(r => r.json()).then(json => {
-      if (json.success && json.data) {
-        const u = json.data as UserData
+    Promise.all([
+      fetch('/api/user').then(r => r.json()),
+      fetch('/api/watchlist').then(r => r.json()),
+    ]).then(([userJson, wlJson]) => {
+      if (userJson.success && userJson.data) {
+        const u = userJson.data as UserData
         setUser(u)
         setTitles(u.icp_config?.titles ?? [])
         setExcludes(u.icp_config?.exclude ?? [])
         setXAccounts(u.x_accounts ?? [])
         setXTopics(u.x_topics ?? [])
       }
+      if (wlJson.success) setWatchlist(wlJson.data ?? [])
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
+
+  async function chatFindPeople(query: string) {
+    setChatLoading(true)
+    try {
+      const res = await fetch('/api/suggest-watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      })
+      const json = await res.json()
+      if (json.success && json.suggestions?.length > 0) setSuggestions(json.suggestions)
+    } catch { /* silently fail */ }
+    finally { setChatLoading(false); setChatInput('') }
+  }
+
+  async function addToWatchlist(platform: string, username: string, displayName: string) {
+    setWatchingInProgress(username)
+    try {
+      const res = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, username, display_name: displayName }),
+      })
+      const json = await res.json()
+      if (json.success && json.data) {
+        setWatchlist(prev => [json.data, ...prev])
+        setSuggestions(prev => prev.filter(s => s.username !== username))
+      }
+    } catch { /* silently fail */ }
+    finally { setWatchingInProgress(null) }
+  }
+
+  async function removeFromWatchlist(id: string) {
+    await fetch(`/api/watchlist?id=${id}`, { method: 'DELETE' })
+    setWatchlist(prev => prev.filter(w => w.id !== id))
+  }
 
   function addToList(value: string, list: string[], setList: (v: string[]) => void, setInput: (v: string) => void) {
     const trimmed = value.trim().replace(/^@/, '')
@@ -98,6 +162,85 @@ export default function Settings() {
           <div className="text-xs text-ink-4">{user?.email}</div>
         </div>
       </div>
+
+      {/* People you watch */}
+      <div className="mb-10">
+        <div className="section-label mb-1">People you watch</div>
+        <p className="text-xs text-ink-4 mb-3">Influencers whose posts appear in your Feed. Describe who you want and the brain suggests people.</p>
+
+        {/* Chat finder */}
+        <div className="flex gap-2 mb-4">
+          <input
+            type="text"
+            value={chatInput}
+            onChange={e => setChatInput(e.target.value)}
+            placeholder="e.g. SaaS sales leaders, DevTools founders..."
+            className="input flex-1 py-2.5 px-4 text-sm"
+            onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) chatFindPeople(chatInput.trim()) }}
+          />
+          <button onClick={() => chatFindPeople(chatInput.trim())} disabled={chatLoading || !chatInput.trim()} className="btn-primary">
+            {chatLoading ? '...' : 'Find'}
+          </button>
+        </div>
+
+        {/* Suggestions */}
+        {suggestions.length > 0 && (
+          <div className="mb-4">
+            <div className="text-[10px] text-ink-4 mb-2">AI suggestions — verify before watching</div>
+            <div className="flex flex-col gap-2">
+              {suggestions.map((s, i) => {
+                const isAdding = watchingInProgress === s.username
+                return (
+                  <div key={i} className="bg-[var(--bg-warm)] rounded-[var(--radius)] px-4 py-3 flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                          s.platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
+                        }`} style={s.platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
+                          {s.platform === 'linkedin' ? 'LinkedIn' : 'X'}
+                        </span>
+                        <span className="text-sm font-semibold text-ink">{s.name}</span>
+                        {s.followers && s.followers > 0 && (
+                          <span className="text-[10px] text-ink-4">{s.followers >= 1000 ? `${Math.round(s.followers / 1000)}K` : s.followers}</span>
+                        )}
+                      </div>
+                      {s.headline && <div className="text-[11px] text-ink-3 mt-0.5 truncate">{s.headline}</div>}
+                      <div className="text-[11px] text-ink-4 mt-0.5">{s.reason}</div>
+                    </div>
+                    <button
+                      className="btn-accent shrink-0 ml-3"
+                      disabled={isAdding}
+                      onClick={() => addToWatchlist(s.platform, s.username, s.name)}
+                    >
+                      {isAdding ? '...' : '+ Watch'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Current watchlist */}
+        {watchlist.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {watchlist.map(w => (
+              <span key={w.id} className={`flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-full ${
+                w.platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
+              }`} style={w.platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
+                {w.platform === 'x' ? '@' : ''}{w.display_name ?? w.username}
+                <button onClick={() => removeFromWatchlist(w.id)} className="hover:opacity-60 ml-0.5">×</button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {watchlist.length === 0 && (
+          <div className="text-xs text-ink-4">No one watched yet. Use the finder above to add people.</div>
+        )}
+      </div>
+
+      <hr className="border-rule-light my-10" />
 
       {/* ICP Config */}
       <div className="mb-10">
