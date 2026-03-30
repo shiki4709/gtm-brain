@@ -61,6 +61,13 @@ export default function WatchlistFeed() {
   const [draftReplies, setDraftReplies] = useState<Record<string, string>>({})
   const [copied, setCopied] = useState<string | null>(null)
 
+  // Repurpose state
+  const [repurposeUrl, setRepurposeUrl] = useState<string | null>(null) // which post is being repurposed
+  const [repurposeLoading, setRepurposeLoading] = useState(false)
+  const [repurposeContent, setRepurposeContent] = useState<Record<string, Record<string, string>>>({}) // url → { linkedin: '...', x: '...' }
+  const [repurposeCopied, setRepurposeCopied] = useState<string | null>(null)
+  const [repurposeEditing, setRepurposeEditing] = useState<Record<string, string>>({}) // platform → edited text
+
   function fetchSuggestions() {
     setLoadingSuggestions(true)
     fetch('/api/suggest-watchlist').then(r => r.json()).then(json => {
@@ -101,6 +108,33 @@ export default function WatchlistFeed() {
       if (json.success) setFeed(json.items ?? [])
     } catch { /* silently fail */ }
     finally { setLoadingFeed(false) }
+  }
+
+  async function handleRepurpose(item: FeedItem) {
+    // If already generated, just toggle panel
+    if (repurposeContent[item.url]) {
+      setRepurposeUrl(repurposeUrl === item.url ? null : item.url)
+      return
+    }
+    setRepurposeUrl(item.url)
+    setRepurposeLoading(true)
+    try {
+      const res = await fetch('/api/repurpose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: item.text,
+          author: item.author,
+          platform: item.platform,
+          platforms: ['linkedin', 'x'],
+        }),
+      })
+      const json = await res.json()
+      if (json.success && json.content) {
+        setRepurposeContent(prev => ({ ...prev, [item.url]: json.content }))
+      }
+    } catch { /* silently fail */ }
+    finally { setRepurposeLoading(false) }
   }
 
   async function addToWatchlist() {
@@ -985,8 +1019,9 @@ export default function WatchlistFeed() {
                               </button>
                             )
                             if (a.type === 'content') return (
-                              <button key={j} className="btn-primary" onClick={() => markDone(item.url, a.type)}>
-                                {a.label}
+                              <button key={j} className="btn-primary" onClick={() => handleRepurpose(item)}
+                                disabled={repurposeLoading && repurposeUrl === item.url}>
+                                {repurposeLoading && repurposeUrl === item.url ? 'Generating...' : a.label}
                               </button>
                             )
                             return null
@@ -996,6 +1031,67 @@ export default function WatchlistFeed() {
                           </a>
                           <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
                         </div>
+
+                        {/* Repurpose content panel */}
+                        {repurposeUrl === item.url && repurposeContent[item.url] && (
+                          <div className="mt-3 pt-3 border-t border-rule-light">
+                            <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-3">Repurposed content</div>
+                            <div className="flex flex-col gap-3">
+                              {Object.entries(repurposeContent[item.url]).map(([platform, content]) => {
+                                if (!content) return null
+                                const editKey = `${item.url}:${platform}`
+                                const editedText = repurposeEditing[editKey]
+                                const displayText = editedText ?? content
+                                const isCopied = repurposeCopied === editKey
+                                return (
+                                  <div key={platform} className="bg-[var(--bg-warm)] rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                        platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
+                                      }`} style={platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
+                                        {platform === 'linkedin' ? 'LinkedIn' : 'X Thread'}
+                                      </span>
+                                      <div className="flex gap-2">
+                                        <button
+                                          className="text-[11px] text-accent hover:underline"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(displayText)
+                                            setRepurposeCopied(editKey)
+                                            setTimeout(() => setRepurposeCopied(null), 2000)
+                                          }}
+                                        >
+                                          {isCopied ? 'Copied!' : 'Copy'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <textarea
+                                      className="w-full text-xs text-ink leading-relaxed bg-transparent resize-none outline-none"
+                                      value={displayText}
+                                      onChange={e => setRepurposeEditing(prev => ({ ...prev, [editKey]: e.target.value }))}
+                                      rows={platform === 'x' ? 12 : 8}
+                                    />
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            <div className="flex gap-2 mt-3">
+                              <button className="btn-primary text-xs" onClick={() => {
+                                // Copy all and mark done
+                                const all = Object.entries(repurposeContent[item.url])
+                                  .map(([p, c]) => `[${p.toUpperCase()}]\n${repurposeEditing[`${item.url}:${p}`] ?? c}`)
+                                  .join('\n\n---\n\n')
+                                navigator.clipboard.writeText(all)
+                                markDone(item.url, 'content')
+                                setRepurposeUrl(null)
+                              }}>
+                                Copy all & Done
+                              </button>
+                              <button className="btn-outline text-xs" onClick={() => setRepurposeUrl(null)}>
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {draftReply && (
                           <div className="mt-3 pt-3 border-t border-rule-light">
