@@ -10,6 +10,8 @@ interface DraftReplyRequest {
   readonly author_name: string
   readonly author_handle: string
   readonly engage_id?: string
+  readonly refine_instruction?: string
+  readonly current_draft?: string
 }
 
 interface ReplyStrategy {
@@ -25,11 +27,38 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { tweet_text, author_name, author_handle, engage_id } =
+  const { tweet_text, author_name, author_handle, engage_id, refine_instruction, current_draft } =
     body as DraftReplyRequest
 
   if (!tweet_text) {
     return NextResponse.json({ error: 'No tweet text provided' }, { status: 400 })
+  }
+
+  // Refine mode — rewrite existing draft with user instruction
+  if (refine_instruction && current_draft) {
+    try {
+      const { text } = await callClaude(
+        `Rewrite this reply to a tweet by @${author_handle}.
+
+ORIGINAL TWEET: "${tweet_text.substring(0, 500)}"
+
+CURRENT DRAFT: "${current_draft}"
+
+USER INSTRUCTION: "${refine_instruction}"
+
+Rules:
+- Apply the user's instruction to improve the draft
+- Keep it 1-2 sentences, under 200 characters
+- Don't be sycophantic — no "love this", "so true"
+- Sound like a human, not a bot
+- Output ONLY the revised reply text, nothing else`,
+        { maxTokens: 150 }
+      )
+      return NextResponse.json({ reply: text.trim() })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Refine failed'
+      return NextResponse.json({ error: msg }, { status: 500 })
+    }
   }
 
   try {

@@ -60,6 +60,8 @@ export default function WatchlistFeed() {
   const [draftingUrl, setDraftingUrl] = useState<string | null>(null)
   const [draftReplies, setDraftReplies] = useState<Record<string, string>>({})
   const [copied, setCopied] = useState<string | null>(null)
+  const [refineInput, setRefineInput] = useState<Record<string, string>>({}) // url → instruction
+  const [refiningUrl, setRefiningUrl] = useState<string | null>(null)
 
   // Repurpose state
   const [repurposeUrl, setRepurposeUrl] = useState<string | null>(null) // which post is being repurposed
@@ -185,6 +187,31 @@ export default function WatchlistFeed() {
       if (json.reply) setDraftReplies(prev => ({ ...prev, [item.url]: json.reply }))
     } catch { /* silently fail */ }
     finally { setDraftingUrl(null) }
+  }
+
+  async function handleRefineReply(item: FeedItem, instruction: string) {
+    if (!instruction.trim()) return
+    setRefiningUrl(item.url)
+    try {
+      const currentDraft = draftReplies[item.url] ?? ''
+      const res = await fetch('/api/draft-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tweet_text: item.text,
+          author_name: item.author,
+          author_handle: item.authorHandle,
+          refine_instruction: instruction,
+          current_draft: currentDraft,
+        }),
+      })
+      const json = await res.json()
+      if (json.reply) {
+        setDraftReplies(prev => ({ ...prev, [item.url]: json.reply }))
+        setRefineInput(prev => ({ ...prev, [item.url]: '' }))
+      }
+    } catch { /* silently fail */ }
+    finally { setRefiningUrl(null) }
   }
 
   function copyAndOpen(text: string, url: string) {
@@ -1104,14 +1131,31 @@ export default function WatchlistFeed() {
                           </div>
                         )}
 
-                        {draftReply && (
+                        {draftReply && actionFilter !== 'scrape' && (
                           <div className="mt-3 pt-3 border-t border-rule-light">
                             <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">{draftReply}</div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 mb-2">
                               <button className="btn-primary" onClick={() => { copyAndOpen(draftReply, item.url); markDone(item.url, 'reply') }}>
-                                {copied === item.url ? 'Copied' : 'Copy & Open'}
+                                {copied === item.url ? 'Copied!' : 'Copy & Open tweet'}
                               </button>
-                              <button className="btn-outline" onClick={() => handleDraftReply(item)}>Rewrite</button>
+                            </div>
+                            {/* Refine input */}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={refineInput[item.url] ?? ''}
+                                onChange={e => setRefineInput(prev => ({ ...prev, [item.url]: e.target.value }))}
+                                placeholder="e.g. make it punchier, add a question, be more contrarian..."
+                                className="input flex-1 py-1.5 px-3 text-xs"
+                                onKeyDown={e => { if (e.key === 'Enter' && (refineInput[item.url] ?? '').trim()) handleRefineReply(item, refineInput[item.url]) }}
+                              />
+                              <button
+                                className="btn-outline text-xs"
+                                disabled={!(refineInput[item.url] ?? '').trim() || refiningUrl === item.url}
+                                onClick={() => handleRefineReply(item, refineInput[item.url] ?? '')}
+                              >
+                                {refiningUrl === item.url ? '...' : 'Refine'}
+                              </button>
                             </div>
                           </div>
                         )}
