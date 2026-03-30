@@ -74,6 +74,7 @@ export default function Outbound() {
   const [searching, setSearching] = useState(false)
   const [foundPosts, setFoundPosts] = useState<Post[]>([])
   const [searchNote, setSearchNote] = useState('')
+  const [showScrapeInput, setShowScrapeInput] = useState(!!searchParams.get('scrape'))
 
   const fetchScrapes = useCallback(async (autoExpand = false) => {
     try {
@@ -290,8 +291,6 @@ export default function Outbound() {
 
   const icpTitles = user?.icp_config?.titles ?? []
   const icpExclude = user?.icp_config?.exclude ?? []
-
-  const [showScrapeInput, setShowScrapeInput] = useState(!!searchParams.get('scrape'))
 
   return (
     <div className="max-w-2xl mx-auto">
