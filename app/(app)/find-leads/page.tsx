@@ -291,131 +291,74 @@ export default function Outbound() {
   const icpTitles = user?.icp_config?.titles ?? []
   const icpExclude = user?.icp_config?.exclude ?? []
 
+  const [showScrapeInput, setShowScrapeInput] = useState(!!searchParams.get('scrape'))
+
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Hero */}
-      <h1 className="font-head text-2xl font-bold text-ink mb-2">
-        Find Leads
-      </h1>
-      <p className="text-sm text-ink-3 mb-1 leading-relaxed">
-        Scrape any LinkedIn post to discover ICP leads. The brain filters, drafts DMs, and tracks every outcome.
-      </p>
-      <p className="text-[11px] text-ink-4 mb-8">
-        Builds pipeline: ICP leads found · DMs sent · reply rate · meetings booked
-      </p>
-
-      {/* Scrape input */}
-      <div className="flex gap-3 mb-2">
-        <input
-          type="text"
-          value={scrapeUrl}
-          onChange={(e) => setScrapeUrl(e.target.value)}
-          placeholder="Paste a LinkedIn post URL..."
-          className="input flex-1 py-3 px-4 text-sm"
-          onKeyDown={(e) => { if (e.key === 'Enter') handleScrape() }}
-          disabled={scraping}
-        />
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="font-head text-xl font-bold text-ink">Pipeline</h1>
         <button
-          onClick={() => handleScrape()}
-          disabled={scraping || !scrapeUrl.trim()}
-          className="btn-primary px-6 py-3"
+          onClick={() => setShowScrapeInput(!showScrapeInput)}
+          className={`text-xs px-3 py-1.5 rounded transition-colors ${showScrapeInput ? 'bg-accent text-white' : 'btn-outline'}`}
         >
-          {scraping ? 'Scraping...' : 'Scrape'}
+          Scrape a post
         </button>
       </div>
-      {/* Scrape progress */}
-      {scrapeProgress && (
-        <div className="mt-3 mb-4">
-          <div className="flex items-center justify-between text-[11px] text-ink-3 mb-1.5">
-            <span>{scrapeStatus}</span>
-            <span>{scrapeProgress.elapsed}s</span>
-          </div>
-          <div className="w-full h-1.5 bg-[var(--rule-light)] rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${Math.round((scrapeProgress.done / Math.max(scrapeProgress.total, 1)) * 100)}%`,
-                background: scrapeProgress.done >= scrapeProgress.total ? 'var(--green)' : 'var(--gradient-main)',
-              }}
-            />
-          </div>
-        </div>
-      )}
-      {scrapeStatus && !scrapeProgress && (
-        <div className="text-xs text-ink-3 mb-4">{scrapeStatus}</div>
-      )}
 
-      {/* ICP display */}
-      {icpTitles.length > 0 && (
-        <div className="border-l-2 border-rule pl-4 mb-8 mt-4">
-          <div className="text-xs font-semibold text-ink mb-1">ICP:</div>
-          <div className="text-xs text-ink-3 leading-relaxed">{icpTitles.join(', ')}</div>
-          {icpExclude.length > 0 && (
-            <div className="text-xs text-ink-4 italic mt-0.5">Exclude: {icpExclude.join(', ')}</div>
+      {/* Collapsible scrape input */}
+      {showScrapeInput && (
+        <div className="bg-white border border-rule rounded-[var(--radius)] p-4 mb-6">
+          <div className="flex gap-2 mb-1">
+            <input
+              type="text"
+              value={scrapeUrl}
+              onChange={(e) => setScrapeUrl(e.target.value)}
+              placeholder="Paste a LinkedIn post URL..."
+              className="input flex-1 py-2.5 px-4 text-sm"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleScrape() }}
+              disabled={scraping}
+              autoFocus
+            />
+            <button
+              onClick={() => handleScrape()}
+              disabled={scraping || !scrapeUrl.trim()}
+              className="btn-primary"
+            >
+              {scraping ? '...' : 'Scrape'}
+            </button>
+          </div>
+          {/* Progress */}
+          {scrapeProgress && (
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-[11px] text-ink-3 mb-1.5">
+                <span>{scrapeStatus}</span>
+                <span>{scrapeProgress.elapsed}s</span>
+              </div>
+              <div className="w-full h-1.5 bg-[var(--rule-light)] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.round((scrapeProgress.done / Math.max(scrapeProgress.total, 1)) * 100)}%`,
+                    background: scrapeProgress.done >= scrapeProgress.total ? 'var(--green)' : 'var(--gradient-main)',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          {scrapeStatus && !scrapeProgress && (
+            <div className="text-xs text-ink-3 mt-2">{scrapeStatus}</div>
           )}
         </div>
       )}
 
-      {/* Find posts */}
-      <div className="mb-10">
-        <div className="section-label mb-3">Or find posts to scrape</div>
-        <div className="flex gap-3 mb-2">
-          <input
-            type="text"
-            value={searchKeywords}
-            onChange={(e) => setSearchKeywords(e.target.value)}
-            placeholder="e.g. GTM playbook, sales hiring, engineering leadership"
-            className="input flex-1 py-3 px-4 text-sm"
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSearchPosts() }}
-            disabled={searching}
-          />
-          <button
-            onClick={handleSearchPosts}
-            disabled={searching || !searchKeywords.trim()}
-            className="btn-primary px-6 py-3"
-          >
-            {searching ? 'Finding...' : 'Find'}
-          </button>
+      {/* ═══ PIPELINE ═══ */}
+      {scrapes.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-sm text-ink-3 mb-2">No leads yet</div>
+          <div className="text-xs text-ink-4">Scrape a post from the Feed or use the button above to get started.</div>
         </div>
-        <div className="text-[11px] text-ink-4 mt-2">
-          Searches LinkedIn posts by keyword. Results are sorted by relevance.
-        </div>
-
-        {searchNote && (
-          <div className="text-xs text-ink-4 mt-3 italic">{searchNote}</div>
-        )}
-
-        {foundPosts.length > 0 && (
-          <div className="mt-4 flex flex-col gap-2">
-            {foundPosts.map((p, i) => (
-              <div key={i} className="flex items-center gap-4 py-3 px-4 bg-white border border-rule rounded-[var(--radius)] hover:border-accent transition-colors">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-head text-sm font-semibold text-ink">{p.author || 'Unknown'}</span>
-                    {p.engagement && p.engagement > 10 && (
-                      <span className="text-[10px] text-accent font-semibold">{p.engagement.toLocaleString()} engagements</span>
-                    )}
-                  </div>
-                  {p.title && <div className="text-xs text-ink-3 truncate">{p.title}</div>}
-                  {p.snippet && !p.title && <div className="text-[11px] text-ink-4 truncate">{p.snippet}</div>}
-                </div>
-                <button
-                  className="btn-accent"
-                  onClick={() => { setScrapeUrl(p.url); handleScrape(p.url) }}
-                  disabled={scraping}
-                >
-                  Scrape
-                </button>
-                <a href={p.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
-                  View
-                </a>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ═══ SCRAPE RESULTS ═══ */}
+      )}
       {scrapes.length > 0 && scrapes.map(sc => {
         const allLeads = sc.sb_leads ?? []
         const counts = getGroupCounts(allLeads)
