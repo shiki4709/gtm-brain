@@ -1,81 +1,134 @@
-import { createServiceClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { getAuthUser } from '@/lib/auth'
+import { callClaude, parseClaudeJson } from '@/lib/claude'
+import { fetchBrainContext, brainContextToPrompt } from '@/lib/brain-context'
+import { runPipeline, step } from '@/lib/pipeline'
+import { logPipelineRun } from '@/lib/feedback'
+
+interface DraftReplyRequest {
+  readonly tweet_text: string
+  readonly author_name: string
+  readonly author_handle: string
+  readonly engage_id?: string
+}
+
+interface ReplyStrategy {
+  readonly style: 'add-value' | 'agree-extend' | 'contrarian' | 'data-point' | 'question' | 'humor'
+  readonly reasoning: string
+  readonly keyPoint: string
+}
 
 export async function POST(request: Request) {
-  const body = await request.json()
-  const { tweet_text, author_name, author_handle, engage_id } = body as {
-    tweet_text: string
-    author_name: string
-    author_handle: string
-    engage_id?: string
+  const auth = await getAuthUser()
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
-  if (!apiKey) {
-    return NextResponse.json({ error: 'Anthropic API key not configured' }, { status: 400 })
-  }
+  const body = await request.json()
+  const { tweet_text, author_name, author_handle, engage_id } =
+    body as DraftReplyRequest
 
   if (!tweet_text) {
     return NextResponse.json({ error: 'No tweet text provided' }, { status: 400 })
   }
 
-  const prompt = `Write a reply to this tweet by @${author_handle} (${author_name}):
+  try {
+    const brainContext = await fetchBrainContext(
+      auth.sb,
+      auth.dbUser.id,
+      'x_reply',
+      auth.dbUser.icp_config?.titles ?? []
+    )
+
+    const brainPrompt = brainContextToPrompt(brainContext)
+
+    const replyPipeline = [
+      // Step 1: Strategize — pick the best reply style for this tweet
+      step('strategize', async () => {
+        const { text } = await callClaude(
+          `You are an X engagement strategist. Pick the best reply approach.
+
+${brainPrompt}
+
+TWEET by @${author_handle} (${author_name}):
+"${tweet_text.substring(0, 500)}"
+
+Pick the best reply style and output JSON:
+{
+  "style": "add-value" | "agree-extend" | "contrarian" | "data-point" | "question" | "humor",
+  "reasoning": "why this style for this tweet",
+  "keyPoint": "the specific thing to say"
+}
+
+Rules:
+- add-value is the safest default — share related experience or data
+- contrarian only if you have a genuine counter-point
+- humor only if the tweet's tone invites it
+- If brain data shows which reply styles get engagement, factor that in
+- Output ONLY the JSON`,
+          { maxTokens: 200 }
+        )
+        return parseClaudeJson<ReplyStrategy>(text)
+      }),
+
+      // Step 2: Draft — write the actual reply
+      step('draft', async (input) => {
+        const strategy = input.previous.strategize as ReplyStrategy
+
+        const { text } = await callClaude(
+          `Write a reply to this tweet by @${author_handle} (${author_name}):
 
 "${tweet_text.substring(0, 500)}"
 
-Rules:
-- 1-2 sentences max, under 200 characters
-- Add genuine value — share a related experience, data point, or perspective
-- Don't just agree ("great point!") — add something new
-- Don't be sycophantic — no "love this", "so true", "amazing insight"
-- Don't pitch anything
-- Sound like a thoughtful practitioner, not a bot
-- Match the tone of the original tweet (casual if casual, technical if technical)
-- Output ONLY the reply text, nothing else`
+REPLY STYLE: ${strategy.style}
+KEY POINT TO MAKE: ${strategy.keyPoint}
 
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 150,
-        messages: [{ role: 'user', content: prompt }],
+═══ RULES FOR HUMAN-SOUNDING, HIGH-ENGAGEMENT REPLIES ═══
+
+LENGTH & FORMAT:
+- 1-2 sentences, under 200 characters
+- Use contractions (you're, don't, it's) — never formal language
+- Short punchy sentences. Mix lengths. Fragment sentences are fine.
+- No emojis unless the original tweet uses them heavily
+
+TONE — mirror the poster:
+- Casual tweet → casual reply. Technical tweet → technical reply.
+- Write like you're texting a smart friend, not writing a LinkedIn post
+- Lowercase is fine. Perfect grammar is NOT required.
+
+WHAT MAKES REPLIES GET ENGAGEMENT:
+- Reference something SPECIFIC from their post (not generic praise)
+- Add a concrete data point, personal experience, or contrarian angle
+- Ask a sharp follow-up question that makes them want to respond
+- Share a short "I tried X and found Y" story if relevant
+- Disagree respectfully if you have a real counter-point
+
+NEVER DO THESE (instant AI detection):
+- Start with "Great insight!", "This is so true!", "Love this!", "Absolutely!"
+- Generic agreement without adding anything new
+- Overly polished/formal sentences
+- Use words: "resonate", "leverage", "insightful", "spot on", "couldn't agree more"
+- Long paragraphs — keep it tight
+- Pitch yourself or your product
+
+GOOD REPLY PATTERNS:
+- "We saw the same thing at [context] — [specific detail]"
+- "[Contrarian take]. Here's why: [one line reason]"
+- "Curious — [sharp question about their experience]?"
+- "[Related data point]. Wonder if that holds for [their context]"
+- "[Short personal story that adds to the conversation]"
+
+Output ONLY the reply text, nothing else.`,
+          { maxTokens: 150 }
+        )
+        return text.trim()
       }),
-    })
 
-    if (!resp.ok) {
-      return NextResponse.json({ error: `Claude API error: ${resp.status}` }, { status: resp.status })
-    }
-
-    const result = await resp.json()
-    const reply: string = result.content?.[0]?.text ?? ''
-
-    // Save draft to sb_x_engage if engage_id provided
-    if (engage_id) {
-      const sb = createServiceClient()
-      await sb
-        .from('sb_x_engage')
-        .update({ draft_reply: reply, status: 'drafted' })
-        .eq('id', engage_id)
-
-      // Classify reply style for brain insights (fire and forget)
-      classifyReply(reply, engage_id, apiKey).catch(() => {})
-    }
-
-    return NextResponse.json({ reply })
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Draft reply failed'
-    return NextResponse.json({ error: msg }, { status: 500 })
-  }
-}
-
-async function classifyReply(reply: string, engageId: string, apiKey: string) {
-  const classifyPrompt = `Classify this X/Twitter reply. Output ONLY a JSON object, nothing else.
+      // Step 3: Classify — tag reply style for brain learning
+      step('classify', async (input) => {
+        const reply = input.previous.draft as string
+        const { text } = await callClaude(
+          `Classify this X/Twitter reply. Output ONLY a JSON object.
 
 Reply: "${reply}"
 
@@ -83,43 +136,61 @@ Classify:
 - reply_style: "add-value" | "agree-extend" | "contrarian" | "data-point" | "question" | "humor"
 - reply_length: "short" (under 100 chars) | "medium" (100-200)
 
-Output format: {"reply_style":"...","reply_length":"..."}`
+Output format: {"reply_style":"...","reply_length":"..."}`,
+          { maxTokens: 80 }
+        )
+        return parseClaudeJson<Record<string, string>>(text)
+      }),
+    ]
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 80,
-      messages: [{ role: 'user', content: classifyPrompt }],
-    }),
-  })
+    const result = await runPipeline(
+      'x_reply',
+      replyPipeline,
+      { tweet_text, author_name, author_handle },
+      brainContext
+    )
 
-  if (!resp.ok) return
+    const strategy = result.steps[0]?.output as ReplyStrategy
+    const reply = result.steps[1]?.output as string
+    const tags = result.steps[2]?.output as Record<string, string>
 
-  const result = await resp.json()
-  const text: string = result.content?.[0]?.text ?? ''
+    // Save draft to sb_x_engage if engage_id provided
+    if (engage_id) {
+      await auth.sb
+        .from('sb_x_engage')
+        .update({ draft_reply: reply, status: 'drafted' })
+        .eq('id', engage_id)
 
-  try {
-    const tags = JSON.parse(text)
-    const sb = createServiceClient()
+      // Save classification tags (fire and forget)
+      void auth.sb
+        .from('sb_content_tags')
+        .insert({
+          user_id: auth.dbUser.id,
+          platform: 'x',
+          content_type: 'reply',
+          reference_id: engage_id,
+          tags,
+        })
+    }
 
-    // Get user_id from x_engage
-    const { data: engage } = await sb.from('sb_x_engage').select('user_id').eq('id', engageId).single()
-    if (!engage) return
+    // Log pipeline run (fire and forget)
+    logPipelineRun(auth.sb, auth.dbUser.id, result).catch(() => {})
 
-    await sb.from('sb_content_tags').insert({
-      user_id: engage.user_id,
-      platform: 'x',
-      content_type: 'reply',
-      reference_id: engageId,
+    return NextResponse.json({
+      reply,
+      strategy: {
+        style: strategy.style,
+        reasoning: strategy.reasoning,
+      },
       tags,
+      pipeline: {
+        stepsCompleted: result.steps.map((s) => s.stepName),
+        totalDurationMs: result.totalDurationMs,
+        brainContextUsed: result.brainContextUsed,
+      },
     })
-  } catch {
-    // JSON parse failed — skip classification
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Draft reply failed'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
