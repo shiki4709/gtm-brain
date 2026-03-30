@@ -37,10 +37,31 @@ interface TaskState {
   [url: string]: 'done' | 'skipped'
 }
 
+type FeedView = 'posts' | 'outreach'
+
+interface OutreachLead {
+  id: string
+  name: string
+  title: string
+  company: string
+  linkedin_url: string
+  comment_text: string
+  icp_match: boolean
+  status: string
+  dm_draft: string | null
+  sb_scrapes?: { post_url: string; post_topic: string | null }
+}
+
 export default function WatchlistFeed() {
+  const [feedView, setFeedView] = useState<FeedView>('posts')
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null) // username to drill into
   const [showPeople, setShowPeople] = useState(false) // collapsible people section
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
+  // Outreach state
+  const [outreachLeads, setOutreachLeads] = useState<OutreachLead[]>([])
+  const [outreachTotal, setOutreachTotal] = useState(0)
+  const [loadingOutreach, setLoadingOutreach] = useState(false)
+  const [draftingDmId, setDraftingDmId] = useState<string | null>(null)
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [insights, setInsights] = useState<LinkedInInsights | null>(null)
   const [loading, setLoading] = useState(true)
@@ -94,6 +115,44 @@ export default function WatchlistFeed() {
       if (json.success) setFeed(json.items ?? [])
     } catch { /* silently fail */ }
     finally { setLoadingFeed(false) }
+  }
+
+  async function fetchOutreach() {
+    setLoadingOutreach(true)
+    try {
+      const res = await fetch('/api/leads?filter=icp&limit=50')
+      const json = await res.json()
+      if (json.success) {
+        setOutreachLeads(json.data ?? [])
+        setOutreachTotal(json.total ?? 0)
+      }
+    } catch { /* silently fail */ }
+    finally { setLoadingOutreach(false) }
+  }
+
+  async function handleDraftDm(lead: OutreachLead) {
+    setDraftingDmId(lead.id)
+    try {
+      const topic = lead.sb_scrapes?.post_topic ?? ''
+      const res = await fetch('/api/draft-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_name: lead.name,
+          lead_title: lead.title,
+          lead_company: lead.company,
+          comment_text: lead.comment_text,
+          post_topic: topic,
+        }),
+      })
+      const json = await res.json()
+      if (json.message) {
+        setOutreachLeads(prev => prev.map(l =>
+          l.id === lead.id ? { ...l, dm_draft: json.message, status: 'dm_drafted' } : l
+        ))
+      }
+    } catch { /* silently fail */ }
+    finally { setDraftingDmId(null) }
   }
 
   async function addToWatchlist() {
@@ -739,24 +798,122 @@ export default function WatchlistFeed() {
         )}
       </div>
 
-      {/* ═══ FEED ═══ */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="section-label">
-          {feed.filter(f => !tasks[f.url]).length > 0
-            ? `${feed.filter(f => !tasks[f.url]).length} actions`
-            : 'No new actions'}
+      {/* ═══ FEED VIEW TOGGLE ═══ */}
+      <div className="flex items-center gap-0 mb-4 border-b border-rule">
+        {([['posts', 'Posts'], ['outreach', 'Outreach']] as const).map(([key, label]) => {
+          const count = key === 'posts'
+            ? feed.filter(f => !tasks[f.url]).length
+            : outreachTotal
+          return (
+            <button
+              key={key}
+              onClick={() => {
+                setFeedView(key)
+                if (key === 'outreach' && outreachLeads.length === 0) fetchOutreach()
+              }}
+              className={`text-sm font-semibold px-4 py-2.5 border-b-[2px] transition-colors flex items-center gap-1.5 ${
+                feedView === key ? 'text-ink border-accent' : 'text-ink-4 border-transparent hover:text-ink-3'
+              }`}
+            >
+              {label}
+              {count > 0 && <span className="badge-count">{count}</span>}
+            </button>
+          )
+        })}
+        <div className="ml-auto pb-1.5">
+          <button onClick={() => feedView === 'posts' ? fetchFeed(true) : fetchOutreach()} disabled={loadingFeed || loadingOutreach} className="btn-outline text-xs">
+            {(loadingFeed || loadingOutreach) ? '...' : '↻'}
+          </button>
         </div>
-        <button onClick={() => fetchFeed(true)} disabled={loadingFeed} className="btn-outline text-xs">
-          {loadingFeed ? '...' : '↻ Refresh'}
-        </button>
       </div>
 
-      {loadingFeed ? (
+      {/* ═══ OUTREACH VIEW ═══ */}
+      {feedView === 'outreach' && (
+        <>
+          {loadingOutreach ? (
+            <div className="text-sm text-ink-4 py-8 text-center">Loading leads...</div>
+          ) : outreachLeads.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-sm text-ink-3 mb-2">No ICP leads yet</div>
+              <div className="text-xs text-ink-4">Scrape a LinkedIn post from the Posts tab to find leads that match your ICP.</div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {outreachLeads.map(lead => {
+                const hasDraft = !!lead.dm_draft
+                const isDrafting = draftingDmId === lead.id
+                return (
+                  <div key={lead.id} className={`bg-white border rounded-[var(--radius)] p-4 ${
+                    lead.comment_text ? 'border-accent' : 'border-rule'
+                  }`}>
+                    {lead.comment_text && (
+                      <div className="text-[10px] text-accent font-bold uppercase tracking-wider mb-1.5">Commented</div>
+                    )}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-head text-sm font-semibold text-ink">{lead.name}</div>
+                        <div className="text-[11px] text-ink-3">{lead.title}</div>
+                        {lead.company && <div className="text-[11px] text-ink-4">{lead.company}</div>}
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${
+                        lead.status === 'dm_drafted' ? 'bg-accent/10 text-accent' :
+                        lead.status === 'dm_sent' ? 'bg-green-100 text-green-700' :
+                        'bg-[var(--rule-light)] text-ink-4'
+                      }`}>
+                        {lead.status === 'dm_drafted' ? 'Draft ready' :
+                         lead.status === 'dm_sent' ? 'Sent' :
+                         lead.status === 'icp_filtered' ? 'ICP match' :
+                         lead.status}
+                      </span>
+                    </div>
+
+                    {lead.comment_text && (
+                      <div className="mt-2 text-xs text-ink-2 bg-[var(--bg-warm)] rounded px-3 py-2 leading-relaxed">
+                        &ldquo;{lead.comment_text}&rdquo;
+                      </div>
+                    )}
+
+                    {hasDraft && (
+                      <div className="mt-2 text-xs text-ink bg-[var(--bg-warm)] rounded px-3 py-2 leading-relaxed border-l-2 border-accent">
+                        {lead.dm_draft}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 mt-3">
+                      {!hasDraft && (
+                        <button onClick={() => handleDraftDm(lead)} disabled={isDrafting}
+                          className="btn-primary text-xs">
+                          {isDrafting ? 'Drafting...' : 'Draft DM'}
+                        </button>
+                      )}
+                      {hasDraft && (
+                        <button onClick={() => {
+                          navigator.clipboard.writeText(lead.dm_draft ?? '')
+                          window.open(lead.linkedin_url, '_blank')
+                        }} className="btn-primary text-xs">
+                          Copy DM & Open
+                        </button>
+                      )}
+                      <a href={lead.linkedin_url} target="_blank" rel="noopener noreferrer" className="btn-outline text-xs">
+                        View profile
+                      </a>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ═══ POSTS VIEW ═══ */}
+      {feedView === 'posts' && loadingFeed && (
         <div className="text-sm text-ink-4 py-8 text-center">
           <div className="mb-1">Loading posts from your watchlist...</div>
           <div className="text-[11px]">This can take 10-30 seconds (fetching from LinkedIn & X)</div>
         </div>
-      ) : (
+      )}
+      {feedView === 'posts' && !loadingFeed && (
         <>
           {/* ═══ LINKEDIN TASKS ═══ */}
           <div className="mb-8">
