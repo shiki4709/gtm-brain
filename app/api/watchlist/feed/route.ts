@@ -208,6 +208,11 @@ export async function GET(request: Request) {
             const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
             // Skip RTs, replies, and low-quality
             if (text.startsWith('RT @') || text.startsWith('@')) return false
+            // Skip very short tweets (likely spam or vague)
+            if (text.length < 30) return false
+            // Skip non-Latin text (catches spam in Cyrillic, Arabic, etc.)
+            const latinChars = text.match(/[a-zA-Z]/g)?.length ?? 0
+            if (latinChars < text.length * 0.3) return false
             // Min engagement: 5k views or 10+ retweets
             const views = (tw as Record<string, number>).views_count ?? 0
             const rts = (tw as Record<string, number>).retweet_count ?? 0
