@@ -49,7 +49,7 @@ export default function Settings() {
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'brain'; text: string; suggestions?: Suggestion[] }>>([])
   const [watchingInProgress, setWatchingInProgress] = useState<string | null>(null)
 
   useEffect(() => {
@@ -69,6 +69,8 @@ export default function Settings() {
   }, [])
 
   async function chatFindPeople(query: string) {
+    setChatMessages(prev => [...prev, { role: 'user', text: query }])
+    setChatInput('')
     setChatLoading(true)
     try {
       const res = await fetch('/api/suggest-watchlist', {
@@ -77,9 +79,15 @@ export default function Settings() {
         body: JSON.stringify({ query }),
       })
       const json = await res.json()
-      if (json.success && json.suggestions?.length > 0) setSuggestions(json.suggestions)
-    } catch { /* silently fail */ }
-    finally { setChatLoading(false); setChatInput('') }
+      if (json.success && json.suggestions?.length > 0) {
+        setChatMessages(prev => [...prev, { role: 'brain', text: `Found ${json.suggestions.length} people:`, suggestions: json.suggestions }])
+      } else {
+        setChatMessages(prev => [...prev, { role: 'brain', text: 'No results — try being more specific or describing a different niche.' }])
+      }
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'brain', text: 'Something went wrong. Try again.' }])
+    }
+    finally { setChatLoading(false) }
   }
 
   async function addToWatchlist(platform: string, username: string, displayName: string) {
@@ -93,7 +101,6 @@ export default function Settings() {
       const json = await res.json()
       if (json.success && json.data) {
         setWatchlist(prev => [json.data, ...prev])
-        setSuggestions(prev => prev.filter(s => s.username !== username))
       }
     } catch { /* silently fail */ }
     finally { setWatchingInProgress(null) }
@@ -157,64 +164,11 @@ export default function Settings() {
       {/* People you watch */}
       <div className="mb-10">
         <div className="section-label mb-1">People you watch</div>
-        <p className="text-xs text-ink-4 mb-3">Influencers whose posts appear in your Feed. Describe who you want and the brain suggests people.</p>
-
-        {/* Chat finder */}
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={chatInput}
-            onChange={e => setChatInput(e.target.value)}
-            placeholder="e.g. SaaS sales leaders, DevTools founders..."
-            className="input flex-1 py-2.5 px-4 text-sm"
-            onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) chatFindPeople(chatInput.trim()) }}
-          />
-          <button onClick={() => chatFindPeople(chatInput.trim())} disabled={chatLoading || !chatInput.trim()} className="btn-primary">
-            {chatLoading ? '...' : 'Find'}
-          </button>
-        </div>
-
-        {/* Suggestions */}
-        {suggestions.length > 0 && (
-          <div className="mb-4">
-            <div className="text-[10px] text-ink-4 mb-2">AI suggestions — verify before watching</div>
-            <div className="flex flex-col gap-2">
-              {suggestions.map((s, i) => {
-                const isAdding = watchingInProgress === s.username
-                return (
-                  <div key={i} className="bg-[var(--bg-warm)] rounded-[var(--radius)] px-4 py-3 flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                          s.platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
-                        }`} style={s.platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
-                          {s.platform === 'linkedin' ? 'LinkedIn' : 'X'}
-                        </span>
-                        <span className="text-sm font-semibold text-ink">{s.name}</span>
-                        {s.followers && s.followers > 0 && (
-                          <span className="text-[10px] text-ink-4">{s.followers >= 1000 ? `${Math.round(s.followers / 1000)}K` : s.followers}</span>
-                        )}
-                      </div>
-                      {s.headline && <div className="text-[11px] text-ink-3 mt-0.5 truncate">{s.headline}</div>}
-                      <div className="text-[11px] text-ink-4 mt-0.5">{s.reason}</div>
-                    </div>
-                    <button
-                      className="btn-accent shrink-0 ml-3"
-                      disabled={isAdding}
-                      onClick={() => addToWatchlist(s.platform, s.username, s.name)}
-                    >
-                      {isAdding ? '...' : '+ Watch'}
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
+        <p className="text-xs text-ink-4 mb-3">Tell the brain who you want to follow. It finds real influencers on LinkedIn and X.</p>
 
         {/* Current watchlist */}
         {watchlist.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mb-4">
             {watchlist.map(w => (
               <span key={w.id} className={`flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-full ${
                 w.platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
@@ -226,9 +180,85 @@ export default function Settings() {
           </div>
         )}
 
-        {watchlist.length === 0 && (
-          <div className="text-xs text-ink-4">No one watched yet. Use the finder above to add people.</div>
-        )}
+        {/* Chat */}
+        <div className="border border-rule rounded-[var(--radius)] overflow-hidden">
+          {/* Messages */}
+          {chatMessages.length > 0 && (
+            <div className="max-h-[400px] overflow-y-auto p-4 flex flex-col gap-3">
+              {chatMessages.map((msg, i) => (
+                <div key={i}>
+                  {msg.role === 'user' ? (
+                    <div className="flex justify-end">
+                      <div className="bg-accent text-white text-sm px-3 py-2 rounded-2xl rounded-br-md max-w-[80%]">
+                        {msg.text}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-xs text-ink-3 mb-2">{msg.text}</div>
+                      {msg.suggestions && msg.suggestions.length > 0 && (
+                        <div className="flex flex-col gap-1.5">
+                          {msg.suggestions.map((s, j) => {
+                            const isAdding = watchingInProgress === s.username
+                            const alreadyWatched = watchlist.some(w => w.username.toLowerCase() === s.username.toLowerCase())
+                            return (
+                              <div key={j} className="bg-[var(--bg-warm)] rounded-lg px-3 py-2.5 flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded ${
+                                      s.platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
+                                    }`} style={s.platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
+                                      {s.platform === 'linkedin' ? 'in' : 'X'}
+                                    </span>
+                                    <span className="text-sm font-semibold text-ink">{s.name}</span>
+                                    {s.followers && s.followers > 0 && (
+                                      <span className="text-[10px] text-ink-4">{s.followers >= 1000 ? `${Math.round(s.followers / 1000)}K` : s.followers}</span>
+                                    )}
+                                  </div>
+                                  {s.headline && <div className="text-[10px] text-ink-3 truncate">{s.headline}</div>}
+                                </div>
+                                {alreadyWatched ? (
+                                  <span className="text-[10px] text-green-600 shrink-0 ml-2">Watching</span>
+                                ) : (
+                                  <button
+                                    className="text-[11px] text-accent font-semibold hover:underline shrink-0 ml-2"
+                                    disabled={isAdding}
+                                    onClick={() => addToWatchlist(s.platform, s.username, s.name)}
+                                  >
+                                    {isAdding ? '...' : '+ Watch'}
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="text-xs text-ink-4">Searching...</div>
+              )}
+            </div>
+          )}
+
+          {/* Input */}
+          <div className={`flex gap-2 p-3 ${chatMessages.length > 0 ? 'border-t border-rule' : ''}`}>
+            <input
+              type="text"
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              placeholder={chatMessages.length === 0 ? 'e.g. "SaaS sales leaders" or "DevTools founders who post about PLG"' : 'Try another search...'}
+              className="flex-1 py-2 px-3 text-sm bg-transparent outline-none placeholder:text-ink-4"
+              onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim() && !chatLoading) chatFindPeople(chatInput.trim()) }}
+            />
+            <button onClick={() => chatFindPeople(chatInput.trim())} disabled={chatLoading || !chatInput.trim()}
+              className="text-accent font-semibold text-sm hover:underline disabled:opacity-30 disabled:no-underline">
+              {chatLoading ? '...' : 'Search'}
+            </button>
+          </div>
+        </div>
       </div>
 
       <hr className="border-rule-light my-10" />
