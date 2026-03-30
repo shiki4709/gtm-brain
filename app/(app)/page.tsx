@@ -39,6 +39,7 @@ interface TaskState {
 
 export default function WatchlistFeed() {
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
+  const [actionFilter, setActionFilter] = useState<'all' | 'reply' | 'scrape' | 'content'>('all')
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [insights, setInsights] = useState<LinkedInInsights | null>(null)
@@ -751,16 +752,29 @@ export default function WatchlistFeed() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* ═══ FEED HEADER ═══ */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="section-label">
-          {feed.filter(f => !tasks[f.url]).length > 0
-            ? `${feed.filter(f => !tasks[f.url]).length} posts`
-            : 'No new posts'}
+      {/* ═══ ACTION FILTER TABS ═══ */}
+      <div className="flex items-center gap-0 mb-4 border-b border-rule">
+        {([
+          ['all', 'All'],
+          ['reply', 'Reply'],
+          ['scrape', 'Scrape'],
+          ['content', 'Repurpose'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setActionFilter(key)}
+            className={`text-sm font-semibold px-4 py-2.5 border-b-[2px] transition-colors ${
+              actionFilter === key ? 'text-ink border-accent' : 'text-ink-4 border-transparent hover:text-ink-3'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        <div className="ml-auto pb-1.5">
+          <button onClick={() => fetchFeed(true)} disabled={loadingFeed} className="btn-outline text-xs">
+            {loadingFeed ? '...' : '↻'}
+          </button>
         </div>
-        <button onClick={() => fetchFeed(true)} disabled={loadingFeed} className="btn-outline text-xs">
-          {loadingFeed ? '...' : '↻ Refresh'}
-        </button>
       </div>
 
       {/* ═══ POSTS ═══ */}
@@ -848,20 +862,28 @@ export default function WatchlistFeed() {
               return { score: 0, matchedTopic: null }
             }
 
-            const allTodo = feed
+            const allScored = feed
               .filter(f => !tasks[f.url])
               .map(item => {
                 const rec = getRecommendation(item)
                 const eng = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
                 const icpRel = getIcpRelevance(item.text)
-                // Score: ICP relevance is the biggest factor, then priority, then engagement
                 const score =
-                  (icpRel.score > 0 ? 200 * icpRel.score : 0) + // ICP match is king
+                  (icpRel.score > 0 ? 200 * icpRel.score : 0) +
                   (rec.actions[0]?.priority === 'high' ? 100 : rec.actions[0]?.priority === 'medium' ? 30 : 1) +
                   eng * 0.1
-                return { item, rec, score, icpRelevance: icpRel }
+                const primaryType = rec.actions[0]?.type ?? 'skip'
+                return { item, rec, score, icpRelevance: icpRel, primaryType }
               })
               .sort((a, b) => b.score - a.score)
+
+            // Filter by action type
+            const allTodo = actionFilter === 'all'
+              ? allScored
+              : allScored.filter(({ primaryType, rec }) => {
+                  // Show posts where ANY action matches the filter (not just primary)
+                  return rec.actions.some(a => a.type === actionFilter)
+                })
 
             const allDone = feed.filter(f => tasks[f.url])
 
@@ -927,11 +949,11 @@ export default function WatchlistFeed() {
                         )}
                         <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
 
-                        {/* Compact ROI — only show the primary action's ROI */}
+                        {/* ROI for the relevant action */}
                         <div className="text-[11px] text-ink-4 mb-2">
-                          {primaryAction?.type === 'scrape' && <span>{p}{est.scrape.icpLeads} est. ICP leads → {p}{est.scrape.meetings} meetings</span>}
-                          {primaryAction?.type === 'reply' && <span>{p}{est.reply.impressions} est. impressions → {p}{est.reply.followers} followers</span>}
-                          {primaryAction?.type === 'content' && <span>{est.content.icpRate}% ICP topic match</span>}
+                          {(actionFilter === 'scrape' || (actionFilter === 'all' && primaryAction?.type === 'scrape')) && <span>{p}{est.scrape.icpLeads} est. ICP leads → {p}{est.scrape.meetings} meetings</span>}
+                          {(actionFilter === 'reply' || (actionFilter === 'all' && primaryAction?.type === 'reply')) && <span>{p}{est.reply.impressions} est. impressions → {p}{est.reply.followers} followers</span>}
+                          {(actionFilter === 'content' || (actionFilter === 'all' && primaryAction?.type === 'content')) && <span>{est.content.icpRate}% ICP topic match</span>}
                         </div>
 
                         <div className="flex flex-wrap gap-2">
