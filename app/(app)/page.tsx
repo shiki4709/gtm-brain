@@ -957,36 +957,33 @@ export default function WatchlistFeed() {
                         </div>
 
                         <div className="flex flex-wrap gap-2">
-                          {rec.actions.map((a, j) => {
+                          {rec.actions
+                            .filter(a => actionFilter === 'all' || a.type === actionFilter)
+                            .map((a, j) => {
                             if (a.type === 'scrape') return (
                               <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
-                                className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}
+                                className="btn-primary"
                                 onClick={() => markDone(item.url, a.type)}>
                                 {a.label}
                               </Link>
                             )
                             if (a.type === 'reply') return (
                               <button key={j} onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}
-                                className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}>
+                                className="btn-primary">
                                 {draftingUrl === item.url ? 'Drafting...' : a.label}
                               </button>
                             )
                             if (a.type === 'content') return (
-                              <button key={j} className="btn-outline" onClick={() => markDone(item.url, a.type)}>
+                              <button key={j} className="btn-primary" onClick={() => markDone(item.url, a.type)}>
                                 {a.label}
                               </button>
-                            )
-                            if (a.type === 'skip') return (
-                              <button key={j} onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink">Skip</button>
                             )
                             return null
                           })}
                           <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
                             {isLinkedIn ? 'View post' : 'Open on X'}
                           </a>
-                          {!rec.actions.find(a => a.type === 'skip') && (
-                            <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
-                          )}
+                          <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
                         </div>
 
                         {draftReply && (
