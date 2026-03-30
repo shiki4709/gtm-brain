@@ -1035,50 +1035,84 @@ export default function WatchlistFeed() {
                         {/* Repurpose content panel */}
                         {repurposeUrl === item.url && repurposeContent[item.url] && (
                           <div className="mt-3 pt-3 border-t border-rule-light">
-                            <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-3">Repurposed content</div>
-                            <div className="flex flex-col gap-3">
-                              {Object.entries(repurposeContent[item.url]).map(([platform, content]) => {
-                                if (!content) return null
+                            <div className="flex flex-col gap-4">
+                              {Object.entries(repurposeContent[item.url]).map(([platform, rawContent]) => {
+                                if (!rawContent) return null
                                 const editKey = `${item.url}:${platform}`
-                                const editedText = repurposeEditing[editKey]
-                                const displayText = editedText ?? content
                                 const isCopied = repurposeCopied === editKey
-                                return (
-                                  <div key={platform} className="bg-[var(--bg-warm)] rounded-lg p-3">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                                        platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
-                                      }`} style={platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
-                                        {platform === 'linkedin' ? 'LinkedIn' : 'X Thread'}
-                                      </span>
-                                      <div className="flex gap-2">
-                                        <button
-                                          className="text-[11px] text-accent hover:underline"
-                                          onClick={() => {
-                                            navigator.clipboard.writeText(displayText)
-                                            setRepurposeCopied(editKey)
-                                            setTimeout(() => setRepurposeCopied(null), 2000)
-                                          }}
-                                        >
-                                          {isCopied ? 'Copied!' : 'Copy'}
+                                // Clean trailing --- from content
+                                const cleanContent = rawContent.replace(/\n---\s*$/, '').trim()
+
+                                if (platform === 'x') {
+                                  // X thread: split into tweet cards
+                                  const tweets = cleanContent.split(/\n---\n/).map(t => t.trim()).filter(Boolean)
+                                  return (
+                                    <div key={platform}>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-[var(--accent-orange)]/10" style={{ color: 'var(--accent-orange)' }}>
+                                          X Thread · {tweets.length} tweets
+                                        </span>
+                                        <button className="text-[11px] text-accent hover:underline" onClick={() => {
+                                          navigator.clipboard.writeText(tweets.join('\n\n'))
+                                          setRepurposeCopied(editKey)
+                                          setTimeout(() => setRepurposeCopied(null), 2000)
+                                        }}>
+                                          {isCopied ? 'Copied!' : 'Copy thread'}
                                         </button>
                                       </div>
+                                      <div className="flex flex-col gap-2">
+                                        {tweets.map((tweet, ti) => (
+                                          <div key={ti} className="bg-white border border-rule rounded-lg px-3 py-2.5">
+                                            <div className="flex items-start gap-2">
+                                              <span className="text-[10px] text-ink-4 font-semibold shrink-0 mt-0.5">{ti + 1}/{tweets.length}</span>
+                                              <div className="flex-1">
+                                                <div className="text-xs text-ink leading-relaxed whitespace-pre-wrap">{tweet}</div>
+                                                <div className={`text-[10px] mt-1 ${tweet.length > 270 ? 'text-red-500 font-semibold' : 'text-ink-4'}`}>
+                                                  {tweet.length}/280
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
-                                    <textarea
-                                      className="w-full text-xs text-ink leading-relaxed bg-transparent resize-none outline-none"
-                                      value={displayText}
-                                      onChange={e => setRepurposeEditing(prev => ({ ...prev, [editKey]: e.target.value }))}
-                                      rows={platform === 'x' ? 12 : 8}
-                                    />
+                                  )
+                                }
+
+                                // LinkedIn: single post view
+                                return (
+                                  <div key={platform}>
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-accent/10 text-accent">
+                                        LinkedIn
+                                      </span>
+                                      <button className="text-[11px] text-accent hover:underline" onClick={() => {
+                                        navigator.clipboard.writeText(repurposeEditing[editKey] ?? cleanContent)
+                                        setRepurposeCopied(editKey)
+                                        setTimeout(() => setRepurposeCopied(null), 2000)
+                                      }}>
+                                        {isCopied ? 'Copied!' : 'Copy post'}
+                                      </button>
+                                    </div>
+                                    <div className="bg-white border border-rule rounded-lg px-3 py-2.5">
+                                      <textarea
+                                        className="w-full text-xs text-ink leading-relaxed bg-transparent resize-none outline-none min-h-[120px]"
+                                        value={repurposeEditing[editKey] ?? cleanContent}
+                                        onChange={e => setRepurposeEditing(prev => ({ ...prev, [editKey]: e.target.value }))}
+                                        onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px' }}
+                                      />
+                                    </div>
                                   </div>
                                 )
                               })}
                             </div>
                             <div className="flex gap-2 mt-3">
                               <button className="btn-primary text-xs" onClick={() => {
-                                // Copy all and mark done
                                 const all = Object.entries(repurposeContent[item.url])
-                                  .map(([p, c]) => `[${p.toUpperCase()}]\n${repurposeEditing[`${item.url}:${p}`] ?? c}`)
+                                  .map(([p, c]) => {
+                                    const clean = c.replace(/\n---\s*$/, '').trim()
+                                    return `[${p.toUpperCase()}]\n${repurposeEditing[`${item.url}:${p}`] ?? clean}`
+                                  })
                                   .join('\n\n---\n\n')
                                 navigator.clipboard.writeText(all)
                                 markDone(item.url, 'content')
