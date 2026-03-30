@@ -46,7 +46,7 @@ export default function WatchlistFeed() {
   const [loading, setLoading] = useState(true)
   const [loadingFeed, setLoadingFeed] = useState(false)
   const [addInput, setAddInput] = useState('')
-  const [addPlatform, setAddPlatform] = useState<'linkedin' | 'x'>('linkedin')
+  const [addPlatform] = useState<'linkedin' | 'x'>('linkedin')
   const [adding, setAdding] = useState(false)
   const [tasks, setTasks] = useState<TaskState>({})
   const [roi, setRoi] = useState<RoiData | null>(null)
@@ -469,7 +469,7 @@ export default function WatchlistFeed() {
         <div className="text-center mb-10 pt-8">
           <div className="inline-flex items-center gap-2 mb-4">
             <div className="w-3 h-3 rounded-full gradient-dot" />
-            <span className="font-head text-xl font-bold text-ink">GTM Brain</span>
+            <span className="font-head text-xl font-bold text-ink">Feed</span>
           </div>
           <h1 className="font-head text-2xl font-bold text-ink mb-3">Your GTM starts with people</h1>
           <p className="text-sm text-ink-3 max-w-md mx-auto leading-relaxed">
@@ -845,10 +845,9 @@ export default function WatchlistFeed() {
                             </Link>
                           )
                           if (a.type === 'content') return (
-                            <Link key={j} href={`/build-presence?topic=${encodeURIComponent(item.text.slice(0, 100))}`}
-                              className="btn-outline" onClick={() => markDone(item.url, a.type)}>
+                            <button key={j} className="btn-outline" onClick={() => markDone(item.url, a.type)}>
                               {a.label}
-                            </Link>
+                            </button>
                           )
                           if (a.type === 'skip') return (
                             <button key={j} onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink">Skip</button>
@@ -873,7 +872,7 @@ export default function WatchlistFeed() {
                   type="text"
                   placeholder="linkedin.com/in/markroberge"
                   className="input py-2 px-3 text-sm max-w-sm mx-auto"
-                  onKeyDown={e => { if (e.key === 'Enter') { setAddPlatform('linkedin'); setAddInput((e.target as HTMLInputElement).value); addToWatchlist() } }}
+                  onKeyDown={e => { if (e.key === 'Enter') { setAddInput((e.target as HTMLInputElement).value); addToWatchlist() } }}
                 />
               </div>
             )}
@@ -989,10 +988,9 @@ export default function WatchlistFeed() {
                             </Link>
                           )
                           if (a.type === 'content') return (
-                            <Link key={j} href={`/build-presence?topic=${encodeURIComponent(item.text.slice(0, 100))}`}
-                              className="btn-outline" onClick={() => markDone(item.url, a.type)}>
+                            <button key={j} className="btn-outline" onClick={() => markDone(item.url, a.type)}>
                               {a.label}
-                            </Link>
+                            </button>
                           )
                           return null
                         })}
@@ -1024,7 +1022,7 @@ export default function WatchlistFeed() {
                   type="text"
                   placeholder="@markroberge"
                   className="input py-2 px-3 text-sm max-w-sm mx-auto"
-                  onKeyDown={e => { if (e.key === 'Enter') { setAddPlatform('x'); setAddInput((e.target as HTMLInputElement).value); addToWatchlist() } }}
+                  onKeyDown={e => { if (e.key === 'Enter') { setAddInput((e.target as HTMLInputElement).value); addToWatchlist() } }}
                 />
               </div>
             )}

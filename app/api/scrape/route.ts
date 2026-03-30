@@ -60,20 +60,28 @@ async function startScrape(postUrl: string, token: string) {
     apifyUrl = `https://www.linkedin.com/feed/update/urn:li:share:${shareMatch[1]}/`
   }
 
-  // Start multiple offset batches for commenters and likers
-  const batchSize = 18
-  const offsets = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900]
+  // Start batches — keep it conservative (4 runs) to avoid Apify concurrency limits
+  const batchSize = 50
 
-  const startRun = (type: string, start: number) =>
-    fetch(startUrl, {
+  const startRun = async (type: string, start: number) => {
+    const resp = await fetch(startUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: apifyUrl, type, iterations: batchSize, start }),
-    }).then(r => r.json())
+    })
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '')
+      console.error(`Apify start failed (${resp.status}):`, errText.slice(0, 200))
+      return { error: `status_${resp.status}` }
+    }
+    return resp.json()
+  }
 
   const allRuns = await Promise.all([
-    ...offsets.map(s => startRun('commenters', s)),
-    ...offsets.map(s => startRun('likers', s)),
+    startRun('commenters', 0),
+    startRun('commenters', 100),
+    startRun('likers', 0),
+    startRun('likers', 100),
   ])
 
   // Collect valid run IDs
@@ -121,12 +129,13 @@ interface CheckResult {
 async function checkRuns(pollId: string, token: string): Promise<CheckResult> {
   const batches = pollId.split('|').map(b => {
     const [ds, id] = b.split(',')
-    return { ds, id }
+    return { ds, id, succeeded: false }
   })
 
   // Check if all runs finished
   let anyRunning = false
-  let succeededCount = 0
+  let finishedCount = 0
+  let failedCount = 0
 
   for (const batch of batches) {
     if (!batch.id) continue
@@ -135,8 +144,13 @@ async function checkRuns(pollId: string, token: string): Promise<CheckResult> {
       if (resp.ok) {
         const runData = (await resp.json()).data
         const s = runData?.status
-        if (s === 'SUCCEEDED' || s === 'FAILED' || s === 'ABORTED') {
-          succeededCount++
+        if (s === 'SUCCEEDED') {
+          finishedCount++
+          batch.succeeded = true
+        } else if (s === 'FAILED' || s === 'ABORTED') {
+          finishedCount++
+          failedCount++
+          console.error(`Apify run ${batch.id} ${s}`)
         } else {
           anyRunning = true
         }
@@ -147,13 +161,13 @@ async function checkRuns(pollId: string, token: string): Promise<CheckResult> {
   }
 
   if (anyRunning) {
-    return { status: 'running', leads: [], fetched: 0, progress: `${succeededCount}/${batches.length}` }
+    return { status: 'running', leads: [], fetched: 0, progress: `${finishedCount}/${batches.length}` }
   }
 
-  // All done — fetch and merge results from all datasets
+  // All done — fetch and merge results from succeeded datasets only
   const allItems: Array<Record<string, string>> = []
   for (const batch of batches) {
-    if (!batch.ds) continue
+    if (!batch.ds || !batch.succeeded) continue
     try {
       const r = await fetch(`https://api.apify.com/v2/datasets/${batch.ds}/items?token=${token}`)
       if (r.ok) {
@@ -163,6 +177,10 @@ async function checkRuns(pollId: string, token: string): Promise<CheckResult> {
     } catch {
       // Skip failed dataset fetches
     }
+  }
+
+  if (failedCount > 0) {
+    console.error(`Apify: ${failedCount}/${batches.length} runs failed`)
   }
 
   // Deduplicate by profile URL (commenters get priority — they have comment text)
