@@ -917,32 +917,8 @@ export default function WatchlistFeed() {
               )
             }
 
-            const summary = getBrainSummary(allTodo)
-
             return (
               <>
-                {/* Brain Summary */}
-                {summary && (
-                  <div className="brain-card mb-6">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${
-                        summary.platform === 'linkedin' ? 'bg-accent' :
-                        summary.platform === 'x' ? '' : 'gradient-dot'
-                      }`} style={summary.platform === 'x' ? { background: 'var(--accent-orange)' } : summary.platform === 'both' ? { background: 'var(--gradient-main)' } : undefined} />
-                      <div className="flex-1">
-                        <div className="font-head text-sm font-bold text-ink mb-0.5">{summary.focus}</div>
-                        <div className="text-[11px] text-ink-4 mb-2">{summary.stats}</div>
-                        {summary.topAction && (
-                          <div className="text-xs text-ink-2 leading-relaxed">
-                            <span className="font-semibold text-accent">Start here:</span> {summary.topAction}
-                            {summary.why && <span className="text-ink-4"> — {summary.why}</span>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex flex-col gap-2">
                   {allTodo.map(({ item, rec, icpRelevance }, i) => {
                     const isLinkedIn = item.platform === 'linkedin'
