@@ -1036,289 +1036,143 @@ export default function WatchlistFeed() {
             )
           })()}
 
-          {/* ═══ LINKEDIN TASKS ═══ */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-accent" />
-                <h2 className="font-head text-base font-bold text-ink">LinkedIn</h2>
-                {linkedinTodo.length > 0 && (
-                  <span className="badge-count">{linkedinTodo.length}</span>
-                )}
-              </div>
-              {/* Watching badges */}
-              <div className="flex flex-wrap gap-1">
-                {linkedinWatchlist.map(w => (
-                  <span key={w.id} className="text-[10px] text-ink-4 px-2 py-0.5 bg-[var(--rule-light)] rounded-full flex items-center gap-1">
-                    {w.display_name ?? w.username}
-                    <button onClick={() => removeFromWatchlist(w.id)} className="hover:text-ink">×</button>
-                  </span>
-                ))}
-              </div>
-            </div>
+          {/* ═══ UNIFIED FEED — sorted by ROI ═══ */}
+          {(() => {
+            const allTodo = feed
+              .filter(f => !tasks[f.url])
+              .map(item => {
+                const rec = getRecommendation(item)
+                const eng = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
+                const score = (rec.actions[0]?.priority === 'high' ? 100 : rec.actions[0]?.priority === 'medium' ? 30 : 1) + eng * 0.1
+                return { item, rec, score }
+              })
+              .sort((a, b) => b.score - a.score)
 
-            {/* Todo */}
-            {linkedinTodo.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {linkedinTodo.map((item, i) => {
-                  const rec = getRecommendation(item)
-                  const primaryAction = rec.actions[0]
-                  return (
-                    <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${
-                      primaryAction?.priority === 'high' ? 'border-accent' : 'border-rule'
-                    }`}>
-                      {primaryAction?.priority === 'high' && (
-                        <div className="text-[10px] text-accent font-bold uppercase tracking-wider mb-2">High priority</div>
-                      )}
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
-                        <span className="text-[11px] text-ink-4">{timeAgo(item.time)}</span>
-                        {(() => { const v = getVelocity(item); return v.velocity >= 2 ? (
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${v.velocity >= 10 ? 'bg-accent text-white' : 'bg-[var(--rule-light)] text-ink-3'}`}>
-                            {v.velocity}/hr
+            const allDone = feed.filter(f => tasks[f.url])
+
+            if (allTodo.length === 0 && allDone.length === 0) {
+              return (
+                <div className="text-center py-12">
+                  <div className="text-sm text-ink-3 mb-2">No posts in the last 24 hours</div>
+                  <div className="text-xs text-ink-4">Your watched people haven&apos;t posted recently. Try adding more people or check back later.</div>
+                </div>
+              )
+            }
+
+            return (
+              <>
+                <div className="flex flex-col gap-2">
+                  {allTodo.map(({ item, rec }, i) => {
+                    const isLinkedIn = item.platform === 'linkedin'
+                    const primaryAction = rec.actions[0]
+                    const draftReply = draftReplies[item.url]
+                    const est = getEstimatedROI(item)
+                    const p = est.prefix
+                    const accentColor = isLinkedIn ? undefined : 'var(--accent-orange)'
+
+                    return (
+                      <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${
+                        primaryAction?.priority === 'high' ? (isLinkedIn ? 'border-accent' : 'border-[var(--accent-orange)]') : 'border-rule'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isLinkedIn ? 'bg-accent' : ''}`}
+                            style={!isLinkedIn ? { background: 'var(--accent-orange)' } : undefined} />
+                          <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
+                          <span className="text-[11px] text-ink-4">
+                            {!isLinkedIn && `@${item.authorHandle} · `}{timeAgo(item.time)}
                           </span>
-                        ) : null })()}
-                      </div>
-                      {item.engagement && (
-                        <div className="flex gap-3 text-[11px] text-ink-4 mb-2">
-                          {(item.engagement.likes ?? 0) > 0 && <span>{item.engagement.likes} likes</span>}
-                          {(item.engagement.replies ?? 0) > 0 && <span className="font-semibold text-accent">{item.engagement.replies} comments</span>}
-                          {(item.engagement.retweets ?? 0) > 0 && <span>{item.engagement.retweets} shares</span>}
+                          {primaryAction?.priority === 'high' && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColor ?? 'var(--accent)' }}>
+                              High ROI
+                            </span>
+                          )}
+                          {(() => { const v = getVelocity(item); return v.velocity >= 2 ? (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${v.velocity >= 10 ? 'text-white' : 'bg-[var(--rule-light)] text-ink-3'}`}
+                              style={v.velocity >= 10 ? { background: accentColor ?? 'var(--accent)' } : undefined}>
+                              {v.velocity}/hr
+                            </span>
+                          ) : null })()}
                         </div>
-                      )}
-                      <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
+                        {item.engagement && (
+                          <div className="flex gap-3 text-[11px] text-ink-4 mb-1.5">
+                            {(item.engagement.likes ?? 0) > 0 && <span>{item.engagement.likes?.toLocaleString()} likes</span>}
+                            {(item.engagement.replies ?? 0) > 0 && <span className="font-semibold" style={{ color: accentColor ?? 'var(--accent)' }}>{item.engagement.replies} {isLinkedIn ? 'comments' : 'replies'}</span>}
+                            {(item.engagement.retweets ?? 0) > 0 && <span>{item.engagement.retweets} {isLinkedIn ? 'shares' : 'RTs'}</span>}
+                          </div>
+                        )}
+                        <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
 
-                      {/* ROI estimates */}
-                      {(() => {
-                        const est = getEstimatedROI(item)
-                        const p = est.prefix
-                        return (
-                          <div className="grid grid-cols-3 gap-2 mb-3 text-[11px]">
-                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
-                              <div className="font-semibold text-accent">Scrape</div>
-                              <div className="text-ink-2">{p}{est.scrape.icpLeads} ICP leads</div>
-                              {est.scrape.replies > 0 && <div className="text-ink-4">{p}{est.scrape.replies} replies → {p}{est.scrape.meetings} meetings</div>}
-                            </div>
-                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
-                              <div className="font-semibold text-accent">Reply</div>
-                              <div className="text-ink-2">{p}{est.reply.impressions} impressions</div>
-                              <div className="text-ink-4">{p}{est.reply.followers} followers</div>
-                            </div>
-                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
-                              <div className="font-semibold text-accent">Content</div>
-                              <div className="text-ink-2">{p}{est.content.inboundLeads} inbound leads</div>
-                              <div className="text-ink-4">{est.content.icpRate}% ICP topic</div>
+                        {/* Compact ROI — only show the primary action's ROI */}
+                        <div className="text-[11px] text-ink-4 mb-2">
+                          {primaryAction?.type === 'scrape' && <span>{p}{est.scrape.icpLeads} est. ICP leads → {p}{est.scrape.meetings} meetings</span>}
+                          {primaryAction?.type === 'reply' && <span>{p}{est.reply.impressions} est. impressions → {p}{est.reply.followers} followers</span>}
+                          {primaryAction?.type === 'content' && <span>{est.content.icpRate}% ICP topic match</span>}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {rec.actions.map((a, j) => {
+                            if (a.type === 'scrape') return (
+                              <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
+                                className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}
+                                onClick={() => markDone(item.url, a.type)}>
+                                {a.label}
+                              </Link>
+                            )
+                            if (a.type === 'reply') return (
+                              <button key={j} onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}
+                                className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}>
+                                {draftingUrl === item.url ? 'Drafting...' : a.label}
+                              </button>
+                            )
+                            if (a.type === 'content') return (
+                              <button key={j} className="btn-outline" onClick={() => markDone(item.url, a.type)}>
+                                {a.label}
+                              </button>
+                            )
+                            if (a.type === 'skip') return (
+                              <button key={j} onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink">Skip</button>
+                            )
+                            return null
+                          })}
+                          <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
+                            {isLinkedIn ? 'View post' : 'Open on X'}
+                          </a>
+                          {!rec.actions.find(a => a.type === 'skip') && (
+                            <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
+                          )}
+                        </div>
+
+                        {draftReply && (
+                          <div className="mt-3 pt-3 border-t border-rule-light">
+                            <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">{draftReply}</div>
+                            <div className="flex gap-2">
+                              <button className="btn-primary" onClick={() => { copyAndOpen(draftReply, item.url); markDone(item.url, 'reply') }}>
+                                {copied === item.url ? 'Copied' : 'Copy & Open'}
+                              </button>
+                              <button className="btn-outline" onClick={() => handleDraftReply(item)}>Rewrite</button>
                             </div>
                           </div>
-                        )
-                      })()}
-
-                      <div className="flex flex-wrap gap-2">
-                        {rec.actions.map((a, j) => {
-                          if (a.type === 'scrape') return (
-                            <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
-                              className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}
-                              onClick={() => markDone(item.url, a.type)}>
-                              {a.label}
-                            </Link>
-                          )
-                          if (a.type === 'content') return (
-                            <button key={j} className="btn-outline" onClick={() => markDone(item.url, a.type)}>
-                              {a.label}
-                            </button>
-                          )
-                          if (a.type === 'skip') return (
-                            <button key={j} onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink">Skip</button>
-                          )
-                          return null
-                        })}
-                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">View post</a>
-                        {!rec.actions.find(a => a.type === 'skip') && (
-                          <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
                         )}
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : linkedinWatchlist.length > 0 ? (
-              <div className="text-center py-6 text-xs text-ink-4">No posts found in the last 30 days. They might not post often — try watching someone more active.</div>
-            ) : (
-              <div className="border border-dashed border-rule rounded-[var(--radius)] p-4 text-center">
-                <div className="text-xs text-ink-4 mb-2">Add LinkedIn profiles to watch</div>
-                <input
-                  type="text"
-                  placeholder="linkedin.com/in/markroberge"
-                  className="input py-2 px-3 text-sm max-w-sm mx-auto"
-                  onKeyDown={e => { if (e.key === 'Enter') { setAddInput((e.target as HTMLInputElement).value); addToWatchlist() } }}
-                />
-              </div>
-            )}
+                    )
+                  })}
+                </div>
 
-            {/* Done */}
-            {linkedinDone.length > 0 && (
-              <div className="mt-3">
-                <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-2">Done today</div>
-                {linkedinDone.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 py-1.5 text-xs text-ink-4">
-                    <span>{tasks[item.url] === 'done' ? '✓' : '—'}</span>
-                    <span className="line-through">{item.author}: {item.text.slice(0, 60)}...</span>
-                    <button onClick={() => undoTask(item.url)} className="text-[10px] hover:text-ink ml-auto">Undo</button>
+                {allDone.length > 0 && (
+                  <div className="mt-4">
+                    <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-2">Done today</div>
+                    {allDone.map((item, i) => (
+                      <div key={i} className="flex items-center gap-2 py-1.5 text-xs text-ink-4">
+                        <span>{tasks[item.url] === 'done' ? '✓' : '—'}</span>
+                        <span className="line-through">{item.author}: {item.text.slice(0, 60)}...</span>
+                        <button onClick={() => undoTask(item.url)} className="text-[10px] hover:text-ink ml-auto">Undo</button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ═══ X TASKS ═══ */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ background: 'var(--accent-orange)' }} />
-                <h2 className="font-head text-base font-bold text-ink">X</h2>
-                {xTodo.length > 0 && (
-                  <span className="badge-count">{xTodo.length}</span>
                 )}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {xWatchlist.map(w => (
-                  <span key={w.id} className="text-[10px] text-ink-4 px-2 py-0.5 bg-[var(--rule-light)] rounded-full flex items-center gap-1">
-                    @{w.display_name ?? w.username}
-                    <button onClick={() => removeFromWatchlist(w.id)} className="hover:text-ink">×</button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Todo */}
-            {xTodo.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                {xTodo.map((item, i) => {
-                  const rec = getRecommendation(item)
-                  const draftReply = draftReplies[item.url]
-                  return (
-                    <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${
-                      rec.actions[0]?.priority === 'high' ? 'border-[var(--accent-orange)]' : 'border-rule'
-                    }`}>
-                      {rec.actions[0]?.priority === 'high' && (
-                        <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--accent-orange)' }}>
-                          {(item.engagement?.likes ?? 0) >= 100 ? '🔥 Viral — reply now' : 'High priority'}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
-                        <span className="text-[11px] text-ink-4">@{item.authorHandle} · {timeAgo(item.time)}</span>
-                        {(() => { const v = getVelocity(item); return v.velocity >= 2 ? (
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${v.velocity >= 10 ? 'text-white' : 'bg-[var(--rule-light)] text-ink-3'}`}
-                            style={v.velocity >= 10 ? { background: 'var(--accent-orange)' } : undefined}>
-                            {v.velocity}/hr
-                          </span>
-                        ) : null })()}
-                      </div>
-                      <div className="text-xs text-ink-2 leading-relaxed mb-1">{item.text}</div>
-                      {item.engagement && (
-                        <div className="flex gap-3 text-[11px] text-ink-4 mb-2">
-                          <span>{item.engagement.likes?.toLocaleString()} likes</span>
-                          {(item.engagement.replies ?? 0) > 0 && (
-                            <span className="font-semibold" style={{ color: 'var(--accent-orange)' }}>{item.engagement.replies} replies</span>
-                          )}
-                          <span>{item.engagement.retweets} RTs</span>
-                        </div>
-                      )}
-
-                      {/* ROI estimates */}
-                      {(() => {
-                        const est = getEstimatedROI(item)
-                        const p = est.prefix
-                        return (
-                          <div className="grid grid-cols-3 gap-2 mb-3 text-[11px]">
-                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
-                              <div className="font-semibold" style={{ color: 'var(--accent-orange)' }}>Reply</div>
-                              <div className="text-ink-2">{p}{est.reply.impressions} impressions</div>
-                              <div className="text-ink-4">{p}{est.reply.followers} followers</div>
-                            </div>
-                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
-                              <div className="font-semibold" style={{ color: 'var(--accent-orange)' }}>Scrape</div>
-                              <div className="text-ink-2">{p}{est.scrape.icpLeads} ICP leads</div>
-                              {est.scrape.replies > 0 && <div className="text-ink-4">{p}{est.scrape.replies} replies</div>}
-                            </div>
-                            <div className="bg-[var(--bg-warm)] rounded px-2.5 py-2">
-                              <div className="font-semibold" style={{ color: 'var(--accent-orange)' }}>Content</div>
-                              <div className="text-ink-2">{p}{est.content.inboundLeads} inbound leads</div>
-                              <div className="text-ink-4">{est.content.icpRate}% ICP topic</div>
-                            </div>
-                          </div>
-                        )
-                      })()}
-                      <div className="flex flex-wrap gap-2">
-                        {rec.actions.map((a, j) => {
-                          if (a.type === 'reply') return (
-                            <button key={j} onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}
-                              className={a.priority === 'high' ? 'btn-primary' : 'btn-accent'}>
-                              {draftingUrl === item.url ? 'Drafting...' : a.label}
-                            </button>
-                          )
-                          if (a.type === 'scrape') return (
-                            <Link key={j} href={`/find-leads?scrape=${encodeURIComponent(item.url)}`}
-                              className={a.priority === 'high' ? 'btn-primary' : 'btn-outline'}
-                              onClick={() => markDone(item.url, a.type)}>
-                              {a.label}
-                            </Link>
-                          )
-                          if (a.type === 'content') return (
-                            <button key={j} className="btn-outline" onClick={() => markDone(item.url, a.type)}>
-                              {a.label}
-                            </button>
-                          )
-                          return null
-                        })}
-                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">Open on X</a>
-                        <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
-                      </div>
-
-                      {draftReply && (
-                        <div className="mt-3 pt-3 border-t border-rule-light">
-                          <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">{draftReply}</div>
-                          <div className="flex gap-2">
-                            <button className="btn-primary" onClick={() => { copyAndOpen(draftReply, item.url); markDone(item.url, 'reply') }}>
-                              {copied === item.url ? 'Copied' : 'Copy & Open'}
-                            </button>
-                            <button className="btn-outline" onClick={() => handleDraftReply(item)}>Rewrite</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            ) : xWatchlist.length > 0 ? (
-              <div className="text-center py-6 text-xs text-ink-4">No recent tweets found. The handle might be wrong or they haven&apos;t posted recently. Try removing and re-adding with the correct handle.</div>
-            ) : (
-              <div className="border border-dashed border-rule rounded-[var(--radius)] p-4 text-center">
-                <div className="text-xs text-ink-4 mb-2">Add X accounts to watch</div>
-                <input
-                  type="text"
-                  placeholder="@markroberge"
-                  className="input py-2 px-3 text-sm max-w-sm mx-auto"
-                  onKeyDown={e => { if (e.key === 'Enter') { setAddInput((e.target as HTMLInputElement).value); addToWatchlist() } }}
-                />
-              </div>
-            )}
-
-            {/* Done */}
-            {xDone.length > 0 && (
-              <div className="mt-3">
-                <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-2">Done today</div>
-                {xDone.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 py-1.5 text-xs text-ink-4">
-                    <span>{tasks[item.url] === 'done' ? '✓' : '—'}</span>
-                    <span className="line-through">{item.author}: {item.text.slice(0, 60)}...</span>
-                    <button onClick={() => undoTask(item.url)} className="text-[10px] hover:text-ink ml-auto">Undo</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+              </>
+            )
+          })()}
         </>
       )}
     </div>
