@@ -87,103 +87,130 @@ Every action feeds data back:
 
 The brain surfaces insights: "Posts about engineering hiring yield 3x more ICP leads. DMs referencing comments get 23% reply rate vs 8% for generic."
 
-## Information architecture
+## Information architecture (current — updated 2026-03-30)
 
-### Tabs
+### Navigation
 
 ```
-Overview | Outbound | Inbound
+Feed | Pipeline | Settings (gear icon)
 ```
 
 No tool names. No "Hawki", "Pingi", "Foxxi" in the UI.
 
-### Overview tab
+### Feed page
 
-**Purpose:** What needs your attention right now + high-level stats.
+**Purpose:** What should I do right now? One action-oriented feed.
+
+**Sub-tabs:**
+```
+All | Reply | Scrape | Repurpose
+```
+
+Each tab filters to posts where the Brain recommends that specific action. In the All tab, each card shows only its primary action button.
+
+**Post sources:**
+1. Watched accounts — LinkedIn (Apify) + X (SocialData) profiles the user follows
+2. Topic search — top posts from anyone on X matching the user's tracked keywords (`min_retweets:5 lang:en`, 5K+ views)
+
+**Per-post card shows:**
+- Author, handle, platform dot (blue=LinkedIn, orange=X), time ago
+- Engagement stats (likes, comments/replies, shares/RTs)
+- ICP relevance badge: `ICP: topic` (green) or `Off-topic` (gray)
+- Engagement velocity badge (e.g. `95.5/hr`)
+- ROI estimate for the primary action
+- Primary action button (Reply / Scrape engagers / Use as content idea)
+- Open on X / View post + Skip
+
+**Action flows:**
+- **Reply** → drafts a reply using anti-AI-slop prompt (x-reply-craft skill), shows inline with "Copy & Open tweet" button + refine input for human-language rewrites
+- **Scrape** → links to Pipeline page with auto-scrape
+- **Repurpose** → generates LinkedIn post + X thread (Foxxi-style prompts), per-platform copy with "mark as posted" tracking, cross-pollination recommendation
+
+**Scoring engine (`/lib/scoring.ts`):**
+Three layers of ICP relevance:
+1. Claude Haiku semantic scoring (cron only, ~$0.001/post)
+2. Keyword matching: track keywords → expanded related terms → topic insights → ICP title words
+3. Behavior learning: boost topics user acts on, penalize topics they skip
+
+Feed sorting: `(ICP relevance × 200) + (priority: high=100, med=30, low=1) + (engagement × 0.1)`
+
+**Recommendation engine (GTM Action Framework):**
+Each action has independent qualifying criteria:
+- Reply: fresh (<12h) + high engagement + low reply count (won't get buried)
+- Scrape: 10+ comments (intent signal), LinkedIn preferred
+- Repurpose: substantive text (80+ chars) + ICP-relevant + 5+ engagement
+- Posts can get 0, 1, 2, or 3 actions — only those they qualify for
+
+### Pipeline page
+
+**Purpose:** Results from scraping — ICP leads, DM drafts, pipeline tracking.
 
 **Components:**
-- Brain insight card — this week's top learning (from `sb_insights`)
-- Stats row — ICP leads, DMs sent, replies, X replies posted, content published
-- Action items — prioritized list of what needs attention, each tagged outbound/inbound:
-  - "23 new ICP leads to review" → links to Outbound
-  - "8 DMs drafted, ready to send" → links to Outbound
-  - "5 tweets worth replying to" → links to Inbound
-  - "2 leads replied to your DM" → links to Outbound
-  - "1 post ready to publish" → links to Inbound
-- Activity feed — recent actions across all tools, tagged outbound/inbound
-
-**Data source:** All from Supabase. Action items are computed queries (e.g., "leads WHERE status = 'icp_filtered' AND NOT viewed").
-
-### Outbound tab
-
-**Purpose:** Find leads from other people's posts, DM them, track the pipeline.
-
-**Components:**
-1. **Scrape input** — paste LinkedIn post URL, click Scrape
-2. **Post finder** — search by keyword (Brave Search API), results with View + Scrape buttons
-3. **Watch list** — influencers to monitor, "Scrape latest" per influencer
-4. **Pipeline visualization** — scraped → ICP filtered → DM drafted → DM sent → replied → meeting booked
-5. **Lead list** — sortable/filterable, with:
-   - Name, title, company
-   - Source post + topic
-   - Comment text (if commenter)
-   - ICP badge
-   - Status badge (new / DM drafted / sent / replied)
-   - "Draft DM" button → opens Claude-generated DM
-   - "View" → opens LinkedIn profile
-6. **Sales Nav CSV export** — ICP leads with First Name, Last Name, Title, Company, LinkedIn URL
-7. **Replied leads** — leads who replied, with reply snippet and source attribution
+1. **Scrape input** (collapsible) — paste LinkedIn post URL, click Scrape. Auto-opens from Feed scrape links.
+2. **Scrape results** — per-scrape cards with ICP match rate, lead count, brain insight
+3. **Lead list** — filterable by ICP+comment, ICP only, commented, other. Each lead shows name, title, company, comment text, DM draft, status badges
+4. **DM drafting** — Claude generates personalized DM with comment-reference angle
+5. **Status tracking** — scraped → ICP filtered → DM drafted → DM sent → replied → converted
 
 **API routes:**
-- `POST /api/scrape` — start Apify scrape (multi-batch offsets for full coverage)
-- `POST /api/scrape/poll` — poll for scrape completion
-- `POST /api/find-posts` — Brave Search API for LinkedIn posts
-- `POST /api/draft-dm` — Claude Haiku generates personalized DM
-- `POST /api/export-csv` — generate Sales Nav CSV
+- `POST /api/scrape` — start Apify scrape (4 parallel runs: 2 commenters + 2 likers)
+- `POST /api/draft-message` — Claude generates personalized DM
+- `GET /api/scrapes` — fetch scrape history with leads
+- `PATCH /api/leads` — update lead status
 
-### Inbound tab
+### Settings page
 
-**Purpose:** Create content, stay active on X, track inbound lead generation.
+**Purpose:** Configure your GTM setup.
 
 **Sections:**
+1. **Account** — name, email
+2. **People you watch** — chat-style finder ("SaaS sales leaders") + watchlist as removable badges
+3. **ICP — Target titles** — job titles to filter leads
+4. **ICP — Exclude** — titles to filter out
+5. **Topics to track** — keywords for feed relevance (e.g. AI, automation, sales hiring)
+6. **Connect Telegram / Slack** — notification channel setup (pending build)
 
-**Content creation:**
-1. Source input — paste URL, text, or notes
-2. Brain suggestion — "Based on your lead data, post about [topic]"
-3. Generate button → LinkedIn post + X thread side by side
-4. Editable textareas per platform
-5. Copy button per platform
+### Push Notifications (Telegram / Slack)
 
-**X engagement:**
-1. Watched accounts + topics (from ICP setup)
-2. "Find tweets" — surfaces recent tweets from watched accounts/topics
-3. Each tweet: author, text, engagement stats, View on X, Draft Reply
-4. Draft Reply → Claude generates contextual reply, editable, Copy & Post
-5. Telegram setup card — step-by-step connect to @pingi_x_bot for real-time push
+**Purpose:** Push 3-5 high-ROI posts per day to your phone. Act without opening the web app.
 
-**Your posts:**
-1. Published post history with engagement data
-2. "Scrape engagers" button per post — feeds leads back to outbound pipeline as `source_type = 'inbound'`
+**Architecture:**
+```
+[GitHub Actions Cron — every 30 min]
+     ↓
+[Scanner + Haiku ICP Scoring]
+     ↓
+[Notification Router]
+     ↓
+┌──────────┬──────────┐
+│ Telegram │  Slack   │
+└──────────┴──────────┘
+```
+
+- Scores posts with Claude Haiku for semantic ICP relevance
+- Generates draft replies for reply-recommended posts
+- Dedup against last 7 days of pushed notifications
+- Rate limited: max 5 per 3-hour window, max 10 per day
+- Timezone-aware: only pushes during 7am-10pm local time
+- Inline buttons: Act / Skip / Open post
 
 **API routes:**
-- `POST /api/generate` — Claude Sonnet generates LinkedIn + X content
-- `POST /api/x-engage` — SocialData API fetches tweets from accounts/topics
-- `POST /api/draft-reply` — Claude Haiku generates X reply
+- `POST /api/cron/scan` — scanner endpoint (secured with CRON_SECRET)
+- `POST /api/telegram/webhook` — receives button clicks (pending build)
 
 ### Onboarding (first visit)
 
 **Purpose:** One setup that configures everything.
 
 **Flow:**
-1. "Who are you trying to reach?" — enter target ICP titles + exclusions
-2. ICP auto-populates:
-   - Outbound: lead filtering keywords
-   - Inbound: suggested X accounts and topics based on ICP
-   - Content: audience targeting for generation
-3. "Set up my GTM tools" → all tabs become available
-4. Optional: Telegram setup for X engagement push notifications
+1. "What problem do you solve?" — describe your product
+2. Brain asks 3 clarifying questions about the buyer
+3. AI suggests 8 ICP titles based on answers
+4. User picks titles, adds exclusions
+5. AI suggests influencers to watch
+6. Feed becomes available
 
-**Data saved:** `sb_users.icp_config` (JSON: titles + exclude arrays)
+**Data saved:** `sb_users.icp_config` (JSON: titles, exclude, track_keywords arrays)
 
 ## Second Brain — Detailed Design
 
@@ -466,10 +493,13 @@ CREATE TABLE sb_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE,
   name TEXT,
-  icp_config JSONB DEFAULT '{"titles":[],"exclude":[]}',
+  icp_config JSONB DEFAULT '{"titles":[],"exclude":[],"track_keywords":[]}',
   x_accounts JSONB DEFAULT '[]',
   x_topics JSONB DEFAULT '[]',
   telegram_connected BOOLEAN DEFAULT false,
+  notification_channels JSONB DEFAULT '[]',
+  -- e.g. [{"type":"telegram","chat_id":"123"}, {"type":"slack","webhook_url":"..."}]
+  timezone TEXT DEFAULT 'America/New_York',
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -552,10 +582,38 @@ CREATE TABLE sb_insights (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES sb_users(id),
   insight_type TEXT NOT NULL,
-  -- types: topic_performance, icp_pattern, dm_effectiveness, timing, weekly_summary
+  -- types: topic_performance, icp_pattern, dm_effectiveness, timing, weekly_summary, pipeline_run, outcome
   insight_data JSONB NOT NULL,
   confidence FLOAT DEFAULT 0.5,
   generated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Push notifications (for dedup + action tracking)
+CREATE TABLE sb_notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES sb_users(id),
+  channel TEXT, -- 'telegram' | 'slack'
+  post_url TEXT,
+  action_type TEXT, -- 'reply' | 'scrape' | 'repurpose'
+  draft_text TEXT,
+  status TEXT DEFAULT 'pushed', -- 'pushed' | 'acted' | 'skipped' | 'ignored'
+  score NUMERIC,
+  pushed_at TIMESTAMPTZ DEFAULT now(),
+  acted_at TIMESTAMPTZ
+);
+
+-- Watchlist (people to monitor)
+CREATE TABLE sb_watchlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES sb_users(id),
+  platform TEXT NOT NULL, -- 'linkedin' | 'x'
+  username TEXT NOT NULL,
+  display_name TEXT,
+  profile_url TEXT,
+  headline TEXT,
+  last_checked TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, platform, username)
 );
 ```
 
@@ -745,18 +803,40 @@ Even at L4, the agent has hard limits:
 
 ## Build order
 
-| Step | What | Est |
-|------|------|-----|
-| 1 | Supabase project + schema | 30 min |
-| 2 | App layout — tabs (Overview / Outbound / Inbound), onboarding gate | 1h |
-| 3 | Outbound — scrape API + lead list + DM drafting + pipeline | 2h |
-| 4 | Outbound — post finder + watch list + Sales Nav export | 1h |
-| 5 | Inbound — content generation (LinkedIn + X) | 1h |
-| 6 | Inbound — X engage (SocialData + draft reply) + Telegram card | 1h |
-| 7 | Overview — stats + action items + activity feed from DB | 1h |
-| 8 | Brain — first insight generation (topic performance) | 1h |
-| 9 | Polish — error handling, loading states, mobile responsive | 1h |
-| **Total** | | **~9.5h** |
+### Phase 1: Core product (DONE)
+| Step | What | Status |
+|------|------|--------|
+| 1 | Supabase project + schema | Done |
+| 2 | App layout — Feed / Pipeline / Settings | Done |
+| 3 | Feed — unified post feed with ICP scoring + action tabs | Done |
+| 4 | Feed — reply drafting with anti-AI-slop prompt | Done |
+| 5 | Feed — content repurpose with Foxxi-style generation | Done |
+| 6 | Pipeline — scrape API + lead list + DM drafting | Done |
+| 7 | Settings — chat-style people finder + ICP config + topics | Done |
+| 8 | Scoring engine — shared lib with keyword + behavior learning | Done |
+| 9 | Topic-based tweet discovery (SocialData search by keywords) | Done |
+
+### Phase 2: Push notifications (IN PROGRESS)
+| Step | What | Status |
+|------|------|--------|
+| 1 | Scoring engine `/lib/scoring.ts` | Done |
+| 2 | Scanner API `/api/cron/scan` | Done |
+| 3 | Notification router (Telegram + Slack adapters) | Done |
+| 4 | Create @gtmbrain_bot via BotFather + /start linking | Next |
+| 5 | Telegram webhook for button clicks | Next |
+| 6 | GitHub Actions cron (every 30 min) | Next |
+| 7 | Settings UI — Connect Telegram / Slack | Next |
+| 8 | Action tracking — log acted/skipped | Next |
+| 9 | Slack adapter polish | Next |
+
+### Phase 3: Learning + autonomy (PLANNED)
+| Step | What | Status |
+|------|------|--------|
+| 1 | Behavior learning — topic boosts from act/skip history | Planned |
+| 2 | Daily digest option (vs individual pushes) | Planned |
+| 3 | Auto-scrape watched accounts on schedule | Planned |
+| 4 | Auto-draft DMs for new ICP leads | Planned |
+| 5 | Trust scoring — agent earns autonomy | Planned |
 
 ## Relationship to existing repos
 
