@@ -74,6 +74,10 @@ export default function WatchlistFeed() {
   const [watchSuggestions, setWatchSuggestions] = useState<Array<{ platform: string; username: string; name: string; reason: string; headline?: string; followers?: number }>>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [watchingInProgress, setWatchingInProgress] = useState<string | null>(null) // username being added
+  // Chat state for discovering influencers
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatMode, setChatMode] = useState<'url' | 'chat'>('url')
 
   // Draft reply state
   const [draftingUrl, setDraftingUrl] = useState<string | null>(null)
@@ -153,6 +157,22 @@ export default function WatchlistFeed() {
       }
     } catch { /* silently fail */ }
     finally { setDraftingDmId(null) }
+  }
+
+  async function chatFindPeople(query: string) {
+    setChatLoading(true)
+    try {
+      const res = await fetch('/api/suggest-watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      })
+      const json = await res.json()
+      if (json.success && json.suggestions?.length > 0) {
+        setWatchSuggestions(json.suggestions)
+      }
+    } catch { /* silently fail */ }
+    finally { setChatLoading(false); setChatInput('') }
   }
 
   async function addToWatchlist() {
@@ -828,19 +848,56 @@ export default function WatchlistFeed() {
 
         {showPeople && (
           <>
-            <div className="flex gap-2 mb-4">
-              <input
-                type="text"
-                value={addInput}
-                onChange={e => setAddInput(e.target.value)}
-                placeholder="LinkedIn URL or @handle..."
-                className="input flex-1 py-2 px-3 text-sm"
-                onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
-              />
-              <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
-                {adding ? '...' : '+ Watch'}
+            {/* Mode toggle */}
+            <div className="flex gap-1 mb-3">
+              <button
+                onClick={() => setChatMode('url')}
+                className={`text-[11px] px-3 py-1 rounded-full transition-colors ${chatMode === 'url' ? 'bg-accent text-white' : 'bg-[var(--rule-light)] text-ink-4 hover:text-ink-3'}`}
+              >
+                Paste URL
+              </button>
+              <button
+                onClick={() => setChatMode('chat')}
+                className={`text-[11px] px-3 py-1 rounded-full transition-colors ${chatMode === 'chat' ? 'bg-accent text-white' : 'bg-[var(--rule-light)] text-ink-4 hover:text-ink-3'}`}
+              >
+                Find people
               </button>
             </div>
+
+            {chatMode === 'url' ? (
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={addInput}
+                  onChange={e => setAddInput(e.target.value)}
+                  placeholder="LinkedIn URL or @handle..."
+                  className="input flex-1 py-2 px-3 text-sm"
+                  onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
+                />
+                <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
+                  {adding ? '...' : '+ Watch'}
+                </button>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    placeholder="e.g. SaaS sales leaders, B2B marketing influencers, DevTools founders..."
+                    className="input flex-1 py-2 px-3 text-sm"
+                    onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) chatFindPeople(chatInput.trim()) }}
+                  />
+                  <button onClick={() => chatFindPeople(chatInput.trim())} disabled={chatLoading || !chatInput.trim()} className="btn-primary">
+                    {chatLoading ? '...' : 'Find'}
+                  </button>
+                </div>
+                <div className="text-[10px] text-ink-4 mt-1.5">
+                  Describe who you want to follow and the brain will suggest real influencers
+                </div>
+              </div>
+            )}
 
             {/* Suggestions */}
             {watchSuggestions.length > 0 && (

@@ -183,10 +183,20 @@ export async function GET(request: Request) {
     await Promise.all(xPromises)
   }
 
-  // Sort by time (newest first) — best effort since time formats differ
-  items.sort((a, b) => {
-    const timeA = new Date(a.time).getTime() || 0
-    const timeB = new Date(b.time).getTime() || 0
+  // Filter out posts older than 30 days or with no valid timestamp
+  const thirtyDaysAgoMs = Date.now() - 30 * 24 * 60 * 60 * 1000
+  const filtered = items.filter(item => {
+    if (!item.time) return false
+    const ts = new Date(item.time).getTime()
+    if (isNaN(ts) || ts === 0) return false
+    if (ts < thirtyDaysAgoMs) return false
+    return true
+  })
+
+  // Sort by time (newest first)
+  filtered.sort((a, b) => {
+    const timeA = new Date(a.time).getTime()
+    const timeB = new Date(b.time).getTime()
     return timeB - timeA
   })
 
@@ -198,7 +208,7 @@ export async function GET(request: Request) {
     .eq('user_id', auth.dbUser.id)
 
   // Cache the results
-  feedCache.set(cacheKey, { items, timestamp: Date.now() })
+  feedCache.set(cacheKey, { items: filtered, timestamp: Date.now() })
 
-  return NextResponse.json({ success: true, items, cached: false })
+  return NextResponse.json({ success: true, items: filtered, cached: false })
 }
