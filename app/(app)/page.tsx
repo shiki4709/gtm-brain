@@ -53,6 +53,7 @@ export default function WatchlistFeed() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [watchingInProgress, setWatchingInProgress] = useState<string | null>(null) // username being added
   const [icpTitles, setIcpTitles] = useState<string[]>([])
+  const [trackKeywords, setTrackKeywords] = useState<string[]>([])
   // Chat state for discovering influencers
 
   // Draft reply state
@@ -76,6 +77,7 @@ export default function WatchlistFeed() {
     ]).then(async ([wlJson, liJson, roiJson, userJson]) => {
       if (userJson.success && userJson.data?.icp_config?.titles) {
         setIcpTitles(userJson.data.icp_config.titles)
+        setTrackKeywords(userJson.data.icp_config.track_keywords ?? [])
       }
       if (roiJson.success) setRoi(roiJson.data)
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
@@ -842,7 +844,12 @@ export default function WatchlistFeed() {
             function getIcpRelevance(text: string): { score: number; matchedTopic: string | null } {
               const lower = text.toLowerCase()
 
-              // Check topic insights first (strongest signal — from real data)
+              // 1. User-defined track keywords (strongest — explicit user config)
+              const kwMatches = trackKeywords.filter(kw => lower.includes(kw))
+              if (kwMatches.length >= 2) return { score: 0.6, matchedTopic: kwMatches.slice(0, 2).join(', ') }
+              if (kwMatches.length === 1) return { score: 0.4, matchedTopic: kwMatches[0] }
+
+              // 2. Topic insights from past scrapes (strong — real conversion data)
               let bestRate = 0
               let bestTopic: string | null = null
               for (const { keyword, rate } of topicKeywords) {
@@ -853,11 +860,11 @@ export default function WatchlistFeed() {
               }
               if (bestRate > 0) return { score: bestRate, matchedTopic: bestTopic }
 
-              // Check against ICP title keywords (e.g. "sales", "marketing", "operations", "growth", "gtm")
-              const matches = [...icpWords].filter(w => lower.includes(w))
-              if (matches.length >= 3) return { score: 0.5, matchedTopic: matches.slice(0, 2).join(', ') }
-              if (matches.length === 2) return { score: 0.35, matchedTopic: matches.join(', ') }
-              if (matches.length === 1) return { score: 0.2, matchedTopic: matches[0] }
+              // 3. ICP title keywords (medium — inferred from job titles)
+              const titleMatches = [...icpWords].filter(w => lower.includes(w))
+              if (titleMatches.length >= 3) return { score: 0.5, matchedTopic: titleMatches.slice(0, 2).join(', ') }
+              if (titleMatches.length === 2) return { score: 0.35, matchedTopic: titleMatches.join(', ') }
+              if (titleMatches.length === 1) return { score: 0.2, matchedTopic: titleMatches[0] }
 
               return { score: 0, matchedTopic: null }
             }

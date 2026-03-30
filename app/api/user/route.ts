@@ -11,7 +11,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json()
-  const { icp_titles, icp_exclude } = body as { icp_titles: string[]; icp_exclude: string[] }
+  const { icp_titles, icp_exclude, track_keywords } = body as { icp_titles: string[]; icp_exclude: string[]; track_keywords?: string[] }
 
   if (!Array.isArray(icp_titles) || icp_titles.length === 0) {
     return NextResponse.json({ success: false, error: 'At least one ICP title is required' }, { status: 400 })
@@ -25,6 +25,7 @@ export async function POST(request: Request) {
   const icp_config = {
     titles: icp_titles.map(t => t.trim()).filter(Boolean),
     exclude: (icp_exclude ?? []).map((t: string) => t.trim()).filter(Boolean),
+    track_keywords: (track_keywords ?? user.icp_config?.track_keywords ?? []).map((t: string) => t.trim().toLowerCase()).filter(Boolean),
   }
 
   const { data, error } = await sb

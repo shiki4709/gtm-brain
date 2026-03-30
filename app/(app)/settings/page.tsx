@@ -6,7 +6,7 @@ interface UserData {
   id: string
   email: string
   name: string
-  icp_config: { titles: string[]; exclude: string[] }
+  icp_config: { titles: string[]; exclude: string[]; track_keywords?: string[] }
   x_accounts: string[]
   x_topics: string[]
 }
@@ -40,6 +40,10 @@ export default function Settings() {
   const [excludes, setExcludes] = useState<string[]>([])
   const [excludeInput, setExcludeInput] = useState('')
 
+  // Topic keywords for ICP relevance
+  const [trackKeywords, setTrackKeywords] = useState<string[]>([])
+  const [trackKeywordInput, setTrackKeywordInput] = useState('')
+
   // X
   const [xAccounts, setXAccounts] = useState<string[]>([])
   const [xAccountInput, setXAccountInput] = useState('')
@@ -63,6 +67,7 @@ export default function Settings() {
         setUser(u)
         setTitles(u.icp_config?.titles ?? [])
         setExcludes(u.icp_config?.exclude ?? [])
+        setTrackKeywords(u.icp_config?.track_keywords ?? [])
         setXAccounts(u.x_accounts ?? [])
         setXTopics(u.x_topics ?? [])
       }
@@ -126,7 +131,7 @@ export default function Settings() {
       await fetch('/api/user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ icp_titles: titles, icp_exclude: excludes }),
+        body: JSON.stringify({ icp_titles: titles, icp_exclude: excludes, track_keywords: trackKeywords }),
       })
 
       // Save X settings
@@ -295,6 +300,34 @@ export default function Settings() {
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList(excludeInput, excludes, setExcludes, setExcludeInput) } }}
           />
           <button className="btn-outline" onClick={() => addToList(excludeInput, excludes, setExcludes, setExcludeInput)} disabled={!excludeInput.trim()}>Add</button>
+        </div>
+      </div>
+
+      {/* Topic keywords */}
+      <div className="mb-10">
+        <div className="section-label mb-1">Topics to track</div>
+        <p className="text-xs text-ink-4 mb-3">Keywords that make a post relevant to your ICP. Posts matching these get boosted in the Feed. Posts that don&apos;t match get marked &quot;Off-topic.&quot;</p>
+
+        {trackKeywords.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {trackKeywords.map(t => (
+              <span key={t} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3 bg-green-100 text-green-700">
+                {t}
+                <button onClick={() => removeFromList(t, trackKeywords, setTrackKeywords)} className="hover:opacity-60 ml-0.5">×</button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <input
+            className="input flex-1 py-2.5 px-4 text-sm"
+            placeholder="e.g. AI, automation, sales hiring, GTM strategy..."
+            value={trackKeywordInput}
+            onChange={e => setTrackKeywordInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList(trackKeywordInput.toLowerCase(), trackKeywords, setTrackKeywords, setTrackKeywordInput) } }}
+          />
+          <button className="btn-accent" onClick={() => addToList(trackKeywordInput.toLowerCase(), trackKeywords, setTrackKeywords, setTrackKeywordInput)} disabled={!trackKeywordInput.trim()}>Add</button>
         </div>
       </div>
 

@@ -60,6 +60,7 @@ export interface SbUser {
 export interface IcpConfig {
   titles: string[]
   exclude: string[]
+  track_keywords?: string[]
 }
 
 export interface SbScrape {
