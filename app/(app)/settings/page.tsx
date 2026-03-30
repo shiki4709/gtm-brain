@@ -44,11 +44,6 @@ export default function Settings() {
   const [trackKeywords, setTrackKeywords] = useState<string[]>([])
   const [trackKeywordInput, setTrackKeywordInput] = useState('')
 
-  // X
-  const [xAccounts, setXAccounts] = useState<string[]>([])
-  const [xAccountInput, setXAccountInput] = useState('')
-  const [xTopics, setXTopics] = useState<string[]>([])
-  const [xTopicInput, setXTopicInput] = useState('')
 
   // Watchlist
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
@@ -68,8 +63,6 @@ export default function Settings() {
         setTitles(u.icp_config?.titles ?? [])
         setExcludes(u.icp_config?.exclude ?? [])
         setTrackKeywords(u.icp_config?.track_keywords ?? [])
-        setXAccounts(u.x_accounts ?? [])
-        setXTopics(u.x_topics ?? [])
       }
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
     }).catch(() => {}).finally(() => setLoading(false))
@@ -132,13 +125,6 @@ export default function Settings() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ icp_titles: titles, icp_exclude: excludes, track_keywords: trackKeywords }),
-      })
-
-      // Save X settings
-      await fetch('/api/user/x-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ x_accounts: xAccounts, x_topics: xTopics }),
       })
 
       setSaved(true)
@@ -328,64 +314,6 @@ export default function Settings() {
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList(trackKeywordInput.toLowerCase(), trackKeywords, setTrackKeywords, setTrackKeywordInput) } }}
           />
           <button className="btn-accent" onClick={() => addToList(trackKeywordInput.toLowerCase(), trackKeywords, setTrackKeywords, setTrackKeywordInput)} disabled={!trackKeywordInput.trim()}>Add</button>
-        </div>
-      </div>
-
-      <hr className="border-rule-light my-10" />
-
-      {/* X Accounts */}
-      <div className="mb-10">
-        <div className="section-label mb-1">X — Accounts to watch</div>
-        <p className="text-xs text-ink-4 mb-3">We surface recent tweets from these accounts for you to reply to. Add thought leaders your ICP follows.</p>
-
-        {xAccounts.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {xAccounts.map(a => (
-              <span key={a} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: '#fff3e0', color: 'var(--accent-orange-deep)' }}>
-                @{a}
-                <button onClick={() => removeFromList(a, xAccounts, setXAccounts)} className="hover:text-ink ml-0.5">×</button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <input
-            className="input flex-1 py-2.5 px-4 text-sm"
-            placeholder="@handle (e.g. markroberge)"
-            value={xAccountInput}
-            onChange={e => setXAccountInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList(xAccountInput, xAccounts, setXAccounts, setXAccountInput) } }}
-          />
-          <button className="btn-accent" onClick={() => addToList(xAccountInput, xAccounts, setXAccounts, setXAccountInput)} disabled={!xAccountInput.trim()}>Add</button>
-        </div>
-      </div>
-
-      {/* X Topics */}
-      <div className="mb-10">
-        <div className="section-label mb-1">X — Topics to watch</div>
-        <p className="text-xs text-ink-4 mb-3">We find trending tweets about these topics for you to engage with.</p>
-
-        {xTopics.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {xTopics.map(t => (
-              <span key={t} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: '#fff3e0', color: 'var(--accent-orange-deep)' }}>
-                {t}
-                <button onClick={() => removeFromList(t, xTopics, setXTopics)} className="hover:text-ink ml-0.5">×</button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <input
-            className="input flex-1 py-2.5 px-4 text-sm"
-            placeholder="e.g. GTM strategy, sales hiring"
-            value={xTopicInput}
-            onChange={e => setXTopicInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList(xTopicInput, xTopics, setXTopics, setXTopicInput) } }}
-          />
-          <button className="btn-accent" onClick={() => addToList(xTopicInput, xTopics, setXTopics, setXTopicInput)} disabled={!xTopicInput.trim()}>Add</button>
         </div>
       </div>
 
