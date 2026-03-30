@@ -67,7 +67,6 @@ export default function WatchlistFeed() {
   const [loading, setLoading] = useState(true)
   const [loadingFeed, setLoadingFeed] = useState(false)
   const [addInput, setAddInput] = useState('')
-  const [addPlatform] = useState<'linkedin' | 'x'>('linkedin')
   const [adding, setAdding] = useState(false)
   const [tasks, setTasks] = useState<TaskState>({})
   const [roi, setRoi] = useState<RoiData | null>(null)
@@ -77,7 +76,6 @@ export default function WatchlistFeed() {
   // Chat state for discovering influencers
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
-  const [chatMode, setChatMode] = useState<'url' | 'chat'>('url')
 
   // Draft reply state
   const [draftingUrl, setDraftingUrl] = useState<string | null>(null)
@@ -178,7 +176,7 @@ export default function WatchlistFeed() {
   async function addToWatchlist() {
     if (!addInput.trim()) return
     setAdding(true)
-    let platform = addPlatform
+    let platform: 'linkedin' | 'x' = 'linkedin'
     let username = addInput.trim()
     if (username.includes('linkedin.com/in/')) {
       platform = 'linkedin'
@@ -830,56 +828,24 @@ export default function WatchlistFeed() {
       {showPeople && (
         <div className="mb-5 bg-white border border-rule rounded-[var(--radius)] p-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex gap-1">
-              <button
-                onClick={() => setChatMode('url')}
-                className={`text-[11px] px-3 py-1 rounded-full transition-colors ${chatMode === 'url' ? 'bg-accent text-white' : 'bg-[var(--rule-light)] text-ink-4 hover:text-ink-3'}`}
-              >
-                Paste URL
-              </button>
-              <button
-                onClick={() => setChatMode('chat')}
-                className={`text-[11px] px-3 py-1 rounded-full transition-colors ${chatMode === 'chat' ? 'bg-accent text-white' : 'bg-[var(--rule-light)] text-ink-4 hover:text-ink-3'}`}
-              >
-                Find people
-              </button>
-            </div>
+            <div className="text-[11px] text-ink-4">Describe who you want to watch</div>
             <button onClick={() => setShowPeople(false)} className="text-[11px] text-ink-4 hover:text-ink">Done</button>
           </div>
 
-          {chatMode === 'url' ? (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={addInput}
-                onChange={e => setAddInput(e.target.value)}
-                placeholder="LinkedIn URL or @handle..."
-                className="input flex-1 py-2 px-3 text-sm"
-                onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
-                autoFocus
-              />
-              <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
-                {adding ? '...' : '+ Watch'}
-              </button>
-            </div>
-          ) : (
-            <div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={e => setChatInput(e.target.value)}
-                  placeholder="e.g. SaaS sales leaders, DevTools founders..."
-                  className="input flex-1 py-2 px-3 text-sm"
-                  onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) chatFindPeople(chatInput.trim()) }}
-                  autoFocus
-                />
-                <button onClick={() => chatFindPeople(chatInput.trim())} disabled={chatLoading || !chatInput.trim()} className="btn-primary">
-                  {chatLoading ? '...' : 'Find'}
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              placeholder="e.g. SaaS sales leaders, DevTools founders..."
+              className="input flex-1 py-2 px-3 text-sm"
+              onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) chatFindPeople(chatInput.trim()) }}
+              autoFocus
+            />
+            <button onClick={() => chatFindPeople(chatInput.trim())} disabled={chatLoading || !chatInput.trim()} className="btn-primary">
+              {chatLoading ? '...' : 'Find'}
+            </button>
+          </div>
 
           {/* Suggestions */}
           {watchSuggestions.length > 0 && (
@@ -941,8 +907,16 @@ export default function WatchlistFeed() {
                   <div key={lead.id} className={`bg-white border rounded-[var(--radius)] p-4 ${
                     lead.comment_text ? 'border-accent' : 'border-rule'
                   }`}>
+                    {/* Source post */}
+                    {lead.sb_scrapes?.post_url && (
+                      <a href={lead.sb_scrapes.post_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-[10px] text-ink-4 hover:text-accent mb-2 transition-colors">
+                        <span className="w-1 h-1 rounded-full bg-accent shrink-0" />
+                        From: {lead.sb_scrapes.post_topic ?? lead.sb_scrapes.post_url.replace(/https?:\/\/(www\.)?linkedin\.com\//, '').slice(0, 50)}
+                      </a>
+                    )}
                     {lead.comment_text && (
-                      <div className="text-[10px] text-accent font-bold uppercase tracking-wider mb-1.5">Commented</div>
+                      <div className="text-[10px] text-accent font-bold uppercase tracking-wider mb-1.5">Commented on this post</div>
                     )}
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
