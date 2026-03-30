@@ -1010,15 +1010,58 @@ export default function WatchlistFeed() {
             )
           })()}
 
-          {/* ═══ UNIFIED FEED — sorted by ROI ═══ */}
+          {/* ═══ UNIFIED FEED — sorted by ICP relevance + ROI ═══ */}
           {(() => {
+            // Build ICP keyword list from topic insights
+            const icpKeywords: Array<{ keyword: string; rate: number }> = []
+            if (insights?.topics) {
+              for (const t of insights.topics) {
+                if (t.avg_icp_rate > 0) {
+                  icpKeywords.push({ keyword: t.topic.toLowerCase(), rate: t.avg_icp_rate })
+                }
+              }
+            }
+            if (roi?.topic_rates) {
+              for (const [topic, rate] of Object.entries(roi.topic_rates)) {
+                if (!icpKeywords.find(k => k.keyword === topic.toLowerCase())) {
+                  icpKeywords.push({ keyword: topic.toLowerCase(), rate })
+                }
+              }
+            }
+
+            // ICP relevance: 0 to 1 based on topic match
+            function getIcpRelevance(text: string): { score: number; matchedTopic: string | null } {
+              const lower = text.toLowerCase()
+              let bestRate = 0
+              let bestTopic: string | null = null
+              for (const { keyword, rate } of icpKeywords) {
+                if (lower.includes(keyword) && rate > bestRate) {
+                  bestRate = rate
+                  bestTopic = keyword
+                }
+              }
+              // Also check for common ICP-relevant terms even without historical data
+              const icpTerms = ['sales', 'revenue', 'gtm', 'marketing', 'growth', 'pipeline', 'leads', 'outbound', 'hiring', 'strategy']
+              if (bestRate === 0) {
+                const termMatches = icpTerms.filter(t => lower.includes(t)).length
+                if (termMatches >= 2) return { score: 0.3, matchedTopic: null }
+                if (termMatches === 1) return { score: 0.15, matchedTopic: null }
+              }
+              return { score: bestRate, matchedTopic: bestTopic }
+            }
+
             const allTodo = feed
               .filter(f => !tasks[f.url])
               .map(item => {
                 const rec = getRecommendation(item)
                 const eng = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
-                const score = (rec.actions[0]?.priority === 'high' ? 100 : rec.actions[0]?.priority === 'medium' ? 30 : 1) + eng * 0.1
-                return { item, rec, score }
+                const icpRel = getIcpRelevance(item.text)
+                // Score: ICP relevance is the biggest factor, then priority, then engagement
+                const score =
+                  (icpRel.score > 0 ? 200 * icpRel.score : 0) + // ICP match is king
+                  (rec.actions[0]?.priority === 'high' ? 100 : rec.actions[0]?.priority === 'medium' ? 30 : 1) +
+                  eng * 0.1
+                return { item, rec, score, icpRelevance: icpRel }
               })
               .sort((a, b) => b.score - a.score)
 
@@ -1036,7 +1079,7 @@ export default function WatchlistFeed() {
             return (
               <>
                 <div className="flex flex-col gap-2">
-                  {allTodo.map(({ item, rec }, i) => {
+                  {allTodo.map(({ item, rec, icpRelevance }, i) => {
                     const isLinkedIn = item.platform === 'linkedin'
                     const primaryAction = rec.actions[0]
                     const draftReply = draftReplies[item.url]
@@ -1059,6 +1102,16 @@ export default function WatchlistFeed() {
                             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColor ?? 'var(--accent)' }}>
                               High ROI
                             </span>
+                          )}
+                          {icpRelevance.score > 0 && (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                              icpRelevance.score >= 0.1 ? 'bg-green-100 text-green-700' : 'bg-[var(--rule-light)] text-ink-4'
+                            }`}>
+                              {icpRelevance.matchedTopic ? `ICP: ${icpRelevance.matchedTopic}` : 'ICP relevant'}
+                            </span>
+                          )}
+                          {icpRelevance.score === 0 && (
+                            <span className="text-[10px] text-ink-4 px-1.5 py-0.5 bg-[var(--rule-light)] rounded">Off-topic</span>
                           )}
                           {(() => { const v = getVelocity(item); return v.velocity >= 2 ? (
                             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${v.velocity >= 10 ? 'text-white' : 'bg-[var(--rule-light)] text-ink-3'}`}
