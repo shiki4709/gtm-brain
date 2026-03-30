@@ -826,30 +826,11 @@ export default function WatchlistFeed() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* ═══ PEOPLE SECTION (collapsible) ═══ */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowPeople(!showPeople)}
-          className="flex items-center gap-2 w-full text-left mb-3"
-        >
-          <span className="text-[11px] text-ink-4">{showPeople ? '▼' : '▶'}</span>
-          <span className="section-label">Watching ({watchlist.length})</span>
-          {!showPeople && watchlist.length > 0 && (
-            <div className="flex gap-1 ml-1">
-              {watchlist.slice(0, 5).map(w => (
-                <span key={w.id} className="text-[10px] text-ink-4 px-2 py-0.5 bg-[var(--rule-light)] rounded-full">
-                  {w.platform === 'x' ? '@' : ''}{w.display_name ?? w.username}
-                </span>
-              ))}
-              {watchlist.length > 5 && <span className="text-[10px] text-ink-4">+{watchlist.length - 5}</span>}
-            </div>
-          )}
-        </button>
-
-        {showPeople && (
-          <>
-            {/* Mode toggle */}
-            <div className="flex gap-1 mb-3">
+      {/* ═══ ADD PEOPLE ═══ */}
+      {showPeople && (
+        <div className="mb-5 bg-white border border-rule rounded-[var(--radius)] p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex gap-1">
               <button
                 onClick={() => setChatMode('url')}
                 className={`text-[11px] px-3 py-1 rounded-full transition-colors ${chatMode === 'url' ? 'bg-accent text-white' : 'bg-[var(--rule-light)] text-ink-4 hover:text-ink-3'}`}
@@ -863,83 +844,51 @@ export default function WatchlistFeed() {
                 Find people
               </button>
             </div>
+            <button onClick={() => setShowPeople(false)} className="text-[11px] text-ink-4 hover:text-ink">Done</button>
+          </div>
 
-            {chatMode === 'url' ? (
-              <div className="flex gap-2 mb-4">
+          {chatMode === 'url' ? (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={addInput}
+                onChange={e => setAddInput(e.target.value)}
+                placeholder="LinkedIn URL or @handle..."
+                className="input flex-1 py-2 px-3 text-sm"
+                onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
+                autoFocus
+              />
+              <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
+                {adding ? '...' : '+ Watch'}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  value={addInput}
-                  onChange={e => setAddInput(e.target.value)}
-                  placeholder="LinkedIn URL or @handle..."
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  placeholder="e.g. SaaS sales leaders, DevTools founders..."
                   className="input flex-1 py-2 px-3 text-sm"
-                  onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
+                  onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) chatFindPeople(chatInput.trim()) }}
+                  autoFocus
                 />
-                <button onClick={addToWatchlist} disabled={adding || !addInput.trim()} className="btn-accent">
-                  {adding ? '...' : '+ Watch'}
+                <button onClick={() => chatFindPeople(chatInput.trim())} disabled={chatLoading || !chatInput.trim()} className="btn-primary">
+                  {chatLoading ? '...' : 'Find'}
                 </button>
               </div>
-            ) : (
-              <div className="mb-4">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    placeholder="e.g. SaaS sales leaders, B2B marketing influencers, DevTools founders..."
-                    className="input flex-1 py-2 px-3 text-sm"
-                    onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) chatFindPeople(chatInput.trim()) }}
-                  />
-                  <button onClick={() => chatFindPeople(chatInput.trim())} disabled={chatLoading || !chatInput.trim()} className="btn-primary">
-                    {chatLoading ? '...' : 'Find'}
-                  </button>
-                </div>
-                <div className="text-[10px] text-ink-4 mt-1.5">
-                  Describe who you want to follow and the brain will suggest real influencers
-                </div>
-              </div>
-            )}
-
-            {/* Suggestions */}
-            {watchSuggestions.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[10px] text-ink-4">AI suggestions — verify before watching</span>
-                </div>
-                <div className="flex flex-col gap-2">
-                  {watchSuggestions.map((s, i) => renderSuggestionCard(s, i))}
-                </div>
-              </div>
-            )}
-
-            {/* People list */}
-            <div className="flex flex-col gap-1.5">
-              {watchlist.map(w => {
-                const postCount = feed.filter(f => matchesPerson(f, w.username, w.display_name)).length
-                const unactedCount = feed.filter(f => matchesPerson(f, w.username, w.display_name) && !tasks[f.url]).length
-                return (
-                  <div key={w.id} className="flex items-center gap-3 px-3 py-2 rounded-[var(--radius)] hover:bg-[var(--bg-warm)] transition-colors">
-                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${w.platform === 'linkedin' ? 'bg-accent' : ''}`}
-                      style={w.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
-                    <button
-                      className="flex-1 text-left min-w-0"
-                      onClick={() => setSelectedPerson(w.username)}
-                    >
-                      <span className="text-sm font-semibold text-ink hover:text-accent transition-colors">
-                        {w.platform === 'x' ? '@' : ''}{w.display_name ?? w.username}
-                      </span>
-                      <span className="text-[11px] text-ink-4 ml-2">
-                        {postCount > 0 ? `${unactedCount} new` : 'no posts'}
-                      </span>
-                    </button>
-                    {unactedCount > 0 && <span className="badge-count text-[9px]">{unactedCount}</span>}
-                    <button onClick={() => removeFromWatchlist(w.id)} className="text-[11px] text-ink-4 hover:text-ink shrink-0">×</button>
-                  </div>
-                )
-              })}
             </div>
-          </>
-        )}
-      </div>
+          )}
+
+          {/* Suggestions */}
+          {watchSuggestions.length > 0 && (
+            <div className="mt-3 flex flex-col gap-2">
+              {watchSuggestions.map((s, i) => renderSuggestionCard(s, i))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ═══ FEED VIEW TOGGLE ═══ */}
       <div className="flex items-center gap-0 mb-4 border-b border-rule">
@@ -963,7 +912,10 @@ export default function WatchlistFeed() {
             </button>
           )
         })}
-        <div className="ml-auto pb-1.5">
+        <div className="ml-auto flex gap-1.5 pb-1.5">
+          <button onClick={() => setShowPeople(!showPeople)} className={`text-xs px-2.5 py-1 rounded transition-colors ${showPeople ? 'bg-accent text-white' : 'btn-outline'}`}>
+            + People
+          </button>
           <button onClick={() => feedView === 'posts' ? fetchFeed(true) : fetchOutreach()} disabled={loadingFeed || loadingOutreach} className="btn-outline text-xs">
             {(loadingFeed || loadingOutreach) ? '...' : '↻'}
           </button>
