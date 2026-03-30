@@ -144,4 +144,11 @@ export interface SbInsight {
   generated_at: string
 }
 
-export type InsightType = 'topic_performance' | 'icp_pattern' | 'dm_effectiveness' | 'timing' | 'weekly_summary'
+export type InsightType =
+  | 'topic_performance'
+  | 'icp_pattern'
+  | 'dm_effectiveness'
+  | 'timing'
+  | 'weekly_summary'
+  | 'pipeline_run'
+  | 'outcome'
