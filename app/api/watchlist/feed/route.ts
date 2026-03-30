@@ -183,13 +183,13 @@ export async function GET(request: Request) {
     await Promise.all(xPromises)
   }
 
-  // Filter out posts older than 30 days or with no valid timestamp
-  const thirtyDaysAgoMs = Date.now() - 30 * 24 * 60 * 60 * 1000
+  // Only show posts from the last 24 hours
+  const oneDayAgoMs = Date.now() - 24 * 60 * 60 * 1000
   const filtered = items.filter(item => {
     if (!item.time) return false
     const ts = new Date(item.time).getTime()
     if (isNaN(ts) || ts === 0) return false
-    if (ts < thirtyDaysAgoMs) return false
+    if (ts < oneDayAgoMs) return false
     return true
   })
 
