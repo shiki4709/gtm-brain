@@ -498,6 +498,92 @@ export default function WatchlistFeed() {
     )
   }
 
+  function getBrainSummary(): { focus: string; platform: 'linkedin' | 'x' | 'both'; topAction: string; why: string; stats: string } | null {
+    const todoItems = feed.filter(f => !tasks[f.url])
+    if (todoItems.length === 0) return null
+
+    const liItems = todoItems.filter(f => f.platform === 'linkedin')
+    const xItems = todoItems.filter(f => f.platform === 'x')
+
+    // Score each platform by actionable opportunity
+    const scorePlatform = (items: FeedItem[]) => {
+      let score = 0
+      let highPriority = 0
+      let totalEngagement = 0
+      for (const item of items) {
+        const rec = getRecommendation(item)
+        const eng = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
+        totalEngagement += eng
+        if (rec.actions[0]?.priority === 'high') { score += 3; highPriority++ }
+        else if (rec.actions[0]?.priority === 'medium') score += 1
+      }
+      return { score, highPriority, totalEngagement, count: items.length }
+    }
+
+    const liScore = scorePlatform(liItems)
+    const xScore = scorePlatform(xItems)
+
+    // Find the single best post
+    let bestItem: FeedItem | null = null
+    let bestScore = -1
+    for (const item of todoItems) {
+      const rec = getRecommendation(item)
+      const eng = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
+      const s = (rec.actions[0]?.priority === 'high' ? 10 : rec.actions[0]?.priority === 'medium' ? 3 : 1) + eng * 0.01
+      if (s > bestScore) { bestScore = s; bestItem = item }
+    }
+
+    const bestRec = bestItem ? getRecommendation(bestItem) : null
+    const bestAction = bestRec?.actions[0]
+
+    // Determine platform focus
+    let platform: 'linkedin' | 'x' | 'both' = 'both'
+    let focus = ''
+    let stats = ''
+
+    if (liScore.score > xScore.score * 2 && liItems.length > 0) {
+      platform = 'linkedin'
+      focus = 'Focus on LinkedIn today'
+      stats = `${liScore.highPriority > 0 ? `${liScore.highPriority} high-priority` : `${liItems.length}`} posts worth acting on`
+    } else if (xScore.score > liScore.score * 2 && xItems.length > 0) {
+      platform = 'x'
+      focus = 'Focus on X today'
+      stats = `${xScore.highPriority > 0 ? `${xScore.highPriority} high-priority` : `${xItems.length}`} posts worth engaging`
+    } else if (liItems.length > 0 && xItems.length > 0) {
+      platform = 'both'
+      focus = 'Activity on both platforms'
+      stats = `${liItems.length} LinkedIn + ${xItems.length} X posts`
+    } else if (liItems.length > 0) {
+      platform = 'linkedin'
+      focus = 'New LinkedIn activity'
+      stats = `${liItems.length} posts to review`
+    } else {
+      platform = 'x'
+      focus = 'New X activity'
+      stats = `${xItems.length} posts to review`
+    }
+
+    // Build top action recommendation
+    let topAction = ''
+    let why = ''
+    if (bestItem && bestAction) {
+      const eng = (bestItem.engagement?.likes ?? 0) + (bestItem.engagement?.replies ?? 0) + (bestItem.engagement?.retweets ?? 0)
+      if (bestAction.type === 'scrape') {
+        const est = getEstimatedROI(bestItem)
+        topAction = `Scrape ${bestItem.author}'s post`
+        why = `${eng} engagers — est. ${est.scrape.icpLeads} ICP leads`
+      } else if (bestAction.type === 'reply') {
+        topAction = `Reply to ${bestItem.author}'s post`
+        why = `${eng} engagers — your reply gets visibility with their audience`
+      } else {
+        topAction = `Check ${bestItem.author}'s post`
+        why = bestRec?.reason.slice(0, 80) ?? ''
+      }
+    }
+
+    return { focus, platform, topAction, why, stats }
+  }
+
   function timeAgo(dateStr: string): string {
     if (!dateStr) return ''
     const diff = Date.now() - new Date(dateStr).getTime()
@@ -915,6 +1001,32 @@ export default function WatchlistFeed() {
       )}
       {feedView === 'posts' && !loadingFeed && (
         <>
+          {/* ═══ BRAIN SUMMARY ═══ */}
+          {(() => {
+            const summary = getBrainSummary()
+            if (!summary) return null
+            return (
+              <div className="brain-card mb-6">
+                <div className="flex items-start gap-3">
+                  <div className={`w-2.5 h-2.5 rounded-full mt-1 shrink-0 ${
+                    summary.platform === 'linkedin' ? 'bg-accent' :
+                    summary.platform === 'x' ? '' : 'gradient-dot'
+                  }`} style={summary.platform === 'x' ? { background: 'var(--accent-orange)' } : summary.platform === 'both' ? { background: 'var(--gradient-main)' } : undefined} />
+                  <div className="flex-1">
+                    <div className="font-head text-sm font-bold text-ink mb-0.5">{summary.focus}</div>
+                    <div className="text-[11px] text-ink-4 mb-2">{summary.stats}</div>
+                    {summary.topAction && (
+                      <div className="text-xs text-ink-2 leading-relaxed">
+                        <span className="font-semibold text-accent">Start here:</span> {summary.topAction}
+                        {summary.why && <span className="text-ink-4"> — {summary.why}</span>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
           {/* ═══ LINKEDIN TASKS ═══ */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
