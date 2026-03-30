@@ -73,6 +73,7 @@ export default function WatchlistFeed() {
   const [watchSuggestions, setWatchSuggestions] = useState<Array<{ platform: string; username: string; name: string; reason: string; headline?: string; followers?: number }>>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [watchingInProgress, setWatchingInProgress] = useState<string | null>(null) // username being added
+  const [icpTitles, setIcpTitles] = useState<string[]>([])
   // Chat state for discovering influencers
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
@@ -94,7 +95,11 @@ export default function WatchlistFeed() {
       fetch('/api/watchlist').then(r => r.json()),
       fetch('/api/insights/linkedin').then(r => r.json()),
       fetch('/api/insights/roi').then(r => r.json()),
-    ]).then(async ([wlJson, liJson, roiJson]) => {
+      fetch('/api/user').then(r => r.json()),
+    ]).then(async ([wlJson, liJson, roiJson, userJson]) => {
+      if (userJson.success && userJson.data?.icp_config?.titles) {
+        setIcpTitles(userJson.data.icp_config.titles)
+      }
       if (roiJson.success) setRoi(roiJson.data)
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
       if (liJson.success) setInsights(liJson.data)
@@ -1012,42 +1017,52 @@ export default function WatchlistFeed() {
 
           {/* ═══ UNIFIED FEED — sorted by ICP relevance + ROI ═══ */}
           {(() => {
-            // Build ICP keyword list from topic insights
-            const icpKeywords: Array<{ keyword: string; rate: number }> = []
+            // Build ICP keyword set from user's actual ICP titles + topic insights
+            // e.g. "Marketing Manager" → ["marketing", "manager"]
+            // e.g. "Head of Sales" → ["head", "sales"]
+            const icpWords = new Set<string>()
+            const stopWords = new Set(['of', 'the', 'and', 'a', 'an', 'in', 'for', 'to', 'at', 'on', 'vp', 'head', 'director', 'manager', 'chief', 'officer'])
+            for (const title of icpTitles) {
+              for (const word of title.toLowerCase().split(/[\s,/]+/)) {
+                if (word.length > 2 && !stopWords.has(word)) {
+                  icpWords.add(word)
+                }
+              }
+            }
+            // Add topic insights
+            const topicKeywords: Array<{ keyword: string; rate: number }> = []
             if (insights?.topics) {
               for (const t of insights.topics) {
-                if (t.avg_icp_rate > 0) {
-                  icpKeywords.push({ keyword: t.topic.toLowerCase(), rate: t.avg_icp_rate })
-                }
+                if (t.avg_icp_rate > 0) topicKeywords.push({ keyword: t.topic.toLowerCase(), rate: t.avg_icp_rate })
               }
             }
             if (roi?.topic_rates) {
               for (const [topic, rate] of Object.entries(roi.topic_rates)) {
-                if (!icpKeywords.find(k => k.keyword === topic.toLowerCase())) {
-                  icpKeywords.push({ keyword: topic.toLowerCase(), rate })
-                }
+                topicKeywords.push({ keyword: topic.toLowerCase(), rate })
               }
             }
 
-            // ICP relevance: 0 to 1 based on topic match
             function getIcpRelevance(text: string): { score: number; matchedTopic: string | null } {
               const lower = text.toLowerCase()
+
+              // Check topic insights first (strongest signal — from real data)
               let bestRate = 0
               let bestTopic: string | null = null
-              for (const { keyword, rate } of icpKeywords) {
+              for (const { keyword, rate } of topicKeywords) {
                 if (lower.includes(keyword) && rate > bestRate) {
                   bestRate = rate
                   bestTopic = keyword
                 }
               }
-              // Also check for common ICP-relevant terms even without historical data
-              const icpTerms = ['sales', 'revenue', 'gtm', 'marketing', 'growth', 'pipeline', 'leads', 'outbound', 'hiring', 'strategy']
-              if (bestRate === 0) {
-                const termMatches = icpTerms.filter(t => lower.includes(t)).length
-                if (termMatches >= 2) return { score: 0.3, matchedTopic: null }
-                if (termMatches === 1) return { score: 0.15, matchedTopic: null }
-              }
-              return { score: bestRate, matchedTopic: bestTopic }
+              if (bestRate > 0) return { score: bestRate, matchedTopic: bestTopic }
+
+              // Check against ICP title keywords (e.g. "sales", "marketing", "operations", "growth", "gtm")
+              const matches = [...icpWords].filter(w => lower.includes(w))
+              if (matches.length >= 3) return { score: 0.5, matchedTopic: matches.slice(0, 2).join(', ') }
+              if (matches.length === 2) return { score: 0.35, matchedTopic: matches.join(', ') }
+              if (matches.length === 1) return { score: 0.2, matchedTopic: matches[0] }
+
+              return { score: 0, matchedTopic: null }
             }
 
             const allTodo = feed
