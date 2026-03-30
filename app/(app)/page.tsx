@@ -922,18 +922,30 @@ export default function WatchlistFeed() {
               })
               .sort((a, b) => b.score - a.score)
 
-            // Filter by action type — off-topic posts are excluded from all tabs
+            // Filter by action type
+            // Off-topic + low engagement = hidden. Off-topic + high engagement = still shown (worth replying for visibility).
+            const MIN_ENG_FOR_OFFTOPIC = 20
+
             const allTodo = actionFilter === 'all'
-              ? allScored.filter(({ icpRelevance }) => icpRelevance.score > 0)
+              ? allScored.filter(({ item, icpRelevance }) => {
+                  if (icpRelevance.score > 0) return true
+                  // Off-topic but high engagement — still worth engaging for visibility
+                  const eng = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
+                  return eng >= MIN_ENG_FOR_OFFTOPIC
+                })
               : allScored.filter(({ item, rec, icpRelevance }) => {
-                  // Must be ICP-relevant for any action tab
-                  if (icpRelevance.score === 0) return false
                   if (!rec.actions.some(a => a.type === actionFilter)) return false
-                  // Repurpose filter: only show posts with substance worth writing about
+                  if (icpRelevance.score > 0) return true
+                  // Off-topic: only show in Reply tab if high engagement (visibility play)
+                  if (actionFilter === 'reply') {
+                    const eng = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
+                    return eng >= MIN_ENG_FOR_OFFTOPIC
+                  }
+                  // Scrape/Repurpose: must be ICP-relevant
                   if (actionFilter === 'content') {
                     if (item.text.length < 80) return false
                   }
-                  return true
+                  return icpRelevance.score > 0
                 })
 
             const allDone = feed.filter(f => tasks[f.url])
