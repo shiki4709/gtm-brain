@@ -46,6 +46,12 @@ export interface Database {
 }
 
 // Row types
+export interface NotificationChannel {
+  type: 'telegram' | 'slack'
+  chat_id?: string
+  webhook_url?: string
+}
+
 export interface SbUser {
   id: string
   email: string | null
@@ -54,6 +60,8 @@ export interface SbUser {
   x_accounts: string[]
   x_topics: string[]
   telegram_connected: boolean
+  notification_channels: NotificationChannel[]
+  timezone: string
   created_at: string
 }
 
