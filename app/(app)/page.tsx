@@ -976,13 +976,13 @@ export default function WatchlistFeed() {
       )}
 
       {/* ═══ POSTS VIEW ═══ */}
-      {feedView === 'posts' && loadingFeed && (
+      {feedView === 'posts' && loadingFeed && feed.length === 0 && (
         <div className="text-sm text-ink-4 py-8 text-center">
           <div className="mb-1">Loading posts from your watchlist...</div>
           <div className="text-[11px]">This can take 10-30 seconds (fetching from LinkedIn & X)</div>
         </div>
       )}
-      {feedView === 'posts' && !loadingFeed && (
+      {feedView === 'posts' && (feed.length > 0 || !loadingFeed) && (
         <>
           {/* ═══ BRAIN SUMMARY ═══ */}
           {(() => {
