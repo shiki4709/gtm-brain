@@ -922,16 +922,15 @@ export default function WatchlistFeed() {
               })
               .sort((a, b) => b.score - a.score)
 
-            // Filter by action type
+            // Filter by action type — off-topic posts are excluded from all tabs
             const allTodo = actionFilter === 'all'
-              ? allScored
+              ? allScored.filter(({ icpRelevance }) => icpRelevance.score > 0)
               : allScored.filter(({ item, rec, icpRelevance }) => {
+                  // Must be ICP-relevant for any action tab
+                  if (icpRelevance.score === 0) return false
                   if (!rec.actions.some(a => a.type === actionFilter)) return false
                   // Repurpose filter: only show posts with substance worth writing about
                   if (actionFilter === 'content') {
-                    // Must be ICP-relevant
-                    if (icpRelevance.score === 0) return false
-                    // Must have enough text to repurpose (not just a vague one-liner)
                     if (item.text.length < 80) return false
                   }
                   return true
