@@ -925,9 +925,16 @@ export default function WatchlistFeed() {
             // Filter by action type
             const allTodo = actionFilter === 'all'
               ? allScored
-              : allScored.filter(({ primaryType, rec }) => {
-                  // Show posts where ANY action matches the filter (not just primary)
-                  return rec.actions.some(a => a.type === actionFilter)
+              : allScored.filter(({ item, rec, icpRelevance }) => {
+                  if (!rec.actions.some(a => a.type === actionFilter)) return false
+                  // Repurpose filter: only show posts with substance worth writing about
+                  if (actionFilter === 'content') {
+                    // Must be ICP-relevant
+                    if (icpRelevance.score === 0) return false
+                    // Must have enough text to repurpose (not just a vague one-liner)
+                    if (item.text.length < 80) return false
+                  }
+                  return true
                 })
 
             const allDone = feed.filter(f => tasks[f.url])
