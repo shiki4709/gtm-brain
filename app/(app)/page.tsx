@@ -293,118 +293,72 @@ export default function WatchlistFeed() {
     }).catch(() => {})
   }
 
+  // GTM Action Framework — each action has distinct qualifying criteria
+  // See skill: gtm-action-framework for the full decision matrix
   function getRecommendation(item: FeedItem): { actions: Array<{ label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }>; reason: string } {
     const likes = item.engagement?.likes ?? 0
     const comments = item.engagement?.replies ?? 0
     const rts = item.engagement?.retweets ?? 0
     const totalEngagement = likes + comments + rts
     const { velocity, ageHours } = getVelocity(item)
-    const textLower = item.text.toLowerCase()
-    const matchedTopic = insights?.topics?.find(t => textLower.includes(t.topic.toLowerCase()))
-    const hasQuestion = item.text.includes('?')
     const isLinkedIn = item.platform === 'linkedin'
-
-    // Velocity boost: a fresh post with decent velocity is worth more than an old post with raw numbers
-    const isHot = velocity >= 10 && ageHours < 6 // 10+ engagements per hour in first 6 hours
-    const isFresh = ageHours < 2
+    const isSubstantive = item.text.length >= 80
 
     type Action = { label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }
     const actions: Action[] = []
+    const reasons: string[] = []
 
-    // ═══ VELOCITY-BASED — fresh posts with momentum ═══
+    // ═══ REPLY — Visibility play ═══
+    // Qualifies: fresh + high engagement + your reply can stand out
+    const replyWindowOpen = ageHours < 12
+    const lowReplyCount = comments < 20 // your reply won't get buried
+    const highVisibility = totalEngagement >= 20 || velocity >= 10
 
-    if (isHot) {
-      if (isLinkedIn) {
-        actions.push({ label: 'Scrape now — trending', type: 'scrape', priority: 'high' })
-        actions.push({ label: 'Reply on post', type: 'reply', priority: 'medium' })
-      } else {
+    if (replyWindowOpen && highVisibility && lowReplyCount) {
+      const isTrending = velocity >= 10 && ageHours < 6
+      if (isTrending) {
         actions.push({ label: 'Reply now — trending', type: 'reply', priority: 'high' })
-        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
-      }
-      actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
-      const topicNote = matchedTopic ? ` ICP topic "${matchedTopic.topic}".` : ''
-      return { actions, reason: `🔥 ${velocity} engagements/hr — posted ${ageHours < 1 ? 'just now' : `${Math.round(ageHours)}h ago`}. Engagement is accelerating.${topicNote}` }
-    }
-
-    if (isFresh && totalEngagement >= 3) {
-      if (isLinkedIn) {
-        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
-        actions.push({ label: 'Reply on post', type: 'reply', priority: 'medium' })
+        reasons.push(`${velocity}/hr velocity, reply window open`)
+      } else if (likes >= 30 && comments < 5) {
+        actions.push({ label: 'Reply — you\'ll stand out', type: 'reply', priority: 'high' })
+        reasons.push(`${likes} likes but only ${comments} replies — your reply stands out`)
       } else {
         actions.push({ label: 'Draft reply', type: 'reply', priority: 'medium' })
-        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'low' })
+        reasons.push(`${totalEngagement} engagers, fresh post`)
       }
-      return { actions, reason: `Fresh (${Math.round(ageHours * 60)}min ago) with ${totalEngagement} engagers. Early engagement = likely to grow. Act now.` }
     }
 
-    // ═══ HIGH ENGAGEMENT — multiple actions available ═══
+    // ═══ SCRAPE — Lead gen play ═══
+    // Qualifies: ICP topic + high comments (comments = intent signal) + LinkedIn preferred
+    // Note: ICP relevance is checked in the feed scoring layer, not here
+    // Here we check engagement quality for scraping
+    const worthScraping = comments >= 10 || (isLinkedIn && totalEngagement >= 15)
 
-    // Viral / very high engagement
-    if ((isLinkedIn && comments >= 10) || (!isLinkedIn && (likes >= 100 || comments >= 20))) {
-      // Primary: scrape on LinkedIn, reply on X
-      if (isLinkedIn) {
+    if (worthScraping) {
+      if (comments >= 20 || (isLinkedIn && comments >= 10)) {
         actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
-        actions.push({ label: 'Reply on post', type: 'reply', priority: 'medium' })
+        reasons.push(`${comments} comments — high intent engagers`)
       } else {
-        actions.push({ label: 'Reply now', type: 'reply', priority: 'high' })
         actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
+        reasons.push(`${totalEngagement} engagers worth scraping`)
       }
-      actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
-
-      const topicNote = matchedTopic ? ` Topic "${matchedTopic.topic}" yields ${Math.round(matchedTopic.avg_icp_rate * 100)}% ICP match.` : ''
-      if (isLinkedIn) {
-        return { actions, reason: `${comments} comments (15x more valuable than likes). Scrape for leads, reply to build visibility.${topicNote}` }
-      }
-      return { actions, reason: `🔥 ${likes} likes, ${comments} replies. Reply ASAP for visibility. Scrape engagers for leads too.${topicNote}` }
     }
 
-    // High engagement + topic match
-    if (totalEngagement >= 20 && matchedTopic) {
-      actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
-      actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'medium' })
-      actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
-      return { actions, reason: `${totalEngagement} engagers + topic "${matchedTopic.topic}" matches your ICP (${Math.round(matchedTopic.avg_icp_rate * 100)}%). Scrape for leads and engage.` }
+    // ═══ REPURPOSE — Authority play ═══
+    // Qualifies: substantive text + insight worth building on
+    // NOT just any post with engagement
+    if (isSubstantive && totalEngagement >= 5) {
+      actions.push({ label: 'Use as content idea', type: 'content', priority: 'medium' })
+      reasons.push(`substantive insight worth repurposing`)
     }
 
-    // X: high likes but low replies = underserved thread
-    if (!isLinkedIn && likes >= 30 && comments < 5) {
-      actions.push({ label: 'Reply — you\'ll stand out', type: 'reply', priority: 'high' })
-      actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'low' })
-      return { actions, reason: `${likes} likes but only ${comments} replies. Your reply will stand out. Scrape likers for leads too.` }
+    // ═══ SKIP — nothing qualifies ═══
+    if (actions.length === 0) {
+      actions.push({ label: 'Skip', type: 'skip', priority: 'low' })
+      return { actions, reason: `Low value — not enough engagement or substance to act on.` }
     }
 
-    // Question posts = high comment potential
-    if (hasQuestion && totalEngagement >= 10) {
-      actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
-      actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'medium' })
-      return { actions, reason: `Question post with ${totalEngagement} engagers. Question posts get 40-60% more comments — great for both leads and visibility.` }
-    }
-
-    // ═══ MODERATE ENGAGEMENT ═══
-
-    if (totalEngagement >= 10) {
-      actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
-      actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'medium' })
-      actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
-      return { actions, reason: `${totalEngagement} engagers. Worth scraping for leads and replying for visibility. Topic could inspire your own content.` }
-    }
-
-    if (totalEngagement >= 5) {
-      if (matchedTopic) {
-        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
-        actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'low' })
-        return { actions, reason: `${totalEngagement} engagers on a topic your ICP cares about. Scrape for leads.` }
-      }
-      actions.push({ label: isLinkedIn ? 'Reply on post' : 'Draft reply', type: 'reply', priority: 'medium' })
-      actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'low' })
-      return { actions, reason: `${totalEngagement} engagers. Reply to get visible with ${item.author}'s audience.` }
-    }
-
-    // ═══ LOW ENGAGEMENT ═══
-
-    actions.push({ label: 'Use as content idea', type: 'content', priority: 'low' })
-    actions.push({ label: 'Skip', type: 'skip', priority: 'low' })
-    return { actions, reason: `Low engagement (${totalEngagement}). Not worth scraping or replying. The topic might inspire your own post.` }
+    return { actions, reason: reasons.join(' · ') }
   }
 
   function profileUrl(platform: string, username: string): string {
