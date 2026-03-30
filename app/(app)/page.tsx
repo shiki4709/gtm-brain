@@ -881,11 +881,41 @@ export default function WatchlistFeed() {
               return re.test(text)
             }
 
+            // Expand keywords with common related terms
+            const RELATED_TERMS: Record<string, string[]> = {
+              'ai': ['artificial intelligence', 'machine learning', 'ml', 'agents', 'agentic', 'gpt', 'chatbot', 'automation', 'neural', 'deep learning'],
+              'llm': ['large language model', 'language model', 'foundation model', 'gpt', 'transformer'],
+              'claude': ['anthropic'],
+              'openai': ['chatgpt', 'gpt-4', 'gpt-5', 'gpt'],
+              'gemini': ['google ai', 'deepmind'],
+              'saas': ['software as a service', 'b2b software', 'subscription software'],
+              'gtm': ['go to market', 'go-to-market'],
+              'sales': ['selling', 'pipeline', 'quota', 'revenue', 'deals', 'prospecting'],
+              'marketing': ['demand gen', 'content marketing', 'brand', 'campaigns'],
+              'growth': ['scaling', 'product-led', 'plg', 'acquisition'],
+            }
+
+            function getExpandedKeywords(): string[] {
+              const expanded = [...trackKeywords]
+              for (const kw of trackKeywords) {
+                const related = RELATED_TERMS[kw]
+                if (related) expanded.push(...related)
+              }
+              return [...new Set(expanded)]
+            }
+
+            const expandedKeywords = getExpandedKeywords()
+
             function getIcpRelevance(text: string): { score: number; matchedTopic: string | null } {
-              // 1. User-defined track keywords (strongest — explicit user config)
-              const kwMatches = trackKeywords.filter(kw => matchesWord(text, kw))
-              if (kwMatches.length >= 2) return { score: 0.6, matchedTopic: kwMatches.slice(0, 2).join(', ') }
-              if (kwMatches.length === 1) return { score: 0.4, matchedTopic: kwMatches[0] }
+              // 1. User-defined track keywords — exact match (strongest)
+              const exactMatches = trackKeywords.filter(kw => matchesWord(text, kw))
+              if (exactMatches.length >= 2) return { score: 0.6, matchedTopic: exactMatches.slice(0, 2).join(', ') }
+              if (exactMatches.length === 1) return { score: 0.4, matchedTopic: exactMatches[0] }
+
+              // 1b. Expanded/related keywords (strong — auto-inferred from user keywords)
+              const relatedMatches = expandedKeywords.filter(kw => matchesWord(text, kw))
+              if (relatedMatches.length >= 2) return { score: 0.35, matchedTopic: relatedMatches.slice(0, 2).join(', ') }
+              if (relatedMatches.length === 1) return { score: 0.25, matchedTopic: relatedMatches[0] }
 
               // 2. Topic insights from past scrapes (strong — real conversion data)
               let bestRate = 0
