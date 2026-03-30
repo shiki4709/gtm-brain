@@ -841,11 +841,15 @@ export default function WatchlistFeed() {
               }
             }
 
-            function getIcpRelevance(text: string): { score: number; matchedTopic: string | null } {
-              const lower = text.toLowerCase()
+            // Word-boundary match — "ai" matches "ai" but not "raise" or "Oakland"
+            function matchesWord(text: string, word: string): boolean {
+              const re = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+              return re.test(text)
+            }
 
+            function getIcpRelevance(text: string): { score: number; matchedTopic: string | null } {
               // 1. User-defined track keywords (strongest — explicit user config)
-              const kwMatches = trackKeywords.filter(kw => lower.includes(kw))
+              const kwMatches = trackKeywords.filter(kw => matchesWord(text, kw))
               if (kwMatches.length >= 2) return { score: 0.6, matchedTopic: kwMatches.slice(0, 2).join(', ') }
               if (kwMatches.length === 1) return { score: 0.4, matchedTopic: kwMatches[0] }
 
@@ -853,7 +857,7 @@ export default function WatchlistFeed() {
               let bestRate = 0
               let bestTopic: string | null = null
               for (const { keyword, rate } of topicKeywords) {
-                if (lower.includes(keyword) && rate > bestRate) {
+                if (matchesWord(text, keyword) && rate > bestRate) {
                   bestRate = rate
                   bestTopic = keyword
                 }
@@ -861,7 +865,7 @@ export default function WatchlistFeed() {
               if (bestRate > 0) return { score: bestRate, matchedTopic: bestTopic }
 
               // 3. ICP title keywords (medium — inferred from job titles)
-              const titleMatches = [...icpWords].filter(w => lower.includes(w))
+              const titleMatches = [...icpWords].filter(w => matchesWord(text, w))
               if (titleMatches.length >= 3) return { score: 0.5, matchedTopic: titleMatches.slice(0, 2).join(', ') }
               if (titleMatches.length === 2) return { score: 0.35, matchedTopic: titleMatches.join(', ') }
               if (titleMatches.length === 1) return { score: 0.2, matchedTopic: titleMatches[0] }
