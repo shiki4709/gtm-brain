@@ -183,6 +183,76 @@ export async function GET(request: Request) {
     await Promise.all(xPromises)
   }
 
+  // Fetch top posts by tracked topics via SocialData (parallel)
+  const trackKeywords: string[] = auth.dbUser.icp_config?.track_keywords ?? []
+  if (socialDataKey && trackKeywords.length > 0) {
+    // Dedupe: skip topics if we already have enough posts
+    const seenUrls = new Set(items.map(i => i.url))
+
+    const topicPromises = trackKeywords.slice(0, 5).map(async (topic) => {
+      try {
+        const query = `${topic} min_retweets:5 lang:en`
+        const resp = await fetch(
+          `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(query)}&type=Latest`,
+          {
+            headers: { Authorization: `Bearer ${socialDataKey}`, Accept: 'application/json' },
+            signal: AbortSignal.timeout(8000),
+          }
+        )
+
+        if (!resp.ok) return
+
+        const data = await resp.json()
+        const tweets = (data.tweets ?? [])
+          .filter((tw: Record<string, unknown>) => {
+            const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
+            // Skip RTs, replies, and low-quality
+            if (text.startsWith('RT @') || text.startsWith('@')) return false
+            // Min engagement: 5k views or 10+ retweets
+            const views = (tw as Record<string, number>).views_count ?? 0
+            const rts = (tw as Record<string, number>).retweet_count ?? 0
+            return views >= 5000 || rts >= 10
+          })
+          .slice(0, 3) // Top 3 per topic
+
+        const TWITTER_EPOCH = 1288834974657
+
+        for (const tw of tweets) {
+          let tweetTime = ''
+          const idStr = tw.id_str as string
+          if (idStr) {
+            const tweetMs = (Number(BigInt(idStr) >> BigInt(22))) + TWITTER_EPOCH
+            tweetTime = new Date(tweetMs).toISOString()
+          } else if (tw.created_at) {
+            tweetTime = new Date(tw.created_at as string).toISOString()
+          }
+
+          const tweetUrl = `https://x.com/${tw.user?.screen_name ?? 'x'}/status/${idStr}`
+          if (seenUrls.has(tweetUrl)) continue
+          seenUrls.add(tweetUrl)
+
+          items.push({
+            platform: 'x',
+            author: tw.user?.name ?? '',
+            authorHandle: tw.user?.screen_name ?? '',
+            text: ((tw.full_text ?? tw.text ?? '') as string).substring(0, 280),
+            url: tweetUrl,
+            time: tweetTime,
+            engagement: {
+              likes: tw.favorite_count ?? 0,
+              replies: tw.reply_count ?? 0,
+              retweets: tw.retweet_count ?? 0,
+            },
+          })
+        }
+      } catch {
+        // Skip failed topic search
+      }
+    })
+
+    await Promise.all(topicPromises)
+  }
+
   // Only show posts from the last 24 hours
   const oneDayAgoMs = Date.now() - 24 * 60 * 60 * 1000
   const filtered = items.filter(item => {
