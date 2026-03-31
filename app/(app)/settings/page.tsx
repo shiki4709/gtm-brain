@@ -73,6 +73,8 @@ export default function Settings() {
 
   // Watchlist
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
+  const [directAddInput, setDirectAddInput] = useState('')
+  const [directAdding, setDirectAdding] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'brain'; text: string; suggestions?: Suggestion[] }>>([])
@@ -152,6 +154,36 @@ export default function Settings() {
   async function removeFromWatchlist(id: string) {
     await fetch(`/api/watchlist?id=${id}`, { method: 'DELETE' })
     setWatchlist(prev => prev.filter(w => w.id !== id))
+  }
+
+  async function handleDirectAdd() {
+    const raw = directAddInput.trim()
+    if (!raw) return
+    setDirectAdding(true)
+    let platform: 'linkedin' | 'x' = 'x'
+    let username = raw
+    if (username.includes('linkedin.com/in/')) {
+      platform = 'linkedin'
+      username = username.replace(/.*linkedin\.com\/in\//, '').replace(/\/$/, '')
+    } else if (username.includes('x.com/') || username.includes('twitter.com/')) {
+      platform = 'x'
+      username = username.replace(/.*(?:x|twitter)\.com\//, '').replace(/\/$/, '').replace(/^@/, '')
+    } else {
+      username = username.replace(/^@/, '')
+    }
+    try {
+      const res = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, username, display_name: username }),
+      })
+      const json = await res.json()
+      if (json.success && json.data) {
+        setWatchlist(prev => [json.data, ...prev])
+        setDirectAddInput('')
+      }
+    } catch { /* */ }
+    finally { setDirectAdding(false) }
   }
 
   function addToList(value: string, list: string[], setList: (v: string[]) => void, setInput: (v: string) => void) {
@@ -488,6 +520,25 @@ export default function Settings() {
               {chatLoading ? '...' : 'Search'}
             </button>
           </div>
+        </div>
+
+        {/* Direct add */}
+        <div className="flex gap-2 mt-3">
+          <input
+            type="text"
+            value={directAddInput}
+            onChange={e => setDirectAddInput(e.target.value)}
+            placeholder="Or paste a handle: @Polymarket, linkedin.com/in/name"
+            className="input flex-1 py-2.5 px-4 text-sm"
+            onKeyDown={e => { if (e.key === 'Enter' && directAddInput.trim()) handleDirectAdd() }}
+          />
+          <button
+            className="btn-accent"
+            disabled={!directAddInput.trim() || directAdding}
+            onClick={handleDirectAdd}
+          >
+            {directAdding ? '...' : 'Add'}
+          </button>
         </div>
       </div>
 
