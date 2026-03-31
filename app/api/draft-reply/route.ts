@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 import { callClaude } from '@/lib/claude'
+import { getVoiceProfile, voiceToPrompt } from '@/lib/brand-voice'
 
 interface DraftReplyRequest {
   readonly tweet_text: string
@@ -61,10 +62,10 @@ export async function POST(request: Request) {
     ? `You are engaging as someone knowledgeable about: ${topics.join(', ')}. Your replies should reflect this expertise.`
     : 'You are engaging authentically as a knowledgeable person in this space.'
 
-  // Voice profile support
-  const voiceProfile = (auth.dbUser as Record<string, unknown>).voice_profile as { description?: string } | null
-  const voiceIntro = voiceProfile?.description
-    ? `\nIMPORTANT, match this writing voice: ${voiceProfile.description}`
+  // Voice profile — full structured profile for accurate voice matching
+  const voiceProfile = await getVoiceProfile(auth.sb, auth.dbUser.id)
+  const voiceIntro = voiceProfile
+    ? `\n${voiceToPrompt(voiceProfile)}`
     : ''
 
   // Refine mode — rewrite existing draft with user instruction

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
+import { getVoiceProfile, voiceToPrompt } from '@/lib/brand-voice'
 
 const ANTI_AI_RULES = `STRICT RULES:
 - NEVER use: delve, leverage, utilize, game-changer, unlock, cutting-edge, groundbreaking, remarkable, revolutionary, tapestry, illuminate, unveil, pivotal, intricate, hence, furthermore, moreover, realm, landscape, testament, harness, exciting, ever-evolving, foster, elevate, streamline, robust, seamless, synergy, holistic, paradigm, innovative, optimize, empower, curate, ecosystem, stakeholder, scalable, deep dive, double down, circle back, move the needle, craft, navigate, supercharge, boost, powerful, inquiries, stark, resonate, insightful
@@ -94,10 +95,10 @@ export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
   if (!apiKey) return NextResponse.json({ success: false, error: 'API key not configured' }, { status: 500 })
 
-  // Voice profile
-  const voiceProfile = (auth.dbUser as Record<string, unknown>).voice_profile as { description?: string } | null
-  const voiceNote = voiceProfile?.description
-    ? `\nIMPORTANT, write in this voice: ${voiceProfile.description}`
+  // Voice profile — full structured profile
+  const voiceProfile = await getVoiceProfile(auth.sb, auth.dbUser.id)
+  const voiceNote = voiceProfile
+    ? `\n${voiceToPrompt(voiceProfile)}`
     : ''
 
   // Determine what to generate based on format param

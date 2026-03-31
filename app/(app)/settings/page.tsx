@@ -59,6 +59,16 @@ export default function Settings() {
   const [xConnected, setXConnected] = useState(false)
   const [xFollowers, setXFollowers] = useState<number | null>(null)
 
+  // Voice profile
+  const [voiceProfile, setVoiceProfile] = useState<{
+    tone?: string; formality?: string; sentenceStyle?: string
+    vocabulary?: string; hooks?: string; avoid?: string
+    samplePhrases?: string[]; analyzedAt?: string
+  } | null>(null)
+  const [voiceSamples, setVoiceSamples] = useState('')
+  const [voiceExtracting, setVoiceExtracting] = useState(false)
+  const [voiceError, setVoiceError] = useState('')
+
 
   // Watchlist
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
@@ -72,7 +82,8 @@ export default function Settings() {
       fetch('/api/user').then(r => r.json()),
       fetch('/api/watchlist').then(r => r.json()),
       fetch('/api/goals').then(r => r.json()),
-    ]).then(([userJson, wlJson, goalsJson]) => {
+      fetch('/api/voice-profile').then(r => r.json()),
+    ]).then(([userJson, wlJson, goalsJson, voiceJson]) => {
       if (userJson.success && userJson.data) {
         const u = userJson.data as UserData
         setUser(u)
@@ -87,6 +98,7 @@ export default function Settings() {
         setGoals(goalsJson.data?.goals ?? [])
         if (goalsJson.data?.followerDelta?.current) setXFollowers(goalsJson.data.followerDelta.current)
       }
+      if (voiceJson.success && voiceJson.profile) setVoiceProfile(voiceJson.profile)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
@@ -304,6 +316,109 @@ export default function Settings() {
           )}
         </div>
       )}
+
+      {/* Voice & Tone */}
+      <div className="mb-10">
+        <div className="section-label mb-1">Your voice &amp; tone</div>
+        <p className="text-xs text-ink-4 mb-4">
+          All replies, threads, and content will match your writing style. Paste 3+ examples of your writing to train it.
+        </p>
+
+        {/* Current profile display */}
+        {voiceProfile && (
+          <div className="brain-card mb-4">
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <div className="font-head font-semibold text-ink text-[11px] uppercase tracking-wider mb-1">Tone</div>
+                <div className="text-ink-3">{voiceProfile.tone}</div>
+              </div>
+              <div>
+                <div className="font-head font-semibold text-ink text-[11px] uppercase tracking-wider mb-1">Formality</div>
+                <div className="text-ink-3">{voiceProfile.formality}</div>
+              </div>
+              <div>
+                <div className="font-head font-semibold text-ink text-[11px] uppercase tracking-wider mb-1">Sentence style</div>
+                <div className="text-ink-3">{voiceProfile.sentenceStyle}</div>
+              </div>
+              <div>
+                <div className="font-head font-semibold text-ink text-[11px] uppercase tracking-wider mb-1">Vocabulary</div>
+                <div className="text-ink-3">{voiceProfile.vocabulary}</div>
+              </div>
+              <div>
+                <div className="font-head font-semibold text-ink text-[11px] uppercase tracking-wider mb-1">Opens with</div>
+                <div className="text-ink-3">{voiceProfile.hooks}</div>
+              </div>
+              <div>
+                <div className="font-head font-semibold text-ink text-[11px] uppercase tracking-wider mb-1">Avoids</div>
+                <div className="text-ink-3">{voiceProfile.avoid}</div>
+              </div>
+            </div>
+            {voiceProfile.samplePhrases && voiceProfile.samplePhrases.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-separator">
+                <div className="font-head font-semibold text-ink text-[11px] uppercase tracking-wider mb-2">Signature phrases</div>
+                <div className="flex flex-col gap-1">
+                  {voiceProfile.samplePhrases.map((p, i) => (
+                    <div key={i} className="text-xs text-ink-2 italic">&ldquo;{p}&rdquo;</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {voiceProfile.analyzedAt && (
+              <div className="text-[10px] text-ink-4 mt-3">
+                Last updated {new Date(voiceProfile.analyzedAt).toLocaleDateString()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sample input */}
+        <div className="card-flat p-4">
+          <div className="text-xs text-ink-3 mb-2">
+            {voiceProfile ? 'Update your voice — paste new samples to retrain' : 'Paste 3+ samples of your writing (tweets, LinkedIn posts, replies)'}
+          </div>
+          <textarea
+            className="input w-full min-h-[100px] text-xs leading-relaxed mb-3"
+            placeholder={"Paste your writing samples here, separated by blank lines.\n\nExample:\nI've been building AI tools for 2 years now. The biggest lesson? Ship ugly, learn fast.\n\nAnother sample:\nEveryone talks about PMF. Nobody talks about the 6 months of embarrassing prototypes before you find it."}
+            value={voiceSamples}
+            onChange={e => setVoiceSamples(e.target.value)}
+          />
+          <div className="flex items-center gap-3">
+            <button
+              className="btn-primary"
+              disabled={voiceExtracting || voiceSamples.trim().split(/\n\n+/).filter(s => s.trim().length > 20).length < 3}
+              onClick={async () => {
+                setVoiceExtracting(true)
+                setVoiceError('')
+                const samples = voiceSamples.trim().split(/\n\n+/).filter(s => s.trim().length > 20)
+                try {
+                  const res = await fetch('/api/voice-profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ samples }),
+                  })
+                  const json = await res.json()
+                  if (json.success && json.profile) {
+                    setVoiceProfile(json.profile)
+                    setVoiceSamples('')
+                  } else {
+                    setVoiceError(json.error ?? 'Failed to extract voice')
+                  }
+                } catch {
+                  setVoiceError('Failed to connect')
+                } finally {
+                  setVoiceExtracting(false)
+                }
+              }}
+            >
+              {voiceExtracting ? 'Analyzing your voice...' : voiceProfile ? 'Retrain voice' : 'Extract my voice'}
+            </button>
+            <span className="text-[11px] text-ink-4">
+              {voiceSamples.trim().split(/\n\n+/).filter(s => s.trim().length > 20).length}/3 samples detected
+            </span>
+          </div>
+          {voiceError && <div className="text-xs text-orange mt-2">{voiceError}</div>}
+        </div>
+      </div>
 
       <hr className="border-rule-light my-10" />
 
