@@ -126,12 +126,39 @@ export default function WatchlistFeed() {
     finally { setLoadingFeed(false) }
   }
 
-  async function handleRepurpose(item: FeedItem) {
-    // If already generated, just toggle panel
+  async function handleRepurpose(item: FeedItem, format?: 'quote' | 'thread' | 'linkedin') {
+    // If format specified, generate that specific format
+    if (format) {
+      setRepurposeUrl(item.url)
+      setRepurposeLoading(true)
+      try {
+        const res = await fetch('/api/repurpose', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: item.text,
+            author: item.author,
+            platform: item.platform,
+            format,
+          }),
+        })
+        const json = await res.json()
+        if (json.success && json.content) {
+          setRepurposeContent(prev => ({
+            ...prev,
+            [item.url]: { ...prev[item.url], ...json.content },
+          }))
+        }
+      } catch { /* silently fail */ }
+      finally { setRepurposeLoading(false) }
+      return
+    }
+    // No format specified — just toggle the panel
     if (repurposeContent[item.url]) {
       setRepurposeUrl(repurposeUrl === item.url ? null : item.url)
       return
     }
+    // Default: generate both LinkedIn + thread
     setRepurposeUrl(item.url)
     setRepurposeLoading(true)
     try {
@@ -1080,10 +1107,22 @@ export default function WatchlistFeed() {
                                 </button>
                               )
                               if (a.type === 'content') return (
-                                <button key={j} className="btn-primary" onClick={() => handleRepurpose(item)}
-                                  disabled={repurposeLoading && repurposeUrl === item.url}>
-                                  {repurposeLoading && repurposeUrl === item.url ? 'Generating...' : a.label}
-                                </button>
+                                <span key={j} className="flex gap-1.5">
+                                  <button className="btn-primary" onClick={() => handleRepurpose(item, 'quote')}
+                                    disabled={repurposeLoading && repurposeUrl === item.url}>
+                                    {repurposeLoading && repurposeUrl === item.url ? 'Generating...' : 'Quote tweet'}
+                                  </button>
+                                  <button className="btn-accent" onClick={() => handleRepurpose(item, 'thread')}
+                                    disabled={repurposeLoading && repurposeUrl === item.url}>
+                                    Write thread
+                                  </button>
+                                  {isLinkedIn ? null : (
+                                    <button className="btn-outline" onClick={() => handleRepurpose(item, 'linkedin')}
+                                      disabled={repurposeLoading && repurposeUrl === item.url}>
+                                      LinkedIn post
+                                    </button>
+                                  )}
+                                </span>
                               )
                               return null
                             })
@@ -1096,31 +1135,27 @@ export default function WatchlistFeed() {
 
                         {/* Repurpose content panel */}
                         {repurposeUrl === item.url && repurposeContent[item.url] && (() => {
-                          // Platform recommendation: cross-pollinate + content type matching
-                          const isSourceX = item.platform === 'x'
-                          const recommendedFirst = isSourceX ? 'linkedin' : 'x' // cross-pollinate
                           const posted = repurposePosted[item.url] ?? new Set<string>()
-                          // Sort platforms: recommended first
-                          const platforms = Object.keys(repurposeContent[item.url]).sort((a, b) =>
-                            a === recommendedFirst ? -1 : b === recommendedFirst ? 1 : 0
-                          )
+                          const FORMAT_LABELS: Record<string, string> = {
+                            quote: 'Quote Tweet', thread: 'X Thread', linkedin: 'LinkedIn Post', x: 'X Thread',
+                          }
+                          // Show all generated formats
+                          const formats = Object.keys(repurposeContent[item.url]).filter(k => repurposeContent[item.url][k])
 
                           return (
                             <div className="mt-3 pt-3 border-t border-rule-light">
                               <div className="flex items-center gap-2 mb-3">
-                                <span className="text-[10px] text-ink-4 uppercase tracking-wider">Repurposed</span>
-                                <span className="text-[10px] text-accent font-semibold">
-                                  Best for {recommendedFirst === 'linkedin' ? 'LinkedIn' : 'X'} — cross-pollinate from {isSourceX ? 'X' : 'LinkedIn'}
-                                </span>
+                                <span className="text-[10px] text-ink-4 uppercase tracking-wider">Your content</span>
                               </div>
                               <div className="flex flex-col gap-4">
-                                {platforms.map(platform => {
+                                {formats.map(platform => {
                                   const rawContent = repurposeContent[item.url][platform]
                                   if (!rawContent) return null
+                                  const formatLabel = FORMAT_LABELS[platform] ?? platform
                                   const editKey = `${item.url}:${platform}`
                                   const isCopied = repurposeCopied === editKey
                                   const isPosted = posted.has(platform)
-                                  const isRecommended = platform === recommendedFirst
+                                  const isRecommended = false // recommendation logic removed — format-based now
                                   const cleanContent = rawContent.replace(/\n---\s*$/, '').trim()
 
                                   function markPosted() {
@@ -1137,17 +1172,16 @@ export default function WatchlistFeed() {
                                     })
                                   }
 
-                                  if (platform === 'x') {
+                                  if (platform === 'x' || platform === 'thread') {
                                     const tweets = cleanContent.split(/\n---\n/).map(t => t.trim()).filter(Boolean)
                                     return (
-                                      <div key={platform} className={isRecommended ? 'ring-1 ring-accent/30 rounded-lg p-3' : ''}>
+                                      <div key={platform}>
                                         <div className="flex items-center justify-between mb-2">
                                           <div className="flex items-center gap-2">
                                             <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-[var(--accent-orange)]/10" style={{ color: 'var(--accent-orange)' }}>
-                                              X Thread · {tweets.length} tweets
+                                              {formatLabel} · {tweets.length} tweets
                                             </span>
-                                            {isRecommended && <span className="text-[9px] text-accent font-semibold">Recommended</span>}
-                                            {isPosted && <span className="text-[9px] text-green-600 font-semibold">Posted</span>}
+                                            {isPosted && <span className="text-[9px] text-green font-semibold">Posted</span>}
                                           </div>
                                           <button className={`text-xs font-semibold ${isPosted ? 'btn-outline' : 'btn-primary'}`} onClick={markPosted}>
                                             {isCopied ? 'Copied!' : isPosted ? 'Copy again' : 'Copy & mark posted'}
@@ -1172,13 +1206,17 @@ export default function WatchlistFeed() {
                                     )
                                   }
 
+                                  // Quote tweet or LinkedIn post — single block rendering
+                                  const isQuote = platform === 'quote'
                                   return (
-                                    <div key={platform} className={isRecommended ? 'ring-1 ring-accent/30 rounded-lg p-3' : ''}>
+                                    <div key={platform}>
                                       <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
-                                          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-accent/10 text-accent">LinkedIn</span>
-                                          {isRecommended && <span className="text-[9px] text-accent font-semibold">Recommended</span>}
-                                          {isPosted && <span className="text-[9px] text-green-600 font-semibold">Posted</span>}
+                                          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${isQuote ? 'bg-[var(--accent-orange)]/10' : 'bg-accent/10 text-accent'}`}
+                                            style={isQuote ? { color: 'var(--accent-orange)' } : undefined}>
+                                            {formatLabel}
+                                          </span>
+                                          {isPosted && <span className="text-[9px] text-green font-semibold">Posted</span>}
                                         </div>
                                         <button className={`text-xs font-semibold ${isPosted ? 'btn-outline' : 'btn-primary'}`} onClick={markPosted}>
                                           {isCopied ? 'Copied!' : isPosted ? 'Copy again' : 'Copy & mark posted'}

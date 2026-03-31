@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 
+const ANTI_AI_RULES = `STRICT RULES:
+- NEVER use: delve, leverage, utilize, game-changer, unlock, cutting-edge, groundbreaking, remarkable, revolutionary, tapestry, illuminate, unveil, pivotal, intricate, hence, furthermore, moreover, realm, landscape, testament, harness, exciting, ever-evolving, foster, elevate, streamline, robust, seamless, synergy, holistic, paradigm, innovative, optimize, empower, curate, ecosystem, stakeholder, scalable, deep dive, double down, circle back, move the needle, craft, navigate, supercharge, boost, powerful, inquiries, stark, resonate, insightful
+- NEVER use em dashes. Use commas or periods.
+- NEVER use semicolons.
+- DO use contractions (don't, can't, won't, I'd, we're)
+- DO use sentence fragments. Vary sentence lengths.
+- Sound like a real person typing fast, not a brand account.`
+
 const LINKEDIN_PROMPT = `Write a LinkedIn post that stops the scroll and drives comments.
 
 HOOK (first 2 lines):
@@ -15,39 +23,70 @@ STRUCTURE:
 RULES:
 - No links in the post body. No corporate jargon.
 - End with a question that invites long comments.
-- 3-5 hashtags at the very end after a blank line.`
+- 3-5 hashtags at the very end after a blank line.
 
-const X_PROMPT = `Write a Twitter/X thread that gets bookmarked and reposted.
+${ANTI_AI_RULES}`
+
+const X_QUOTE_PROMPT = `Write a quote tweet that adds your unique perspective.
 
 FORMAT:
-- 5-7 tweets. Separate each tweet with --- on its own line.
+- Single tweet, max 270 characters
+- This will be posted as a quote of the original tweet, so the reader sees both
+
+PURPOSE:
+- Add context the original poster missed
+- Share a personal experience that validates or challenges their point
+- Surface a non-obvious implication
+- Make the reader think "oh I hadn't considered that"
+
+DO NOT:
+- Just summarize or agree with the original
+- Start with "This." or "So much this." or "Great thread."
+- Tag the original author
+- Add hashtags
+
+${ANTI_AI_RULES}
+
+Output ONLY the quote tweet text. Nothing else.`
+
+const X_THREAD_PROMPT = `Write an X/Twitter thread that gets bookmarked and reposted.
+
+FORMAT:
+- 4-6 tweets. Separate each tweet with --- on its own line.
 - Each tweet max 270 characters. Each tweet must work standalone.
 
 HOOK (Tweet 1):
 - Quantified claim, curiosity gap, transformation, or contrarian take.
-- End with a colon or "Thread" to signal more.
+- End with a colon or "↓" to signal more.
 
 BODY TWEETS:
 - One insight per tweet. Short lines. Specific numbers.
 - Use "you" not "people" — direct address.
+- Each tweet should make the reader want to read the next one.
 
 FINAL TWEET:
-- Ask a question or request repost.
+- Summarize the core takeaway in one sentence.
+- End with a question or "Repost if this helped."
 
 RULES:
-- No links. 1-2 hashtags in hook only. Max 2 mentions total.
-- ASCII punctuation only. No em dashes.`
+- No links. Max 1 hashtag in hook only.
+- This is YOUR knowledge sharing, not a reaction to someone else.
+- Extract the topic/insight from the source post but write entirely in your voice.
+- The reader should learn something specific and actionable.
+
+${ANTI_AI_RULES}`
 
 export async function POST(request: Request) {
   const auth = await getAuthUser()
   if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { text, author, platform: sourcePlatform, platforms } = body as {
+  const { text, author, platform: sourcePlatform, platforms, format } = body as {
     text: string
     author: string
     platform: string
-    platforms: string[]
+    platforms?: string[]
+    format?: 'quote' | 'thread' | 'linkedin' | 'all'
   }
 
   if (!text) return NextResponse.json({ success: false, error: 'text required' }, { status: 400 })
@@ -55,19 +94,34 @@ export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
   if (!apiKey) return NextResponse.json({ success: false, error: 'API key not configured' }, { status: 500 })
 
-  const targetPlatforms = platforms ?? ['linkedin', 'x']
+  // Voice profile
+  const voiceProfile = (auth.dbUser as Record<string, unknown>).voice_profile as { description?: string } | null
+  const voiceNote = voiceProfile?.description
+    ? `\nIMPORTANT, write in this voice: ${voiceProfile.description}`
+    : ''
 
-  const userPrompt = `Repurpose this ${sourcePlatform === 'x' ? 'tweet' : 'LinkedIn post'} by ${author} into your own original content. Don't copy — extract the core insight and make it your own.
+  // Determine what to generate based on format param
+  const targetFormats = format === 'all' || !format
+    ? (platforms ?? ['linkedin', 'x'])  // legacy: generate for each platform
+    : [format]
+
+  const userPrompt = `Repurpose this ${sourcePlatform === 'x' ? 'tweet' : 'LinkedIn post'} by ${author} into your own original content. Don't copy the original, extract the core insight and make it yours.${voiceNote}
 
 SOURCE POST:
 "${text}"
 
-Generate content for: ${targetPlatforms.join(', ')}
+Generate content for: ${targetFormats.join(', ')}
 
-For each platform, output the content preceded by the platform name in brackets like [linkedin] and [x]. Put each platform's content between its bracket tag.`
+For each format, output the content preceded by the format name in brackets. Put each format's content between its bracket tag.`
 
-  const systemPrompts: Record<string, string> = { linkedin: LINKEDIN_PROMPT, x: X_PROMPT }
-  const combinedSystem = targetPlatforms.map(p => `[${p}]\n${systemPrompts[p] ?? ''}`).join('\n\n')
+  const systemPrompts: Record<string, string> = {
+    linkedin: LINKEDIN_PROMPT,
+    x: X_THREAD_PROMPT,  // legacy: default X = thread
+    quote: X_QUOTE_PROMPT,
+    thread: X_THREAD_PROMPT,
+  }
+
+  const combinedSystem = targetFormats.map(f => `[${f}]\n${systemPrompts[f] ?? ''}`).join('\n\n')
 
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -92,18 +146,18 @@ For each platform, output the content preceded by the platform name in brackets 
     const result = await resp.json()
     const raw: string = result.content?.[0]?.text ?? ''
 
-    // Parse [linkedin] and [x] sections
+    // Parse [format] sections
     const content: Record<string, string> = {}
-    for (const p of targetPlatforms) {
-      const regex = new RegExp(`\\[${p}\\]\\s*([\\s\\S]*?)(?=\\[(?:${targetPlatforms.join('|')})\\]|$)`, 'i')
+    for (const f of targetFormats) {
+      const regex = new RegExp(`\\[${f}\\]\\s*([\\s\\S]*?)(?=\\[(?:${targetFormats.join('|')})\\]|$)`, 'i')
       const match = raw.match(regex)
-      content[p] = match ? match[1].trim() : ''
+      content[f] = match ? match[1].trim() : ''
     }
 
-    // Fallback: if parsing failed, just split by platform headers or return raw
-    if (targetPlatforms.every(p => !content[p])) {
-      if (targetPlatforms.length === 1) {
-        content[targetPlatforms[0]] = raw.trim()
+    // Fallback: if parsing failed, return raw
+    if (targetFormats.every(f => !content[f])) {
+      if (targetFormats.length === 1) {
+        content[targetFormats[0]] = raw.trim()
       }
     }
 
