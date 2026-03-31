@@ -192,7 +192,7 @@ export default function Settings() {
     <div className="max-w-2xl mx-auto">
       <h1 className="font-head text-2xl font-bold text-ink mb-2">Settings</h1>
       <p className="text-sm text-ink-3 mb-8">
-        Configure your ICP, X engagement accounts, and preferences.
+        {mode === 'personal_brand' ? 'Configure your brand, voice, and who you watch.' : mode === 'b2b_outbound' ? 'Configure your ICP, pipeline, and outreach.' : 'Configure your brand, ICP, and preferences.'}
       </p>
 
       {/* Account */}
@@ -402,9 +402,9 @@ export default function Settings() {
         {watchlist.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
             {watchlist.map(w => (
-              <span key={w.id} className={`flex items-center gap-1.5 text-xs py-1.5 px-3 rounded-full ${
-                w.platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
-              }`} style={w.platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
+              <span key={w.id} className={`badge flex items-center gap-1.5 text-xs py-1.5 px-3 ${
+                w.platform === 'linkedin' ? 'badge-icp' : 'badge-replied'
+              }`}>
                 {w.platform === 'x' ? '@' : ''}{w.display_name ?? w.username}
                 <button onClick={() => removeFromWatchlist(w.id)} className="hover:opacity-60 ml-0.5">×</button>
               </span>
@@ -437,9 +437,7 @@ export default function Settings() {
                               <div key={j} className="bg-[var(--bg-warm)] rounded-lg px-3 py-2.5 flex items-center justify-between">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded ${
-                                      s.platform === 'linkedin' ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
-                                    }`} style={s.platform === 'x' ? { color: 'var(--accent-orange)' } : undefined}>
+                                    <span className={`badge ${s.platform === 'linkedin' ? 'badge-icp' : 'badge-replied'}`}>
                                       {s.platform === 'linkedin' ? 'in' : 'X'}
                                     </span>
                                     <span className="text-sm font-semibold text-ink">{s.name}</span>
@@ -493,9 +491,10 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* ICP Config — B2B and Both only */}
+      {(mode === 'b2b_outbound' || mode === 'both') && (<>
       <hr className="border-rule-light my-10" />
 
-      {/* ICP Config */}
       <div className="mb-10">
         <div className="section-label mb-1">ICP — Target titles</div>
         <p className="text-xs text-ink-4 mb-3">Job titles you want to reach. Used to filter leads from every scrape.</p>
@@ -550,16 +549,18 @@ export default function Settings() {
           <button className="btn-outline" onClick={() => addToList(excludeInput, excludes, setExcludes, setExcludeInput)} disabled={!excludeInput.trim()}>Add</button>
         </div>
       </div>
+      </>)}
 
       {/* Topic keywords */}
+      <hr className="border-rule-light my-10" />
       <div className="mb-10">
         <div className="section-label mb-1">Topics to track</div>
-        <p className="text-xs text-ink-4 mb-3">Keywords that make a post relevant to your ICP. Posts matching these get boosted in the Feed. Posts that don&apos;t match get marked &quot;Off-topic.&quot;</p>
+        <p className="text-xs text-ink-4 mb-3">Keywords that matter to you. Posts matching these get boosted in the Feed.</p>
 
         {trackKeywords.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
             {trackKeywords.map(t => (
-              <span key={t} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3 bg-[color:var(--green-bg)] text-green">
+              <span key={t} className="badge badge-sent flex items-center gap-1.5 text-xs py-1.5 px-3">
                 {t}
                 <button onClick={() => removeFromList(t, trackKeywords, setTrackKeywords)} className="hover:opacity-60 ml-0.5">×</button>
               </span>
