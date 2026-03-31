@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import ProgressWidget from '@/components/progress-widget'
 import ModeSelector from '@/components/mode-selector'
+import GrowthCoach from '@/components/growth-coach'
 import type { UserMode } from '@/lib/types'
 
 interface FeedItem {
@@ -917,6 +918,9 @@ export default function WatchlistFeed() {
 
       {/* ═══ METRICS DASHBOARD ═══ */}
       <ProgressWidget key={progressKey} mode={userMode} />
+
+      {/* ═══ GROWTH COACH ═══ */}
+      <GrowthCoach />
 
       {/* ═══ SECTION TABS (goal-oriented) ═══ */}
       <div className="flex items-center gap-0 mb-4 border-b border-rule">
