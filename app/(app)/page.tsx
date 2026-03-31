@@ -471,22 +471,32 @@ export default function WatchlistFeed() {
     const actions: Action[] = []
     const reasons: string[] = []
 
-    // ═══ REPLY — Visibility play (always relevant) ═══
+    // ═══ REPLY — Visibility play (playbook-informed) ═══
+    // X playbook: replies = 27x a like, early replies (first 15 min) get surfaced to thousands
+    // LinkedIn playbook: comments within 60 min get locked at top, >15 words = 12-15x a like
+    const earlyWindow = isLinkedIn ? ageHours < 1.5 : ageHours < 0.25 // 90 min LinkedIn, 15 min X
     const replyWindowOpen = ageHours < 12
     const lowReplyCount = comments < 20
     const highVisibility = totalEngagement >= 20 || velocity >= 10
+    const likeToReplyRatio = comments > 0 ? likes / comments : likes // high ratio = your reply stands out
 
     if (replyWindowOpen && highVisibility && lowReplyCount) {
-      const isTrending = velocity >= 10 && ageHours < 6
-      if (isTrending) {
+      if (earlyWindow && velocity >= 5) {
+        // Playbook: early reply on trending post = maximum algorithm boost
+        actions.push({ label: isLinkedIn ? 'Comment now — golden hour' : 'Reply now — 27x boost', type: 'reply', priority: 'high' })
+        reasons.push(isLinkedIn
+          ? `Posted ${Math.round(ageHours * 60)}m ago, ${velocity}/hr — early comments get locked at top`
+          : `Posted ${Math.round(ageHours * 60)}m ago, ${velocity}/hr — early replies get 27x algorithm weight`)
+      } else if (likeToReplyRatio >= 6 && likes >= 30) {
+        // Playbook: high likes, low replies = your reply gets maximum visibility
+        actions.push({ label: 'Reply — you\'ll stand out', type: 'reply', priority: 'high' })
+        reasons.push(`${likes} likes but only ${comments} replies — ${Math.round(likeToReplyRatio)}:1 like-to-reply ratio`)
+      } else if (velocity >= 10) {
         actions.push({ label: 'Reply now — trending', type: 'reply', priority: 'high' })
         reasons.push(`${velocity}/hr velocity, reply window open`)
-      } else if (likes >= 30 && comments < 5) {
-        actions.push({ label: 'Reply — you\'ll stand out', type: 'reply', priority: 'high' })
-        reasons.push(`${likes} likes but only ${comments} replies — your reply stands out`)
       } else {
         actions.push({ label: 'Draft reply', type: 'reply', priority: 'medium' })
-        reasons.push(`${totalEngagement} engagers, fresh post`)
+        reasons.push(`${totalEngagement} engagers, ${isLinkedIn ? 'comment to borrow their audience' : 'reply for visibility'}`)
       }
     }
 
@@ -505,9 +515,18 @@ export default function WatchlistFeed() {
     }
 
     // ═══ REPURPOSE — Authority play (personal brand + both only) ═══
+    // X playbook: threads get 3x engagement, bookmarks = 10x a like
+    // LinkedIn playbook: carousels get 4x reach, saves = 5x a like
     if (showRepurpose && isSubstantive && totalEngagement >= 5) {
-      actions.push({ label: 'Use as content idea', type: 'content', priority: 'medium' })
-      reasons.push(`substantive insight worth repurposing`)
+      const hasDataPoints = /\d+%|\$\d|x\d|\d+x/i.test(item.text)
+      const hasFramework = /step|framework|system|playbook|process|how to/i.test(item.text)
+      if (hasDataPoints || hasFramework) {
+        actions.push({ label: isLinkedIn ? 'Turn into carousel — 4x reach' : 'Write thread — 3x engagement', type: 'content', priority: 'high' })
+        reasons.push(hasFramework ? 'Framework/how-to angle — best for threads and carousels' : 'Data-rich — drives bookmarks (10x a like on X, 5x on LinkedIn)')
+      } else {
+        actions.push({ label: 'Quote or repurpose', type: 'content', priority: 'medium' })
+        reasons.push('Substantive insight worth repurposing')
+      }
     }
 
     // ═══ SKIP — nothing qualifies ═══
@@ -1050,12 +1069,40 @@ export default function WatchlistFeed() {
               .filter(f => !tasks[f.url])
               .map(item => {
                 const rec = getRecommendation(item)
-                const eng = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
+                const likes = item.engagement?.likes ?? 0
+                const comments = item.engagement?.replies ?? 0
+                const rts = item.engagement?.retweets ?? 0
+                const eng = likes + comments + rts
                 const icpRel = getIcpRelevance(item.text)
-                const score =
-                  (icpRel.score > 0 ? 200 * icpRel.score : 0) +
-                  (rec.actions[0]?.priority === 'high' ? 100 : rec.actions[0]?.priority === 'medium' ? 30 : 1) +
-                  eng * 0.1
+                const { ageHours } = getVelocity(item)
+
+                // Playbook-informed scoring
+                let score = 0
+
+                // Topic relevance (highest weight)
+                score += icpRel.score > 0 ? 200 * icpRel.score : 0
+
+                // Action priority
+                score += rec.actions[0]?.priority === 'high' ? 100 : rec.actions[0]?.priority === 'medium' ? 30 : 1
+
+                // Engagement base
+                score += eng * 0.1
+
+                // PLAYBOOK BONUSES:
+                // Early window bonus — playbook says first 15 min (X) / 60-90 min (LinkedIn) is everything
+                if (ageHours < 0.25) score += 80 // under 15 min = huge bonus
+                else if (ageHours < 1.5) score += 40 // under 90 min = good bonus
+                else if (ageHours < 3) score += 15 // under 3 hours = small bonus
+
+                // Like-to-reply ratio bonus — playbook says high likes + low replies = your reply stands out
+                if (likes >= 30 && comments < 5) score += 50
+
+                // Save-worthy content bonus — playbook says bookmarks = 5-10x a like
+                const hasFramework = /step|framework|system|playbook|process|how to/i.test(item.text)
+                const hasData = /\d+%|\$\d|x\d|\d+x/i.test(item.text)
+                if (hasFramework) score += 25
+                if (hasData) score += 20
+
                 const primaryType = rec.actions[0]?.type ?? 'skip'
                 return { item, rec, score, icpRelevance: icpRel, primaryType }
               })
