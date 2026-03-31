@@ -80,71 +80,80 @@ export default function WatchlistFeed() {
   const [progressKey, setProgressKey] = useState(0)
   const [activeSection, setActiveSection] = useState<string>('engage')
 
-  // Paste-to-repurpose (URL or raw text)
-  const [pasteInput, setPasteInput] = useState('')
-  const [pasteFetching, setPasteFetching] = useState(false)
-  const [pasteResult, setPasteResult] = useState<Record<string, string> | null>(null)
-  const [pasteError, setPasteError] = useState('')
-  const [pasteShowText, setPasteShowText] = useState(false) // show textarea fallback
+  // Create flow — angle detection + generation
+  const [createInput, setCreateInput] = useState('')
+  const [createShowText, setCreateShowText] = useState(false)
+  const [createAnalyzing, setCreateAnalyzing] = useState(false)
+  const [createError, setCreateError] = useState('')
+  const [createAngles, setCreateAngles] = useState<Array<{
+    id: string; type: string; title: string; summary: string; platforms: string[]; mentions: string[]
+  }>>([])
+  const [createSummary, setCreateSummary] = useState('')
+  const [createGenerating, setCreateGenerating] = useState<string | null>(null) // angle id being generated
+  const [createResults, setCreateResults] = useState<Record<string, Record<string, string>>>({}) // angleId → { platform: content }
 
   function looksLikeUrl(s: string): boolean {
     const t = s.trim()
     return t.startsWith('http://') || t.startsWith('https://') || t.includes('.com/') || t.includes('.co/')
   }
 
-  async function handlePasteRepurpose(textOverride?: string) {
-    const input = textOverride ?? pasteInput.trim()
+  async function handleAnalyzeAngles(textOverride?: string) {
+    const input = textOverride ?? createInput.trim()
     if (!input) return
-    setPasteFetching(true)
-    setPasteError('')
-    setPasteResult(null)
+    setCreateAnalyzing(true)
+    setCreateError('')
+    setCreateAngles([])
+    setCreateResults({})
 
-    // If it's a URL, try fetching via API first
-    if (looksLikeUrl(input) && !textOverride) {
-      try {
-        const res = await fetch('/api/repurpose-url', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: input, format: 'all' }),
-        })
-        const json = await res.json()
-        if (json.success && json.content) {
-          setPasteResult(json.content)
-          setPasteFetching(false)
-          return
-        }
-        // URL fetch failed — show text input fallback
-        setPasteShowText(true)
-        setPasteError('')
-        setPasteFetching(false)
-        return
-      } catch { /* fall through */ }
-    }
-
-    // Direct text repurpose via existing API
     try {
+      const isUrl = looksLikeUrl(input) && !textOverride
+      const res = await fetch('/api/analyze-angles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(isUrl ? { url: input } : { text: input }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.angles) {
+        setCreateAngles(json.data.angles)
+        setCreateSummary(json.data.summary ?? '')
+        setCreateShowText(false)
+      } else if (json.error === 'paste_text') {
+        setCreateShowText(true)
+      } else {
+        setCreateError(json.error ?? 'Analysis failed')
+      }
+    } catch {
+      setCreateError('Failed to connect')
+    } finally {
+      setCreateAnalyzing(false)
+    }
+  }
+
+  async function handleGenerateFromAngle(angleId: string, platform: string) {
+    const angle = createAngles.find(a => a.id === angleId)
+    if (!angle) return
+    setCreateGenerating(angleId)
+    try {
+      const format = platform === 'linkedin' ? 'linkedin' : platform === 'x' ? 'thread' : 'quote'
       const res = await fetch('/api/repurpose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: input,
+          text: `ANGLE: ${angle.title}\n${angle.summary}\n\nSOURCE: ${createSummary}`,
           author: 'unknown',
           platform: 'x',
-          format: 'all',
+          format,
         }),
       })
       const json = await res.json()
       if (json.success && json.content) {
-        setPasteResult(json.content)
-        setPasteShowText(false)
-      } else {
-        setPasteError(json.error ?? 'Failed to repurpose')
+        setCreateResults(prev => ({
+          ...prev,
+          [angleId]: { ...prev[angleId], ...json.content },
+        }))
       }
-    } catch {
-      setPasteError('Failed to connect')
-    } finally {
-      setPasteFetching(false)
-    }
+    } catch { /* */ }
+    finally { setCreateGenerating(null) }
   }
 
   function fetchSuggestions() {
@@ -1130,76 +1139,99 @@ export default function WatchlistFeed() {
                   </div>
                 )}
 
-                {/* Paste-to-repurpose — Create tab only */}
+                {/* ═══ WRITE FROM SCRATCH — Create tab only ═══ */}
                 {currentSection?.key === 'create' && (
                   <div className="card-flat p-4 mb-4">
-                    <div className="text-xs text-ink-3 mb-2">Paste a link or text from any post and turn it into your content</div>
+                    <div className="font-head text-sm font-semibold text-ink mb-1">Write something new</div>
+                    <div className="text-xs text-ink-4 mb-3">Paste a link or text. We&apos;ll find content angles and generate platform-native posts.</div>
+
+                    {/* Input */}
                     <div className="flex gap-2">
                       <input
                         type="text"
                         className="input flex-1 py-2.5 px-3 text-sm"
-                        placeholder="Paste a URL or the post text directly..."
-                        value={pasteInput}
-                        onChange={e => { setPasteInput(e.target.value); setPasteError(''); setPasteResult(null); setPasteShowText(false) }}
-                        onKeyDown={e => { if (e.key === 'Enter' && pasteInput.trim()) handlePasteRepurpose() }}
+                        placeholder="x.com/status/..., substack link, or paste text directly"
+                        value={createInput}
+                        onChange={e => { setCreateInput(e.target.value); setCreateError(''); setCreateAngles([]); setCreateShowText(false) }}
+                        onKeyDown={e => { if (e.key === 'Enter' && createInput.trim()) handleAnalyzeAngles() }}
                       />
-                      <button
-                        className="btn-primary"
-                        disabled={pasteFetching || !pasteInput.trim()}
-                        onClick={() => handlePasteRepurpose()}
-                      >
-                        {pasteFetching ? 'Generating...' : 'Repurpose'}
+                      <button className="btn-primary" disabled={createAnalyzing || !createInput.trim()} onClick={() => handleAnalyzeAngles()}>
+                        {createAnalyzing ? 'Analyzing...' : 'Find angles'}
                       </button>
                     </div>
-                    {/* Text fallback when URL can't be fetched */}
-                    {pasteShowText && (
+
+                    {/* Text fallback */}
+                    {createShowText && (
                       <div className="mt-3">
-                        <div className="text-xs text-ink-3 mb-1.5">Couldn&apos;t fetch that URL. Paste the post text below:</div>
-                        <textarea
-                          className="input w-full min-h-[80px] text-xs leading-relaxed mb-2"
-                          placeholder="Copy the post text and paste it here..."
-                          id="paste-fallback"
-                        />
-                        <button
-                          className="btn-primary"
-                          disabled={pasteFetching}
-                          onClick={() => {
-                            const el = document.getElementById('paste-fallback') as HTMLTextAreaElement
-                            if (el?.value.trim()) handlePasteRepurpose(el.value.trim())
-                          }}
-                        >
-                          {pasteFetching ? 'Generating...' : 'Repurpose this text'}
-                        </button>
+                        <div className="text-xs text-ink-3 mb-1.5">Couldn&apos;t fetch that URL. Paste the content below:</div>
+                        <textarea className="input w-full min-h-[80px] text-xs leading-relaxed mb-2" placeholder="Paste the article or post text here..." id="create-fallback" />
+                        <button className="btn-primary" disabled={createAnalyzing} onClick={() => {
+                          const el = document.getElementById('create-fallback') as HTMLTextAreaElement
+                          if (el?.value.trim()) handleAnalyzeAngles(el.value.trim())
+                        }}>{createAnalyzing ? 'Analyzing...' : 'Find angles'}</button>
                       </div>
                     )}
-                    {pasteError && <div className="text-xs text-orange mt-2">{pasteError}</div>}
-                    {pasteResult && (
-                      <div className="mt-3 pt-3 border-t border-rule-light space-y-3">
-                        {Object.entries(pasteResult).filter(([, v]) => v).map(([fmt, text]) => (
-                          <div key={fmt} className="card-flat p-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <span className={`badge ${fmt === 'linkedin' ? 'badge-icp' : 'badge-replied'}`}>
-                                {fmt === 'quote' ? 'Quote Tweet' : fmt === 'thread' ? 'X Thread' : 'LinkedIn Post'}
-                              </span>
-                              <button className="btn-accent text-xs" onClick={() => {
-                                navigator.clipboard.writeText(text)
-                              }}>Copy</button>
-                            </div>
-                            {fmt === 'thread' ? (
-                              <div className="flex flex-col gap-1.5">
-                                {text.split(/\n---\n/).map((t, i) => (
-                                  <div key={i} className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded px-2.5 py-2">
-                                    <span className="text-ink-4 text-[10px] mr-1">{i+1}.</span>{t.trim()}
+
+                    {createError && <div className="text-xs text-orange mt-2">{createError}</div>}
+
+                    {/* Angle cards */}
+                    {createAngles.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        <div className="text-[10px] text-ink-4 uppercase tracking-wider font-semibold">{createAngles.length} angles found</div>
+                        {createAngles.map(angle => {
+                          const icons: Record<string, string> = { key_insight: '💡', story: '📖', data_point: '📊', framework: '🧩', contrarian_take: '🔥', how_to: '📋', quote: '💬' }
+                          const generated = createResults[angle.id]
+                          return (
+                            <div key={angle.id} className="card p-3">
+                              <div className="flex items-start gap-2 mb-2">
+                                <span className="text-base">{icons[angle.type] ?? '📝'}</span>
+                                <div className="flex-1">
+                                  <div className="font-head text-sm font-semibold text-ink">{angle.title}</div>
+                                  <div className="text-xs text-ink-3 mt-0.5">{angle.summary}</div>
+                                  <div className="flex gap-1.5 mt-2">
+                                    {angle.platforms.map(p => (
+                                      <button key={p} className={`badge ${p === 'linkedin' ? 'badge-icp' : 'badge-replied'} cursor-pointer hover:opacity-80`}
+                                        disabled={createGenerating === angle.id}
+                                        onClick={() => handleGenerateFromAngle(angle.id, p)}>
+                                        {createGenerating === angle.id ? '...' : p === 'linkedin' ? 'LinkedIn' : 'X thread'}
+                                      </button>
+                                    ))}
+                                    {!angle.platforms.includes('x') && (
+                                      <button className="badge badge-replied cursor-pointer hover:opacity-80"
+                                        disabled={createGenerating === angle.id}
+                                        onClick={() => handleGenerateFromAngle(angle.id, 'x')}>
+                                        {createGenerating === angle.id ? '...' : 'X thread'}
+                                      </button>
+                                    )}
                                   </div>
-                                ))}
+                                </div>
                               </div>
-                            ) : (
-                              <div className="text-xs text-ink leading-relaxed whitespace-pre-wrap">{text}</div>
-                            )}
-                          </div>
-                        ))}
+                              {/* Generated content for this angle */}
+                              {generated && Object.entries(generated).filter(([,v]) => v).map(([fmt, text]) => (
+                                <div key={fmt} className="mt-2 pt-2 border-t border-rule-light">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className={`badge ${fmt === 'linkedin' ? 'badge-icp' : 'badge-replied'}`}>
+                                      {fmt === 'quote' ? 'Quote' : fmt === 'thread' ? 'Thread' : 'LinkedIn'}
+                                    </span>
+                                    <button className="btn-accent text-xs" onClick={() => navigator.clipboard.writeText(text)}>Copy</button>
+                                  </div>
+                                  <div className="text-xs text-ink leading-relaxed whitespace-pre-wrap bg-[var(--bg-warm)] rounded-lg p-2.5">{text}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Section divider between self-input and feed */}
+                {currentSection?.key === 'create' && allTodo.length > 0 && createAngles.length > 0 && (
+                  <div className="flex items-center gap-3 my-4">
+                    <div className="flex-1 h-px bg-rule" />
+                    <span className="text-[10px] text-ink-4 uppercase tracking-wider">From your feed</span>
+                    <div className="flex-1 h-px bg-rule" />
                   </div>
                 )}
 
