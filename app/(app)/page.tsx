@@ -629,17 +629,21 @@ export default function WatchlistFeed() {
               <div className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[9px] font-bold shrink-0">1</div>
               <div><strong className="text-ink">They post</strong> → brain tells you what to do with it</div>
             </div>
-            <div className="flex gap-3">
-              <div className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[9px] font-bold shrink-0">2</div>
-              <div><strong className="text-ink">LinkedIn</strong> → scrape engagers → find ICP → draft DMs</div>
-            </div>
-            <div className="flex gap-3">
-              <div className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: 'var(--accent-orange)' }}>3</div>
-              <div><strong className="text-ink">X tweet</strong> → reply to build visibility with their audience</div>
-            </div>
+            {(userMode === 'b2b_outbound' || userMode === 'both') && (
+              <div className="flex gap-3">
+                <div className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[9px] font-bold shrink-0">2</div>
+                <div><strong className="text-ink">Scrape engagers</strong> → find ICP matches → draft DMs → book meetings</div>
+              </div>
+            )}
+            {(userMode === 'personal_brand' || userMode === 'both') && (
+              <div className="flex gap-3">
+                <div className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: 'var(--accent-orange)' }}>{userMode === 'both' ? '3' : '2'}</div>
+                <div><strong className="text-ink">Reply to trending posts</strong> → build visibility → grow your audience</div>
+              </div>
+            )}
             <div className="flex gap-3">
               <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: 'var(--gradient-main)', color: '#fff' }}>B</div>
-              <div><strong className="text-ink">Brain learns</strong> → which posts, DMs, and replies actually work</div>
+              <div><strong className="text-ink">Brain learns</strong> → what actually works for {userMode === 'b2b_outbound' ? 'booking meetings' : userMode === 'both' ? 'your goals' : 'growing your audience'}</div>
             </div>
           </div>
         </div>
@@ -1011,11 +1015,11 @@ export default function WatchlistFeed() {
                         )}
                         <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
 
-                        {/* ROI for the relevant action */}
+                        {/* ROI for the relevant action (mode-aware) */}
                         <div className="text-[11px] text-ink-4 mb-2">
-                          {(actionFilter === 'scrape' || (actionFilter === 'all' && primaryAction?.type === 'scrape')) && <span>{p}{est.scrape.icpLeads} est. ICP leads → {p}{est.scrape.meetings} meetings</span>}
+                          {(userMode === 'b2b_outbound' || userMode === 'both') && (actionFilter === 'scrape' || (actionFilter === 'all' && primaryAction?.type === 'scrape')) && <span>{p}{est.scrape.icpLeads} est. ICP leads → {p}{est.scrape.meetings} meetings</span>}
                           {(actionFilter === 'reply' || (actionFilter === 'all' && primaryAction?.type === 'reply')) && <span>{p}{est.reply.impressions} est. impressions → {p}{est.reply.followers} followers</span>}
-                          {(actionFilter === 'content' || (actionFilter === 'all' && primaryAction?.type === 'content')) && <span>{est.content.icpRate}% ICP topic match</span>}
+                          {(userMode === 'personal_brand' || userMode === 'both') && (actionFilter === 'content' || (actionFilter === 'all' && primaryAction?.type === 'content')) && <span>{est.content.icpRate}% ICP topic match</span>}
                         </div>
 
                         <div className="flex flex-wrap gap-2">
