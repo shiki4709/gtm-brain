@@ -96,6 +96,16 @@ export function voiceToPrompt(profile: VoiceProfile | null): string {
     return 'No brand voice profile yet. Use general best practices: casual, direct, no corporate speak.'
   }
 
+  // Description-based profile (new, simpler)
+  const desc = (profile as unknown as Record<string, unknown>).description as string | undefined
+  if (desc) {
+    const parts = [`AUTHOR'S VOICE: ${desc}`]
+    if (profile.avoid) parts.push(`NEVER: ${profile.avoid}`)
+    parts.push('IMPORTANT: Match this voice exactly. The output should sound like the same person wrote it.')
+    return parts.join('\n')
+  }
+
+  // Legacy sample-based profile
   return `AUTHOR'S VOICE PROFILE:
 - Tone: ${profile.tone}
 - Formality: ${profile.formality}
