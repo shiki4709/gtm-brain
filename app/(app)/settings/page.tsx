@@ -156,8 +156,27 @@ export default function Settings() {
     setWatchlist(prev => prev.filter(w => w.id !== id))
   }
 
-  async function handleDirectAdd() {
-    const raw = directAddInput.trim()
+  function looksLikeHandle(input: string): boolean {
+    const s = input.trim()
+    return s.startsWith('@') ||
+      s.includes('x.com/') ||
+      s.includes('twitter.com/') ||
+      s.includes('linkedin.com/in/') ||
+      (/^[a-zA-Z0-9_]{1,30}$/.test(s) && !s.includes(' '))
+  }
+
+  async function handleSmartAdd(input: string) {
+    if (looksLikeHandle(input)) {
+      setDirectAddInput(input)
+      await handleDirectAdd(input)
+      setChatInput('')
+    } else {
+      chatFindPeople(input)
+    }
+  }
+
+  async function handleDirectAdd(overrideInput?: string) {
+    const raw = (overrideInput ?? directAddInput).trim()
     if (!raw) return
     setDirectAdding(true)
     let platform: 'linkedin' | 'x' = 'x'
@@ -444,9 +463,9 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Chat */}
+        {/* Unified input — handles are added directly, anything else triggers search */}
         <div className="border border-rule rounded-[var(--radius)] overflow-hidden">
-          {/* Messages */}
+          {/* Search results */}
           {chatMessages.length > 0 && (
             <div className="max-h-[400px] overflow-y-auto p-4 flex flex-col gap-3">
               {chatMessages.map((msg, i) => (
@@ -505,41 +524,23 @@ export default function Settings() {
             </div>
           )}
 
-          {/* Input */}
+          {/* Smart input */}
           <div className={`flex gap-2 p-3 ${chatMessages.length > 0 ? 'border-t border-rule' : ''}`}>
             <input
               type="text"
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
-              placeholder={chatMessages.length === 0 ? 'e.g. "SaaS sales leaders" or "DevTools founders who post about PLG"' : 'Try another search...'}
+              placeholder={'@handle, x.com/name, or "SaaS sales leaders"'}
               className="flex-1 py-2 px-3 text-sm bg-transparent outline-none placeholder:text-ink-4"
-              onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim() && !chatLoading) chatFindPeople(chatInput.trim()) }}
+              onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) handleSmartAdd(chatInput.trim()) }}
             />
-            <button onClick={() => chatFindPeople(chatInput.trim())} disabled={chatLoading || !chatInput.trim()}
-              className="text-accent font-semibold text-sm hover:underline disabled:opacity-30 disabled:no-underline">
-              {chatLoading ? '...' : 'Search'}
+            <button onClick={() => handleSmartAdd(chatInput.trim())} disabled={chatLoading || directAdding || !chatInput.trim()}
+              className="btn-accent text-xs">
+              {chatLoading || directAdding ? '...' : 'Add'}
             </button>
           </div>
         </div>
-
-        {/* Direct add */}
-        <div className="flex gap-2 mt-3">
-          <input
-            type="text"
-            value={directAddInput}
-            onChange={e => setDirectAddInput(e.target.value)}
-            placeholder="Or paste a handle: @Polymarket, linkedin.com/in/name"
-            className="input flex-1 py-2.5 px-4 text-sm"
-            onKeyDown={e => { if (e.key === 'Enter' && directAddInput.trim()) handleDirectAdd() }}
-          />
-          <button
-            className="btn-accent"
-            disabled={!directAddInput.trim() || directAdding}
-            onClick={handleDirectAdd}
-          >
-            {directAdding ? '...' : 'Add'}
-          </button>
-        </div>
+        <p className="text-[11px] text-ink-4 mt-2">Paste a handle to add directly, or describe who you&apos;re looking for to search.</p>
       </div>
 
       {/* ICP Config — B2B and Both only */}
