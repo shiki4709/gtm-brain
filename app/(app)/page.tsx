@@ -77,6 +77,7 @@ export default function WatchlistFeed() {
   // Mode gate state
   const [showModeSelector, setShowModeSelector] = useState(false)
   const [userMode, setUserMode] = useState<UserMode>('personal_brand')
+  const [progressKey, setProgressKey] = useState(0) // bump to force ProgressWidget refresh
 
   function fetchSuggestions() {
     setLoadingSuggestions(true)
@@ -773,15 +774,24 @@ export default function WatchlistFeed() {
     return allTabs
   })()
 
+  // Reset filter if current tab is no longer visible
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const visibleKeys = visibleTabs.map(([k]) => k)
+    if (!visibleKeys.includes(actionFilter)) {
+      setActionFilter('all')
+    }
+  }, [userMode])
+
   return (
     <div className="max-w-2xl mx-auto">
       {/* ═══ MODE SELECTOR GATE ═══ */}
       {showModeSelector && (
-        <ModeSelector onComplete={(mode) => { setUserMode(mode); setShowModeSelector(false) }} />
+        <ModeSelector onComplete={(mode) => { setUserMode(mode); setShowModeSelector(false); setProgressKey(k => k + 1) }} />
       )}
 
       {/* ═══ PROGRESS WIDGET ═══ */}
-      <ProgressWidget />
+      <ProgressWidget key={progressKey} />
 
       {/* ═══ ACTION FILTER TABS ═══ */}
       <div className="flex items-center gap-0 mb-4 border-b border-rule">
