@@ -1,6 +1,86 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 
+// Ported from Foxxi (foxxi/src/app/api/sources/route.ts)
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<nav[\s\S]*?<\/nav>/gi, '')
+    .replace(/<footer[\s\S]*?<\/footer>/gi, '')
+    .replace(/<header[\s\S]*?<\/header>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+async function fetchUrlContent(url: string): Promise<{ text: string; author: string }> {
+  const isX = url.includes('x.com/') || url.includes('twitter.com/')
+  const isSubstack = url.includes('substack.com') || url.includes('.substack.')
+
+  // X/Twitter — use SocialData API
+  if (isX) {
+    const tweetIdMatch = url.match(/status\/(\d+)/)
+    const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
+    if (tweetIdMatch && socialDataKey) {
+      const resp = await fetch(
+        `https://api.socialdata.tools/twitter/statuses/show?id=${tweetIdMatch[1]}`,
+        {
+          headers: { Authorization: `Bearer ${socialDataKey}`, Accept: 'application/json' },
+          signal: AbortSignal.timeout(10000),
+        }
+      )
+      if (resp.ok) {
+        const data = await resp.json()
+        return { text: data.full_text ?? data.text ?? '', author: data.user?.screen_name ?? '' }
+      }
+    }
+  }
+
+  // Substack — try their API first for clean content
+  if (isSubstack) {
+    try {
+      const slugMatch = url.match(/\/p\/([^/?#]+)/)
+      const domainMatch = url.match(/https?:\/\/([^/]+)/)
+      if (slugMatch && domainMatch) {
+        const apiUrl = `https://${domainMatch[1]}/api/v1/posts/${slugMatch[1]}`
+        const resp = await fetch(apiUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
+          signal: AbortSignal.timeout(10000),
+        })
+        if (resp.ok) {
+          const post = await resp.json()
+          if (post.body_html) {
+            const text = htmlToText(post.body_html)
+            if (text.length > 200) return { text: text.slice(0, 15000), author: post.publishedBylines?.[0]?.name ?? '' }
+          }
+        }
+      }
+    } catch { /* fall through to HTML fetch */ }
+  }
+
+  // Generic — fetch HTML and strip tags (works for most sites)
+  const resp = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      'Accept': 'text/html,application/xhtml+xml',
+    },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(15000),
+  })
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+  const html = await resp.text()
+  const text = htmlToText(html)
+  return { text: text.slice(0, 15000), author: '' }
+}
+
 // Ported from Foxxi (foxxi/src/lib/content-engine.ts)
 // Detects 4-8 content angles from any source text, each tagged with best platforms
 const ANALYSIS_PROMPT = `You are a content strategist who breaks down articles into multiple repurposable content angles.
@@ -41,36 +121,20 @@ export async function POST(request: Request) {
   let sourceText = text ?? ''
   let sourceAuthor = ''
 
-  // If URL provided, try fetching content
+  // If URL provided, try fetching content (supports X, Substack, any website)
   if (url && !sourceText) {
-    const isX = url.includes('x.com/') || url.includes('twitter.com/')
-    if (isX) {
-      const tweetIdMatch = url.match(/status\/(\d+)/)
-      const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
-      if (tweetIdMatch && socialDataKey) {
-        try {
-          const resp = await fetch(
-            `https://api.socialdata.tools/twitter/statuses/show?id=${tweetIdMatch[1]}`,
-            {
-              headers: { Authorization: `Bearer ${socialDataKey}`, Accept: 'application/json' },
-              signal: AbortSignal.timeout(10000),
-            }
-          )
-          if (resp.ok) {
-            const data = await resp.json()
-            sourceText = data.full_text ?? data.text ?? ''
-            sourceAuthor = data.user?.screen_name ?? ''
-          }
-        } catch { /* */ }
-      }
-    }
+    try {
+      const fetched = await fetchUrlContent(url)
+      sourceText = fetched.text
+      sourceAuthor = fetched.author
+    } catch { /* fall through to error */ }
   }
 
-  if (!sourceText) {
+  if (!sourceText || sourceText.length < 50) {
     return NextResponse.json({
       success: false,
       error: 'paste_text',
-      message: 'Could not fetch content from URL. Paste the text directly.',
+      message: 'Could not fetch enough content from that URL. Paste the text directly.',
     }, { status: 422 })
   }
 
