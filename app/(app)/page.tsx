@@ -77,7 +77,8 @@ export default function WatchlistFeed() {
   // Mode gate state
   const [showModeSelector, setShowModeSelector] = useState(false)
   const [userMode, setUserMode] = useState<UserMode>('personal_brand')
-  const [progressKey, setProgressKey] = useState(0) // bump to force ProgressWidget refresh
+  const [progressKey, setProgressKey] = useState(0)
+  const [activeSection, setActiveSection] = useState<string>('engage')
 
   function fetchSuggestions() {
     setLoadingSuggestions(true)
@@ -769,16 +770,22 @@ export default function WatchlistFeed() {
     )
   }
 
-  // Filter tabs based on mode
-  const allTabs: Array<[string, string]> = [['all', 'All'], ['reply', 'Reply'], ['scrape', 'Scrape'], ['content', 'Repurpose']]
-  const visibleTabs = userMode === 'personal_brand'
-    ? allTabs.filter(([key]) => key !== 'scrape')
-    : userMode === 'b2b_outbound'
-      ? allTabs.filter(([key]) => key !== 'content')
-      : allTabs
+  // Goal-oriented sections
+  const goalSections = (() => {
+    const sections: Array<{ key: string; label: string; filterType: 'all' | 'reply' | 'scrape' | 'content'; count: number }> = []
+    if (userMode === 'personal_brand' || userMode === 'both') {
+      sections.push({ key: 'engage', label: 'Engage', filterType: 'reply', count: 0 })
+      sections.push({ key: 'create', label: 'Create', filterType: 'content', count: 0 })
+    }
+    if (userMode === 'b2b_outbound' || userMode === 'both') {
+      sections.push({ key: 'prospect', label: 'Prospect', filterType: 'scrape', count: 0 })
+    }
+    return sections
+  })()
 
-  // Reset filter if current tab got hidden by mode change
-  const activeTabVisible = visibleTabs.some(([k]) => k === actionFilter)
+  // Sync activeSection with actionFilter for backward compat
+  const currentSection = goalSections.find(s => s.key === activeSection) ?? goalSections[0]
+  const effectiveFilter = currentSection?.filterType ?? 'all'
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -787,27 +794,31 @@ export default function WatchlistFeed() {
         <ModeSelector onComplete={(mode) => { setUserMode(mode); setShowModeSelector(false); setProgressKey(k => k + 1) }} />
       )}
 
-      {/* ═══ PROGRESS WIDGET ═══ */}
-      <ProgressWidget key={progressKey} />
+      {/* ═══ METRICS DASHBOARD ═══ */}
+      <ProgressWidget key={progressKey} mode={userMode} />
 
-      {/* ═══ ACTION FILTER TABS ═══ */}
+      {/* ═══ SECTION TABS (goal-oriented) ═══ */}
       <div className="flex items-center gap-0 mb-4 border-b border-rule">
-        {visibleTabs.map(([key, label]) => {
-          const isActive = activeTabVisible ? actionFilter === key : key === 'all'
+        {goalSections.map(section => {
+          const isActive = activeSection === section.key
           return (
-          <button
-            key={key}
-            onClick={() => setActionFilter(key as typeof actionFilter)}
-            className={`text-sm font-semibold px-4 py-2.5 border-b-[2px] transition-colors ${
-              isActive ? 'text-ink border-accent' : 'text-ink-4 border-transparent hover:text-ink-3'
-            }`}
-          >
-            {label}
-          </button>
-        )})}
+            <button
+              key={section.key}
+              onClick={() => setActiveSection(section.key)}
+              className={`font-head text-sm font-semibold px-4 py-2.5 border-b-[2px] transition-colors ${
+                isActive ? 'text-ink border-accent' : 'text-ink-4 border-transparent hover:text-ink-3'
+              }`}
+            >
+              {section.label}
+              {section.count > 0 && (
+                <span className="ml-1.5 badge-count">{section.count}</span>
+              )}
+            </button>
+          )
+        })}
         <div className="ml-auto pb-1.5">
           <button onClick={() => fetchFeed(true)} disabled={loadingFeed} className="btn-outline text-xs">
-            {loadingFeed ? '...' : '↻'}
+            {loadingFeed ? '...' : '\u21BB'}
           </button>
         </div>
       </div>
@@ -925,11 +936,18 @@ export default function WatchlistFeed() {
               })
               .sort((a, b) => b.score - a.score)
 
+            // Update section counts
+            for (const section of goalSections) {
+              section.count = allScored.filter(s =>
+                s.rec.actions.some(a => a.type === section.filterType)
+              ).length
+            }
+
             // Filter by action type
             // Off-topic + low engagement = hidden. Off-topic + high engagement = still shown (worth replying for visibility).
             const MIN_ENG_FOR_OFFTOPIC = 20
 
-            const allTodo = actionFilter === 'all'
+            const allTodo = effectiveFilter === 'all'
               ? allScored.filter(({ item, icpRelevance }) => {
                   if (icpRelevance.score > 0) return true
                   // Off-topic but high engagement — still worth engaging for visibility
@@ -937,15 +955,15 @@ export default function WatchlistFeed() {
                   return eng >= MIN_ENG_FOR_OFFTOPIC
                 })
               : allScored.filter(({ item, rec, icpRelevance }) => {
-                  if (!rec.actions.some(a => a.type === actionFilter)) return false
+                  if (!rec.actions.some(a => a.type === effectiveFilter)) return false
                   if (icpRelevance.score > 0) return true
                   // Off-topic: only show in Reply tab if high engagement (visibility play)
-                  if (actionFilter === 'reply') {
+                  if (effectiveFilter === 'reply') {
                     const eng = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
                     return eng >= MIN_ENG_FOR_OFFTOPIC
                   }
                   // Scrape/Repurpose: must be ICP-relevant
-                  if (actionFilter === 'content') {
+                  if (effectiveFilter === 'content') {
                     if (item.text.length < 80) return false
                   }
                   return icpRelevance.score > 0
@@ -962,8 +980,26 @@ export default function WatchlistFeed() {
               )
             }
 
+            // Section descriptions
+            const sectionDesc: Record<string, string> = {
+              engage: 'Reply to trending posts to grow your visibility',
+              create: 'Repurpose great posts into your own content',
+              prospect: 'Scrape engagers to find leads for outreach',
+            }
+
             return (
               <>
+                {/* Section header */}
+                {currentSection && currentSection.key !== 'done' && (
+                  <div className="brain-nudge mb-4">
+                    <div className="brain-nudge-icon">{currentSection.key === 'engage' ? '\u{1F4AC}' : currentSection.key === 'create' ? '\u270F\uFE0F' : '\u{1F50D}'}</div>
+                    <div>
+                      <div className="font-head text-sm font-semibold text-ink">{sectionDesc[currentSection.key] ?? 'Posts for you'}</div>
+                      <div className="text-[11px] text-ink-4 mt-0.5">{allTodo.length} posts to act on</div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-2">
                   {allTodo.map(({ item, rec, icpRelevance }, i) => {
                     const isLinkedIn = item.platform === 'linkedin'
@@ -1017,17 +1053,17 @@ export default function WatchlistFeed() {
 
                         {/* ROI for the relevant action (mode-aware) */}
                         <div className="text-[11px] text-ink-4 mb-2">
-                          {(userMode === 'b2b_outbound' || userMode === 'both') && (actionFilter === 'scrape' || (actionFilter === 'all' && primaryAction?.type === 'scrape')) && <span>{p}{est.scrape.icpLeads} est. ICP leads → {p}{est.scrape.meetings} meetings</span>}
-                          {(actionFilter === 'reply' || (actionFilter === 'all' && primaryAction?.type === 'reply')) && <span>{p}{est.reply.impressions} est. impressions → {p}{est.reply.followers} followers</span>}
-                          {(userMode === 'personal_brand' || userMode === 'both') && (actionFilter === 'content' || (actionFilter === 'all' && primaryAction?.type === 'content')) && <span>{est.content.icpRate}% ICP topic match</span>}
+                          {(userMode === 'b2b_outbound' || userMode === 'both') && (effectiveFilter === 'scrape' || (actionFilter === 'all' && primaryAction?.type === 'scrape')) && <span>{p}{est.scrape.icpLeads} est. ICP leads → {p}{est.scrape.meetings} meetings</span>}
+                          {(effectiveFilter === 'reply' || (actionFilter === 'all' && primaryAction?.type === 'reply')) && <span>{p}{est.reply.impressions} est. impressions → {p}{est.reply.followers} followers</span>}
+                          {(userMode === 'personal_brand' || userMode === 'both') && (effectiveFilter === 'content' || (actionFilter === 'all' && primaryAction?.type === 'content')) && <span>{est.content.icpRate}% ICP topic match</span>}
                         </div>
 
                         <div className="flex flex-wrap gap-2">
                           {(() => {
                             // In All tab: only show primary action. In filtered tabs: show matching action.
-                            const actionsToShow = actionFilter === 'all'
+                            const actionsToShow = effectiveFilter === 'all'
                               ? rec.actions.slice(0, 1)
-                              : rec.actions.filter(a => a.type === actionFilter)
+                              : rec.actions.filter(a => a.type === effectiveFilter)
 
                             return actionsToShow.map((a, j) => {
                               if (a.type === 'scrape') return (
@@ -1174,7 +1210,7 @@ export default function WatchlistFeed() {
                           )
                         })()}
 
-                        {draftReply && actionFilter !== 'scrape' && (
+                        {draftReply && effectiveFilter !== 'scrape' && (
                           <div className="mt-3 pt-3 border-t border-rule-light">
                             <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">{draftReply}</div>
                             <div className="flex gap-2 mb-2">

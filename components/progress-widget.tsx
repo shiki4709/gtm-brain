@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { WeeklyProgress, FollowerDelta } from '@/lib/types'
+import type { WeeklyProgress, FollowerDelta, UserMode } from '@/lib/types'
 
 function isOnPace(current: number, target: number): boolean {
   const now = new Date()
@@ -18,13 +18,17 @@ interface GoalsData {
   mode: string
 }
 
-const METRIC_LABELS: Record<string, string> = {
-  reply: 'Replies',
-  dm_send: 'DMs sent',
-  scrape: 'Scrapes',
+const METRIC_CONFIG: Record<string, { label: string; verb: string; category: 'inbound' | 'outbound' }> = {
+  reply: { label: 'Replies', verb: 'replied', category: 'inbound' },
+  dm_send: { label: 'DMs sent', verb: 'sent', category: 'outbound' },
+  scrape: { label: 'Scrapes', verb: 'scraped', category: 'outbound' },
 }
 
-export default function ProgressWidget() {
+interface ProgressWidgetProps {
+  mode?: UserMode
+}
+
+export default function ProgressWidget({ mode: propMode }: ProgressWidgetProps) {
   const [data, setData] = useState<GoalsData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -41,118 +45,98 @@ export default function ProgressWidget() {
   if (loading) return null
   if (!data || data.progress.length === 0) return null
 
-  const showPersonalBrand = data.mode === 'personal_brand' || data.mode === 'both'
-  const showB2B = data.mode === 'b2b_outbound' || data.mode === 'both'
+  const mode = propMode ?? data.mode ?? 'personal_brand'
+  const showInbound = mode === 'personal_brand' || mode === 'both'
+  const showOutbound = mode === 'b2b_outbound' || mode === 'both'
 
-  const personalBrandProgress = data.progress.filter(p => p.mode === 'personal_brand')
-  const b2bProgress = data.progress.filter(p => p.mode === 'b2b_outbound')
+  const inboundProgress = data.progress.filter(p => METRIC_CONFIG[p.metric]?.category === 'inbound')
+  const outboundProgress = data.progress.filter(p => METRIC_CONFIG[p.metric]?.category === 'outbound')
 
+  // Overall completion
   const allProgress = data.progress
   const totalDone = allProgress.reduce((s, p) => s + Math.min(p.current, p.target), 0)
   const totalTarget = allProgress.reduce((s, p) => s + p.target, 0)
   const overallPct = totalTarget > 0 ? Math.round((totalDone / totalTarget) * 100) : 0
 
   return (
-    <div className="brain-card mb-5">
-      <div className="flex items-start gap-5">
-        {/* Ring */}
-        <div className="shrink-0">
-          <ProgressRing pct={overallPct} size={52} />
-        </div>
+    <div className="mb-6">
+      {/* Metric cards row */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        {/* Inbound metrics */}
+        {showInbound && inboundProgress.map(p => (
+          <MetricCard key={p.metric} progress={p} />
+        ))}
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2.5">
-            <span className="section-label !mb-0">This week</span>
-            {overallPct >= 100 && <span className="badge badge-sent">Complete</span>}
+        {/* Follower card */}
+        {showInbound && data.followerDelta.current !== null && (
+          <div className="stat-card">
+            <div className="stat-num stat-num-blue">{data.followerDelta.current.toLocaleString()}</div>
+            <div className="stat-label">
+              Followers
+              {data.followerDelta.delta7d !== null && (
+                <span className={data.followerDelta.delta7d >= 0 ? ' text-green' : ' text-orange'}>
+                  {' '}{data.followerDelta.delta7d >= 0 ? '+' : ''}{data.followerDelta.delta7d} this week
+                </span>
+              )}
+            </div>
           </div>
+        )}
 
-          {/* Personal brand row */}
-          {showPersonalBrand && personalBrandProgress.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-              {personalBrandProgress.map(p => (
-                <MetricPill key={p.metric} progress={p} />
-              ))}
-              {data.followerDelta.current !== null && (
-                <span className="text-xs text-ink-3">
-                  {data.followerDelta.current.toLocaleString()} followers
-                  {data.followerDelta.delta7d !== null && (
-                    <span className={data.followerDelta.delta7d >= 0 ? 'text-green' : 'text-orange'}>
-                      {' '}{data.followerDelta.delta7d >= 0 ? '+' : ''}{data.followerDelta.delta7d}
-                    </span>
-                  )}
-                </span>
-              )}
-            </div>
-          )}
+        {/* Outbound metrics */}
+        {showOutbound && outboundProgress.map(p => (
+          <MetricCard key={p.metric} progress={p} />
+        ))}
 
-          {/* B2B row */}
-          {showB2B && b2bProgress.length > 0 && (
-            <div className={`flex flex-wrap items-center gap-x-5 gap-y-1.5 ${
-              showPersonalBrand && personalBrandProgress.length > 0 ? 'mt-2.5 pt-2.5 border-t border-separator' : ''
-            }`}>
-              {b2bProgress.map(p => (
-                <MetricPill key={p.metric} progress={p} />
-              ))}
-              {(data.pipeline.leads > 0 || data.pipeline.dmsSent > 0) && (
-                <span className="text-xs text-ink-3">
-                  {data.pipeline.leads} leads {'\u2192'} {data.pipeline.dmsSent} DMs {'\u2192'} {data.pipeline.replies} replies
-                </span>
-              )}
+        {/* Pipeline card */}
+        {showOutbound && (data.pipeline.leads > 0 || data.pipeline.dmsSent > 0) && (
+          <div className="stat-card">
+            <div className="stat-num stat-num-orange">{data.pipeline.leads}</div>
+            <div className="stat-label">
+              ICP leads {'\u2192'} {data.pipeline.dmsSent} DMs {'\u2192'} {data.pipeline.replies} replies
             </div>
-          )}
+          </div>
+        )}
+      </div>
+
+      {/* Overall progress bar */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-rule-light">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${overallPct}%`,
+              backgroundColor: overallPct >= 100 ? 'var(--green)' : 'var(--blue-bright)',
+            }}
+          />
         </div>
+        <span className="font-head text-xs font-bold text-ink-3">{overallPct}%</span>
       </div>
     </div>
   )
 }
 
-function MetricPill({ progress }: { progress: WeeklyProgress }) {
+function MetricCard({ progress }: { progress: WeeklyProgress }) {
+  const config = METRIC_CONFIG[progress.metric]
   const onPace = isOnPace(progress.current, progress.target)
-  const pct = progress.target > 0 ? Math.min((progress.current / progress.target) * 100, 100) : 0
   const done = progress.current >= progress.target
-
-  const barColor = done ? 'var(--green)' : onPace ? 'var(--blue-bright)' : 'var(--accent-orange)'
-
-  return (
-    <div className="flex items-center gap-2">
-      {/* Mini bar */}
-      <div className="w-8 h-1 rounded-full overflow-hidden bg-rule-light">
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
-      </div>
-      <span className={`font-head text-sm font-medium ${done ? 'text-green' : 'text-ink'}`}>
-        {progress.current}<span className="text-ink-4 font-normal">/{progress.target}</span>
-      </span>
-      <span className="text-xs text-ink-4">
-        {METRIC_LABELS[progress.metric] ?? progress.metric}
-      </span>
-    </div>
-  )
-}
-
-function ProgressRing({ pct, size }: { pct: number; size: number }) {
-  const stroke = 4
-  const radius = (size - stroke) / 2
-  const circ = 2 * Math.PI * radius
-  const offset = circ - (Math.min(pct, 100) / 100) * circ
-  const color = pct >= 100 ? 'var(--green)' : 'var(--blue-bright)'
+  const pct = progress.target > 0 ? Math.min((progress.current / progress.target) * 100, 100) : 0
 
   return (
-    <svg width={size} height={size} className="block">
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--rule-light)" strokeWidth={stroke} />
-      <circle
-        cx={size / 2} cy={size / 2} r={radius} fill="none"
-        stroke={color} strokeWidth={stroke} strokeLinecap="round"
-        strokeDasharray={circ} strokeDashoffset={offset}
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        className="transition-all duration-500"
+    <div className="stat-card relative overflow-hidden">
+      {/* Background fill */}
+      <div
+        className="absolute bottom-0 left-0 right-0 transition-all duration-500 opacity-[0.06]"
+        style={{
+          height: `${pct}%`,
+          backgroundColor: done ? 'var(--green)' : onPace ? 'var(--blue-bright)' : 'var(--accent-orange)',
+        }}
       />
-      <text
-        x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
-        className={`font-head text-[13px] font-bold ${pct >= 100 ? 'fill-green' : 'fill-ink'}`}
-      >
-        {pct}%
-      </text>
-    </svg>
+      <div className="relative">
+        <div className={`stat-num ${done ? 'stat-num-green' : 'stat-num-blue'}`}>
+          {progress.current}<span className="text-ink-4 text-base font-normal">/{progress.target}</span>
+        </div>
+        <div className="stat-label">{config?.label ?? progress.metric}</div>
+      </div>
+    </div>
   )
 }
