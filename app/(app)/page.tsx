@@ -887,7 +887,6 @@ export default function WatchlistFeed() {
       sections.push({ key: 'create', label: 'Create', filterType: 'content', count: 0 })
       sections.push({ key: 'prospect', label: 'Find leads', filterType: 'scrape', count: 0 })
     }
-    sections.push({ key: 'done', label: 'Done', filterType: 'all', count: 0 })
     return sections
   })()
 
