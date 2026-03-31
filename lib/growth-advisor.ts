@@ -88,16 +88,17 @@ function xSuggestions(stage: GrowthStage['stage']): GrowthSuggestion[] {
 }
 
 // Generate suggestions for LinkedIn based on growth stage
+// Based on 360Brew algorithm research: saves=5x likes, carousels=4x reach, comments=12-15x likes
 function linkedinSuggestions(stage: GrowthStage['stage']): GrowthSuggestion[] {
   const suggestions: GrowthSuggestion[] = []
 
-  // Comments — #1 growth hack on LinkedIn
+  // Comments — 76% of fast-growing accounts used this as primary tactic
   const commentTargets = { starter: 10, growing: 15, scaling: 20 }
   suggestions.push({
     metric: 'li_comments',
     target: commentTargets[stage],
     period: 'daily',
-    reason: 'Comments are 12-15x a like. Comment on big accounts within 30 min. Your name + headline shows to thousands.',
+    reason: '76% of accounts that grew from sub-5K to 25K+ used strategic commenting. Comment within 60 min of their post, >15 words.',
     priority: 'high',
     platform: 'linkedin',
     category: 'engage',
@@ -109,32 +110,31 @@ function linkedinSuggestions(stage: GrowthStage['stage']): GrowthSuggestion[] {
     metric: 'li_posts',
     target: postTargets[stage],
     period: 'weekly',
-    reason: 'Quality over quantity on LinkedIn. 3-5 posts/week is optimal. More cannibalizes reach.',
+    reason: 'Quality over quantity. 3-5 posts/week is optimal. More than 2/day cannibalizes reach.',
     priority: 'high',
     platform: 'linkedin',
     category: 'create',
   })
 
-  // Carousels
-  if (stage !== 'starter') {
-    suggestions.push({
-      metric: 'li_carousels',
-      target: 1,
-      period: 'weekly',
-      reason: 'Carousels get 2-3x reach vs text-only. Repurpose your X threads as slide decks.',
-      priority: 'medium',
-      platform: 'linkedin',
-      category: 'create',
-    })
-  }
+  // Carousels — 4x reach, highest engagement at 6.60%
+  const carouselTargets = { starter: 1, growing: 1, scaling: 2 }
+  suggestions.push({
+    metric: 'li_carousels',
+    target: carouselTargets[stage],
+    period: 'weekly',
+    reason: 'Carousels get 4x reach vs text-only and 6.60% engagement rate. Repurpose X threads as slide decks.',
+    priority: 'high',
+    platform: 'linkedin',
+    category: 'create',
+  })
 
   // New connections
   suggestions.push({
     metric: 'li_connections',
-    target: stage === 'starter' ? 10 : 5,
+    target: stage === 'starter' ? 20 : 10,
     period: 'daily',
-    reason: 'Connect with people in your niche. Personalized notes get 3x acceptance rate.',
-    priority: stage === 'starter' ? 'high' : 'low',
+    reason: 'Connect with people in your niche. Personalized notes get 3x acceptance rate. 20-30/day in starter phase.',
+    priority: stage === 'starter' ? 'high' : 'medium',
     platform: 'linkedin',
     category: 'connect',
   })
