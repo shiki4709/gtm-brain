@@ -80,28 +80,65 @@ export default function WatchlistFeed() {
   const [progressKey, setProgressKey] = useState(0)
   const [activeSection, setActiveSection] = useState<string>('engage')
 
-  // Paste-a-link repurpose
-  const [pasteUrl, setPasteUrl] = useState('')
+  // Paste-to-repurpose (URL or raw text)
+  const [pasteInput, setPasteInput] = useState('')
   const [pasteFetching, setPasteFetching] = useState(false)
   const [pasteResult, setPasteResult] = useState<Record<string, string> | null>(null)
   const [pasteError, setPasteError] = useState('')
+  const [pasteShowText, setPasteShowText] = useState(false) // show textarea fallback
 
-  async function handlePasteRepurpose() {
-    if (!pasteUrl.trim()) return
+  function looksLikeUrl(s: string): boolean {
+    const t = s.trim()
+    return t.startsWith('http://') || t.startsWith('https://') || t.includes('.com/') || t.includes('.co/')
+  }
+
+  async function handlePasteRepurpose(textOverride?: string) {
+    const input = textOverride ?? pasteInput.trim()
+    if (!input) return
     setPasteFetching(true)
     setPasteError('')
     setPasteResult(null)
+
+    // If it's a URL, try fetching via API first
+    if (looksLikeUrl(input) && !textOverride) {
+      try {
+        const res = await fetch('/api/repurpose-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: input, format: 'all' }),
+        })
+        const json = await res.json()
+        if (json.success && json.content) {
+          setPasteResult(json.content)
+          setPasteFetching(false)
+          return
+        }
+        // URL fetch failed — show text input fallback
+        setPasteShowText(true)
+        setPasteError('')
+        setPasteFetching(false)
+        return
+      } catch { /* fall through */ }
+    }
+
+    // Direct text repurpose via existing API
     try {
-      const res = await fetch('/api/repurpose-url', {
+      const res = await fetch('/api/repurpose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: pasteUrl.trim(), format: 'all' }),
+        body: JSON.stringify({
+          text: input,
+          author: 'unknown',
+          platform: 'x',
+          format: 'all',
+        }),
       })
       const json = await res.json()
       if (json.success && json.content) {
         setPasteResult(json.content)
+        setPasteShowText(false)
       } else {
-        setPasteError(json.message ?? json.error ?? 'Failed to repurpose')
+        setPasteError(json.error ?? 'Failed to repurpose')
       }
     } catch {
       setPasteError('Failed to connect')
@@ -1093,27 +1130,48 @@ export default function WatchlistFeed() {
                   </div>
                 )}
 
-                {/* Paste-a-link repurpose — Create tab only */}
+                {/* Paste-to-repurpose — Create tab only */}
                 {currentSection?.key === 'create' && (
                   <div className="card-flat p-4 mb-4">
-                    <div className="text-xs text-ink-3 mb-2">Paste a link to any post and turn it into your content</div>
+                    <div className="text-xs text-ink-3 mb-2">Paste a link or text from any post and turn it into your content</div>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         className="input flex-1 py-2.5 px-3 text-sm"
-                        placeholder="x.com/user/status/123 or linkedin.com/posts/..."
-                        value={pasteUrl}
-                        onChange={e => { setPasteUrl(e.target.value); setPasteError(''); setPasteResult(null) }}
-                        onKeyDown={e => { if (e.key === 'Enter' && pasteUrl.trim()) handlePasteRepurpose() }}
+                        placeholder="Paste a URL or the post text directly..."
+                        value={pasteInput}
+                        onChange={e => { setPasteInput(e.target.value); setPasteError(''); setPasteResult(null); setPasteShowText(false) }}
+                        onKeyDown={e => { if (e.key === 'Enter' && pasteInput.trim()) handlePasteRepurpose() }}
                       />
                       <button
                         className="btn-primary"
-                        disabled={pasteFetching || !pasteUrl.trim()}
-                        onClick={handlePasteRepurpose}
+                        disabled={pasteFetching || !pasteInput.trim()}
+                        onClick={() => handlePasteRepurpose()}
                       >
                         {pasteFetching ? 'Generating...' : 'Repurpose'}
                       </button>
                     </div>
+                    {/* Text fallback when URL can't be fetched */}
+                    {pasteShowText && (
+                      <div className="mt-3">
+                        <div className="text-xs text-ink-3 mb-1.5">Couldn&apos;t fetch that URL. Paste the post text below:</div>
+                        <textarea
+                          className="input w-full min-h-[80px] text-xs leading-relaxed mb-2"
+                          placeholder="Copy the post text and paste it here..."
+                          id="paste-fallback"
+                        />
+                        <button
+                          className="btn-primary"
+                          disabled={pasteFetching}
+                          onClick={() => {
+                            const el = document.getElementById('paste-fallback') as HTMLTextAreaElement
+                            if (el?.value.trim()) handlePasteRepurpose(el.value.trim())
+                          }}
+                        >
+                          {pasteFetching ? 'Generating...' : 'Repurpose this text'}
+                        </button>
+                      </div>
+                    )}
                     {pasteError && <div className="text-xs text-orange mt-2">{pasteError}</div>}
                     {pasteResult && (
                       <div className="mt-3 pt-3 border-t border-rule-light space-y-3">
