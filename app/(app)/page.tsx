@@ -797,16 +797,21 @@ export default function WatchlistFeed() {
     )
   }
 
-  // Goal-oriented sections
+  // Goal-oriented sections — different tabs per mode
   const goalSections = (() => {
     const sections: Array<{ key: string; label: string; filterType: 'all' | 'reply' | 'scrape' | 'content'; count: number }> = []
-    if (userMode === 'personal_brand' || userMode === 'both') {
-      sections.push({ key: 'engage', label: 'Engage', filterType: 'reply', count: 0 })
+    if (userMode === 'personal_brand') {
+      sections.push({ key: 'engage', label: 'Reply', filterType: 'reply', count: 0 })
       sections.push({ key: 'create', label: 'Create', filterType: 'content', count: 0 })
+    } else if (userMode === 'b2b_outbound') {
+      sections.push({ key: 'prospect', label: 'Find leads', filterType: 'scrape', count: 0 })
+      sections.push({ key: 'engage', label: 'Engage', filterType: 'reply', count: 0 })
+    } else {
+      sections.push({ key: 'engage', label: 'Reply', filterType: 'reply', count: 0 })
+      sections.push({ key: 'create', label: 'Create', filterType: 'content', count: 0 })
+      sections.push({ key: 'prospect', label: 'Find leads', filterType: 'scrape', count: 0 })
     }
-    if (userMode === 'b2b_outbound' || userMode === 'both') {
-      sections.push({ key: 'prospect', label: 'Prospect', filterType: 'scrape', count: 0 })
-    }
+    sections.push({ key: 'done', label: 'Done', filterType: 'all', count: 0 })
     return sections
   })()
 
@@ -820,6 +825,20 @@ export default function WatchlistFeed() {
       {showModeSelector && (
         <ModeSelector onComplete={(mode) => { setUserMode(mode); setShowModeSelector(false); setProgressKey(k => k + 1) }} />
       )}
+
+      {/* ═══ MODE HEADER ═══ */}
+      <div className="mb-4">
+        <h1 className="font-head text-lg font-bold text-ink">
+          {userMode === 'personal_brand' ? 'Build your audience' : userMode === 'b2b_outbound' ? 'Find and close leads' : 'Grow & prospect'}
+        </h1>
+        <p className="text-xs text-ink-4 mt-0.5">
+          {userMode === 'personal_brand'
+            ? 'Reply to trending posts and create content to grow your visibility.'
+            : userMode === 'b2b_outbound'
+              ? 'Scrape high-engagement posts for ICP leads and draft outreach DMs.'
+              : 'Build presence and generate pipeline from the same feed.'}
+        </p>
+      </div>
 
       {/* ═══ METRICS DASHBOARD ═══ */}
       <ProgressWidget key={progressKey} mode={userMode} />
@@ -1001,18 +1020,35 @@ export default function WatchlistFeed() {
             if (allTodo.length === 0 && allDone.length === 0) {
               return (
                 <div className="text-center py-12">
-                  <div className="text-sm text-ink-3 mb-2">No posts in the last 24 hours</div>
-                  <div className="text-xs text-ink-4">Your watched people haven&apos;t posted recently. Try adding more people or check back later.</div>
+                  <div className="text-sm text-ink-3 mb-2">
+                    {userMode === 'personal_brand' ? 'No posts to engage with right now' : userMode === 'b2b_outbound' ? 'No posts to scrape right now' : 'No posts in the last 24 hours'}
+                  </div>
+                  <div className="text-xs text-ink-4">
+                    {userMode === 'personal_brand'
+                      ? 'Your watched creators haven\u2019t posted recently. Add more in Settings.'
+                      : 'Your watched accounts haven\u2019t posted recently. Try adding more people or check back later.'}
+                  </div>
                 </div>
               )
             }
 
-            // Section descriptions
-            const sectionDesc: Record<string, string> = {
-              engage: 'Reply to trending posts to grow your visibility',
-              create: 'Repurpose great posts into your own content',
-              prospect: 'Scrape engagers to find leads for outreach',
+            // Section descriptions — mode-aware
+            const descsByMode: Record<string, Record<string, string>> = {
+              personal_brand: {
+                engage: 'Reply to these to get seen by their audience',
+                create: 'Turn these into your own posts',
+              },
+              b2b_outbound: {
+                prospect: 'Scrape these for ICP leads, then draft DMs',
+                engage: 'Reply to get on their radar',
+              },
+              both: {
+                engage: 'Reply to grow visibility',
+                create: 'Turn into your own content',
+                prospect: 'Scrape for leads and outreach',
+              },
             }
+            const descs = descsByMode[userMode] ?? descsByMode.personal_brand
 
             return (
               <>
@@ -1021,8 +1057,8 @@ export default function WatchlistFeed() {
                   <div className="brain-nudge mb-4">
                     <div className="brain-nudge-icon">{currentSection.key === 'engage' ? '\u{1F4AC}' : currentSection.key === 'create' ? '\u270F\uFE0F' : '\u{1F50D}'}</div>
                     <div>
-                      <div className="font-head text-sm font-semibold text-ink">{sectionDesc[currentSection.key] ?? 'Posts for you'}</div>
-                      <div className="text-[11px] text-ink-4 mt-0.5">{allTodo.length} posts to act on</div>
+                      <div className="font-head text-sm font-semibold text-ink">{descs[currentSection.key] ?? 'Posts for you'}</div>
+                      <div className="text-[11px] text-ink-4 mt-0.5">{allTodo.length} {allTodo.length === 1 ? 'post' : 'posts'} to act on</div>
                     </div>
                   </div>
                 )}
