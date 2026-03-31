@@ -80,6 +80,36 @@ export default function WatchlistFeed() {
   const [progressKey, setProgressKey] = useState(0)
   const [activeSection, setActiveSection] = useState<string>('engage')
 
+  // Paste-a-link repurpose
+  const [pasteUrl, setPasteUrl] = useState('')
+  const [pasteFetching, setPasteFetching] = useState(false)
+  const [pasteResult, setPasteResult] = useState<Record<string, string> | null>(null)
+  const [pasteError, setPasteError] = useState('')
+
+  async function handlePasteRepurpose() {
+    if (!pasteUrl.trim()) return
+    setPasteFetching(true)
+    setPasteError('')
+    setPasteResult(null)
+    try {
+      const res = await fetch('/api/repurpose-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: pasteUrl.trim(), format: 'all' }),
+      })
+      const json = await res.json()
+      if (json.success && json.content) {
+        setPasteResult(json.content)
+      } else {
+        setPasteError(json.message ?? json.error ?? 'Failed to repurpose')
+      }
+    } catch {
+      setPasteError('Failed to connect')
+    } finally {
+      setPasteFetching(false)
+    }
+  }
+
   function fetchSuggestions() {
     setLoadingSuggestions(true)
     fetch('/api/suggest-watchlist').then(r => r.json()).then(json => {
@@ -1060,6 +1090,58 @@ export default function WatchlistFeed() {
                       <div className="font-head text-sm font-semibold text-ink">{descs[currentSection.key] ?? 'Posts for you'}</div>
                       <div className="text-[11px] text-ink-4 mt-0.5">{allTodo.length} {allTodo.length === 1 ? 'post' : 'posts'} to act on</div>
                     </div>
+                  </div>
+                )}
+
+                {/* Paste-a-link repurpose — Create tab only */}
+                {currentSection?.key === 'create' && (
+                  <div className="card-flat p-4 mb-4">
+                    <div className="text-xs text-ink-3 mb-2">Paste a link to any post and turn it into your content</div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="input flex-1 py-2.5 px-3 text-sm"
+                        placeholder="x.com/user/status/123 or linkedin.com/posts/..."
+                        value={pasteUrl}
+                        onChange={e => { setPasteUrl(e.target.value); setPasteError(''); setPasteResult(null) }}
+                        onKeyDown={e => { if (e.key === 'Enter' && pasteUrl.trim()) handlePasteRepurpose() }}
+                      />
+                      <button
+                        className="btn-primary"
+                        disabled={pasteFetching || !pasteUrl.trim()}
+                        onClick={handlePasteRepurpose}
+                      >
+                        {pasteFetching ? 'Generating...' : 'Repurpose'}
+                      </button>
+                    </div>
+                    {pasteError && <div className="text-xs text-orange mt-2">{pasteError}</div>}
+                    {pasteResult && (
+                      <div className="mt-3 pt-3 border-t border-rule-light space-y-3">
+                        {Object.entries(pasteResult).filter(([, v]) => v).map(([fmt, text]) => (
+                          <div key={fmt} className="card-flat p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={`badge ${fmt === 'linkedin' ? 'badge-icp' : 'badge-replied'}`}>
+                                {fmt === 'quote' ? 'Quote Tweet' : fmt === 'thread' ? 'X Thread' : 'LinkedIn Post'}
+                              </span>
+                              <button className="btn-accent text-xs" onClick={() => {
+                                navigator.clipboard.writeText(text)
+                              }}>Copy</button>
+                            </div>
+                            {fmt === 'thread' ? (
+                              <div className="flex flex-col gap-1.5">
+                                {text.split(/\n---\n/).map((t, i) => (
+                                  <div key={i} className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded px-2.5 py-2">
+                                    <span className="text-ink-4 text-[10px] mr-1">{i+1}.</span>{t.trim()}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-ink leading-relaxed whitespace-pre-wrap">{text}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
