@@ -188,9 +188,9 @@ export default function Settings() {
         <div className="section-label mb-3">Your goal</div>
         <div className="flex gap-2">
           {([
-            ['personal_brand', 'Grow my audience'],
-            ['b2b_outbound', 'Book meetings'],
-            ['both', 'Both'],
+            ['personal_brand', '📣 Grow my audience'],
+            ['b2b_outbound', '🎯 Book meetings'],
+            ['both', '⚡ Both'],
           ] as const).map(([value, label]) => (
             <button
               key={value}
@@ -203,7 +203,6 @@ export default function Settings() {
                   body: JSON.stringify({ mode: value }),
                 }).then(r => r.json()).then(json => {
                   if (json.success) {
-                    // Refresh goals after mode change
                     fetch('/api/goals').then(r => r.json()).then(gj => {
                       if (gj.success) setGoals(gj.data?.goals ?? [])
                     })
@@ -212,9 +211,12 @@ export default function Settings() {
                 setSavingMode(false)
               }}
               disabled={savingMode}
-              className={`text-sm py-2 px-4 rounded-lg border transition-all ${
-                mode === value ? 'border-accent bg-accent/5 text-accent font-medium' : 'border-rule text-ink-3 hover:border-ink-4'
-              }`}
+              className="font-head text-xs font-semibold py-2.5 px-4 rounded-lg border transition-all"
+              style={{
+                borderColor: mode === value ? 'var(--blue-bright)' : 'var(--rule)',
+                backgroundColor: mode === value ? 'rgba(33,150,243,0.04)' : 'transparent',
+                color: mode === value ? 'var(--accent-blue)' : 'var(--ink-3)',
+              }}
             >
               {label}
             </button>
@@ -226,16 +228,17 @@ export default function Settings() {
       {goals.length > 0 && (
         <div className="mb-10">
           <div className="section-label mb-3">Weekly targets</div>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {goals.map(g => (
-              <div key={g.id} className="flex items-center gap-3">
-                <span className="text-sm text-ink w-24">
+              <div key={g.id} className="card-flat flex items-center gap-4" style={{ padding: '10px 16px' }}>
+                <span className="text-sm font-medium text-ink w-20 font-head">
                   {g.metric === 'reply' ? 'Replies' : g.metric === 'dm_send' ? 'DMs sent' : g.metric === 'scrape' ? 'Scrapes' : g.metric}
                 </span>
                 <input
                   type="number"
                   min={0}
-                  className="input w-20 py-1.5 px-3 text-sm text-center"
+                  className="input text-center font-head font-bold"
+                  style={{ width: '64px', padding: '6px 8px', fontSize: '15px' }}
                   value={g.target_value}
                   onChange={e => {
                     const val = parseInt(e.target.value) || 0
@@ -250,9 +253,13 @@ export default function Settings() {
                     }).catch(() => {})
                   }}
                 />
-                <span className="text-xs text-ink-4">per week</span>
-                <span className="text-[10px] text-ink-4 uppercase">
-                  {g.mode === 'personal_brand' ? 'brand' : 'B2B'}
+                <span className="text-xs text-ink-4">/ week</span>
+                <span className="badge" style={{
+                  backgroundColor: g.mode === 'personal_brand' ? 'rgba(33,150,243,0.08)' : 'rgba(255,138,101,0.08)',
+                  color: g.mode === 'personal_brand' ? 'var(--accent-blue)' : 'var(--accent-orange)',
+                  marginLeft: 'auto',
+                }}>
+                  {g.mode === 'personal_brand' ? 'Brand' : 'B2B'}
                 </span>
               </div>
             ))}
