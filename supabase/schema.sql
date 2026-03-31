@@ -160,6 +160,7 @@ CREATE TABLE sb_brain_log (
 ALTER TABLE sb_users ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'personal_brand'
   CHECK (mode IN ('personal_brand', 'b2b_outbound', 'both'));
 ALTER TABLE sb_users ADD COLUMN IF NOT EXISTS mode_set BOOLEAN DEFAULT false;
+ALTER TABLE sb_users ADD COLUMN IF NOT EXISTS x_handle TEXT;
 
 -- User goals per mode
 CREATE TABLE user_goals (

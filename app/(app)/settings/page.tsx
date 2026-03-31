@@ -12,6 +12,7 @@ interface UserData {
   x_topics: string[]
   mode: UserMode
   mode_set: boolean
+  x_handle: string | null
 }
 
 interface WatchlistEntry {
@@ -52,6 +53,12 @@ export default function Settings() {
   const [goals, setGoals] = useState<UserGoal[]>([])
   const [savingMode, setSavingMode] = useState(false)
 
+  // X handle for follower tracking
+  const [xHandle, setXHandle] = useState('')
+  const [connectingX, setConnectingX] = useState(false)
+  const [xConnected, setXConnected] = useState(false)
+  const [xFollowers, setXFollowers] = useState<number | null>(null)
+
 
   // Watchlist
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
@@ -73,9 +80,13 @@ export default function Settings() {
         setExcludes(u.icp_config?.exclude ?? [])
         setTrackKeywords(u.icp_config?.track_keywords ?? [])
         setMode(u.mode ?? 'personal_brand')
+        if (u.x_handle) { setXHandle(u.x_handle); setXConnected(true) }
       }
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
-      if (goalsJson.success) setGoals(goalsJson.data?.goals ?? [])
+      if (goalsJson.success) {
+        setGoals(goalsJson.data?.goals ?? [])
+        if (goalsJson.data?.followerDelta?.current) setXFollowers(goalsJson.data.followerDelta.current)
+      }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
@@ -246,6 +257,50 @@ export default function Settings() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* X Handle for follower tracking */}
+      {(mode === 'personal_brand' || mode === 'both') && (
+        <div className="mb-10">
+          <div className="section-label mb-1">Your X account</div>
+          <p className="text-xs text-ink-4 mb-3">Connect your X handle to track follower growth automatically.</p>
+          <div className="flex gap-2 items-center">
+            <span className="text-sm text-ink-3">@</span>
+            <input
+              className="input flex-1 py-2.5 px-3 text-sm"
+              placeholder="your_handle"
+              value={xHandle}
+              onChange={e => setXHandle(e.target.value.replace(/^@/, ''))}
+            />
+            <button
+              className="btn-primary"
+              disabled={connectingX || !xHandle.trim()}
+              onClick={async () => {
+                setConnectingX(true)
+                try {
+                  const res = await fetch('/api/metrics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ x_handle: xHandle.trim() }),
+                  })
+                  const json = await res.json()
+                  if (json.success) {
+                    setXConnected(true)
+                    setXFollowers(json.data.followers)
+                  }
+                } catch { /* */ }
+                finally { setConnectingX(false) }
+              }}
+            >
+              {connectingX ? 'Connecting...' : xConnected ? 'Refresh' : 'Connect'}
+            </button>
+          </div>
+          {xConnected && xFollowers !== null && (
+            <div className="mt-2 text-sm text-green-600">
+              Connected — {xFollowers.toLocaleString()} followers
+            </div>
+          )}
         </div>
       )}
 

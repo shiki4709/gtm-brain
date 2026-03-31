@@ -81,6 +81,7 @@ export interface SbUser {
   timezone: string
   mode: UserMode
   mode_set: boolean
+  x_handle: string | null
   created_at: string
 }
 
