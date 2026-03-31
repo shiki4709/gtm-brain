@@ -12,19 +12,19 @@ const MODES: Array<{ value: UserMode; label: string; description: string; icon: 
     value: 'personal_brand',
     label: 'Grow my audience',
     description: 'Reply to trending posts, build visibility, track follower growth',
-    icon: '📣',
+    icon: '\u{1F4E3}',
   },
   {
     value: 'b2b_outbound',
     label: 'Book meetings',
     description: 'Scrape engagers, draft DMs, track pipeline from lead to meeting',
-    icon: '🎯',
+    icon: '\u{1F3AF}',
   },
   {
     value: 'both',
     label: 'Both',
     description: 'Build your brand and generate leads simultaneously',
-    icon: '⚡',
+    icon: '\u26A1',
   },
 ]
 
@@ -53,29 +53,20 @@ export default function ModeSelector({ onComplete }: ModeSelectorProps) {
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4"
-      style={{ backgroundColor: 'rgba(26,30,46,0.7)', backdropFilter: 'blur(4px)' }}>
-      <div className="rounded-xl max-w-md w-full overflow-hidden"
-        style={{ backgroundColor: 'var(--bg)', border: '1.5px solid var(--rule)', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-
-        {/* Header with gradient accent */}
-        <div style={{ background: 'var(--gradient-subtle)', padding: '28px 28px 20px' }}>
+    <div className="modal-overlay">
+      <div className="modal-card">
+        {/* Header */}
+        <div className="modal-header">
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-2 h-2 rounded-full" style={{ background: 'var(--gradient-main)' }} />
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--ink-4)', fontFamily: 'var(--font-head)' }}>
-              GTM Brain
-            </span>
+            <div className="w-2 h-2 rounded-full gradient-dot" />
+            <span className="section-label !mb-0">GTM Brain</span>
           </div>
-          <h2 className="text-xl font-bold" style={{ color: 'var(--ink)', fontFamily: 'var(--font-head)' }}>
-            What&apos;s your goal?
-          </h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--ink-3)' }}>
-            This shapes your feed, metrics, and weekly targets.
-          </p>
+          <h2 className="font-head text-xl font-bold text-ink">What&apos;s your goal?</h2>
+          <p className="text-sm text-ink-3 mt-1">This shapes your feed, metrics, and weekly targets.</p>
         </div>
 
         {/* Options */}
-        <div style={{ padding: '16px 28px 24px' }}>
+        <div className="modal-body">
           <div className="space-y-2.5 mb-6">
             {MODES.map(mode => {
               const isSelected = selected === mode.value
@@ -83,24 +74,12 @@ export default function ModeSelector({ onComplete }: ModeSelectorProps) {
                 <button
                   key={mode.value}
                   onClick={() => setSelected(mode.value)}
-                  className="w-full text-left rounded-lg transition-all"
-                  style={{
-                    padding: '14px 16px',
-                    border: `1.5px solid ${isSelected ? 'var(--blue-bright)' : 'var(--rule)'}`,
-                    backgroundColor: isSelected ? 'rgba(33,150,243,0.04)' : '#fff',
-                    boxShadow: isSelected ? '0 0 0 1px rgba(33,150,243,0.1)' : 'none',
-                  }}
+                  className={`mode-option ${isSelected ? 'mode-option-active' : ''}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">{mode.icon}</span>
-                    <div>
-                      <div className="text-sm font-semibold" style={{ color: 'var(--ink)', fontFamily: 'var(--font-head)' }}>
-                        {mode.label}
-                      </div>
-                      <div className="text-xs mt-0.5" style={{ color: 'var(--ink-3)' }}>
-                        {mode.description}
-                      </div>
-                    </div>
+                  <span className="text-lg leading-none">{mode.icon}</span>
+                  <div>
+                    <div className="font-head text-sm font-semibold text-ink">{mode.label}</div>
+                    <div className="text-xs text-ink-3 mt-0.5">{mode.description}</div>
                   </div>
                 </button>
               )
@@ -111,12 +90,11 @@ export default function ModeSelector({ onComplete }: ModeSelectorProps) {
             onClick={handleConfirm}
             disabled={!selected || saving}
             className="btn-primary w-full"
-            style={{ padding: '11px 20px', fontSize: '13px' }}
           >
             {saving ? 'Setting up...' : 'Continue'}
           </button>
 
-          <p className="text-center text-[11px] mt-3" style={{ color: 'var(--ink-4)' }}>
+          <p className="text-center text-[11px] text-ink-4 mt-3">
             You can change this anytime in Settings
           </p>
         </div>

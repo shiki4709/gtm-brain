@@ -37,6 +37,21 @@
 
   --radius: 12px;
   --radius-sm: 8px;
+
+  /* Overlays & Shadows */
+  --overlay: rgba(26,30,46,0.65);
+  --shadow-sm: 0 1px 3px rgba(26,30,46,0.06);
+  --shadow-md: 0 4px 16px rgba(26,30,46,0.08);
+  --shadow-lg: 0 16px 48px rgba(26,30,46,0.12);
+
+  /* Tinted backgrounds (for selected states, badges) */
+  --blue-tint: rgba(33,150,243,0.06);
+  --blue-tint-strong: rgba(33,150,243,0.12);
+  --orange-tint: rgba(255,138,101,0.08);
+  --green-tint: rgba(46,125,50,0.08);
+  --separator: rgba(33,150,243,0.08);
+
+  --surface: #ffffff;
 }
 
 @theme inline {
@@ -58,6 +73,15 @@
   --color-orange-deep: var(--accent-orange-deep);
   --color-green: var(--green);
   --color-bg-warm: var(--bg-warm);
+  --color-surface: var(--surface);
+  --color-blue-tint: var(--blue-tint);
+  --color-orange-tint: var(--orange-tint);
+  --color-green-tint: var(--green-tint);
+  --color-separator: var(--separator);
+
+  /* SVG fill colors */
+  --fill-ink: var(--ink);
+  --fill-green: var(--green);
 }
 
 body {
@@ -226,6 +250,43 @@ body {
 .stat-num-orange { color: var(--accent-orange); }
 .stat-num-green { color: var(--green); }
 .stat-label { font-size: 11px; color: var(--ink-4); margin-top: 2px; }
+
+/* ═══ Modal ═══ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; padding: 16px;
+  background: var(--overlay);
+  backdrop-filter: blur(4px);
+}
+.modal-card {
+  border-radius: var(--radius); max-width: 420px; width: 100%;
+  background: var(--surface); border: 1.5px solid var(--rule);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.modal-header {
+  background: var(--gradient-subtle);
+  padding: 28px 28px 20px;
+}
+.modal-body {
+  padding: 16px 28px 24px;
+}
+
+/* ═══ Mode option (modal + settings) ═══ */
+.mode-option {
+  width: 100%; text-align: left;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--rule); background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+  cursor: pointer;
+}
+.mode-option:hover { border-color: var(--ink-4); }
+.mode-option-active {
+  border-color: var(--blue-bright) !important;
+  background: var(--blue-tint) !important;
+  box-shadow: 0 0 0 1px var(--blue-tint-strong);
+}
 
 /* ═══ Accessibility ═══ */
 

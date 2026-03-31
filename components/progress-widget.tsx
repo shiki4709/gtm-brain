@@ -47,7 +47,6 @@ export default function ProgressWidget() {
   const personalBrandProgress = data.progress.filter(p => p.mode === 'personal_brand')
   const b2bProgress = data.progress.filter(p => p.mode === 'b2b_outbound')
 
-  // Calculate overall completion for the ring
   const allProgress = data.progress
   const totalDone = allProgress.reduce((s, p) => s + Math.min(p.current, p.target), 0)
   const totalTarget = allProgress.reduce((s, p) => s + p.target, 0)
@@ -65,9 +64,7 @@ export default function ProgressWidget() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2.5">
             <span className="section-label !mb-0">This week</span>
-            {overallPct >= 100 && (
-              <span className="badge badge-sent">Complete</span>
-            )}
+            {overallPct >= 100 && <span className="badge badge-sent">Complete</span>}
           </div>
 
           {/* Personal brand row */}
@@ -77,10 +74,10 @@ export default function ProgressWidget() {
                 <MetricPill key={p.metric} progress={p} />
               ))}
               {data.followerDelta.current !== null && (
-                <span className="text-xs" style={{ color: 'var(--ink-3)' }}>
+                <span className="text-xs text-ink-3">
                   {data.followerDelta.current.toLocaleString()} followers
                   {data.followerDelta.delta7d !== null && (
-                    <span style={{ color: data.followerDelta.delta7d >= 0 ? 'var(--green)' : 'var(--accent-orange)' }}>
+                    <span className={data.followerDelta.delta7d >= 0 ? 'text-green' : 'text-orange'}>
                       {' '}{data.followerDelta.delta7d >= 0 ? '+' : ''}{data.followerDelta.delta7d}
                     </span>
                   )}
@@ -91,13 +88,14 @@ export default function ProgressWidget() {
 
           {/* B2B row */}
           {showB2B && b2bProgress.length > 0 && (
-            <div className={`flex flex-wrap items-center gap-x-5 gap-y-1.5 ${showPersonalBrand && personalBrandProgress.length > 0 ? 'mt-2.5 pt-2.5' : ''}`}
-              style={showPersonalBrand && personalBrandProgress.length > 0 ? { borderTop: '1px solid rgba(33,150,243,0.08)' } : undefined}>
+            <div className={`flex flex-wrap items-center gap-x-5 gap-y-1.5 ${
+              showPersonalBrand && personalBrandProgress.length > 0 ? 'mt-2.5 pt-2.5 border-t border-separator' : ''
+            }`}>
               {b2bProgress.map(p => (
                 <MetricPill key={p.metric} progress={p} />
               ))}
               {(data.pipeline.leads > 0 || data.pipeline.dmsSent > 0) && (
-                <span className="text-xs" style={{ color: 'var(--ink-3)' }}>
+                <span className="text-xs text-ink-3">
                   {data.pipeline.leads} leads {'\u2192'} {data.pipeline.dmsSent} DMs {'\u2192'} {data.pipeline.replies} replies
                 </span>
               )}
@@ -114,25 +112,18 @@ function MetricPill({ progress }: { progress: WeeklyProgress }) {
   const pct = progress.target > 0 ? Math.min((progress.current / progress.target) * 100, 100) : 0
   const done = progress.current >= progress.target
 
+  const barColor = done ? 'var(--green)' : onPace ? 'var(--blue-bright)' : 'var(--accent-orange)'
+
   return (
     <div className="flex items-center gap-2">
       {/* Mini bar */}
-      <div className="w-8 h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--rule-light)' }}>
-        <div
-          className="h-full rounded-full transition-all"
-          style={{
-            width: `${pct}%`,
-            backgroundColor: done ? 'var(--green)' : onPace ? 'var(--blue-bright)' : 'var(--accent-orange)',
-          }}
-        />
+      <div className="w-8 h-1 rounded-full overflow-hidden bg-rule-light">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
       </div>
-      <span className="text-sm font-medium" style={{
-        color: done ? 'var(--green)' : 'var(--ink)',
-        fontFamily: 'var(--font-head)',
-      }}>
-        {progress.current}<span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>/{progress.target}</span>
+      <span className={`font-head text-sm font-medium ${done ? 'text-green' : 'text-ink'}`}>
+        {progress.current}<span className="text-ink-4 font-normal">/{progress.target}</span>
       </span>
-      <span className="text-xs" style={{ color: 'var(--ink-4)' }}>
+      <span className="text-xs text-ink-4">
         {METRIC_LABELS[progress.metric] ?? progress.metric}
       </span>
     </div>
@@ -144,36 +135,21 @@ function ProgressRing({ pct, size }: { pct: number; size: number }) {
   const radius = (size - stroke) / 2
   const circ = 2 * Math.PI * radius
   const offset = circ - (Math.min(pct, 100) / 100) * circ
+  const color = pct >= 100 ? 'var(--green)' : 'var(--blue-bright)'
 
   return (
     <svg width={size} height={size} className="block">
-      {/* Track */}
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--rule-light)" strokeWidth={stroke} />
       <circle
-        cx={size / 2} cy={size / 2} r={radius}
-        fill="none" stroke="var(--rule-light)" strokeWidth={stroke}
-      />
-      {/* Fill */}
-      <circle
-        cx={size / 2} cy={size / 2} r={radius}
-        fill="none"
-        stroke={pct >= 100 ? 'var(--green)' : 'var(--blue-bright)'}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeDasharray={circ}
-        strokeDashoffset={offset}
+        cx={size / 2} cy={size / 2} r={radius} fill="none"
+        stroke={color} strokeWidth={stroke} strokeLinecap="round"
+        strokeDasharray={circ} strokeDashoffset={offset}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+        className="transition-all duration-500"
       />
-      {/* Text */}
       <text
-        x={size / 2} y={size / 2}
-        textAnchor="middle" dominantBaseline="central"
-        style={{
-          fontSize: '13px',
-          fontWeight: 700,
-          fontFamily: 'var(--font-head)',
-          fill: pct >= 100 ? 'var(--green)' : 'var(--ink)',
-        }}
+        x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
+        className={`font-head text-[13px] font-bold ${pct >= 100 ? 'fill-green' : 'fill-ink'}`}
       >
         {pct}%
       </text>

@@ -186,11 +186,11 @@ export default function Settings() {
       {/* Mode */}
       <div className="mb-10">
         <div className="section-label mb-3">Your goal</div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {([
-            ['personal_brand', '📣 Grow my audience'],
-            ['b2b_outbound', '🎯 Book meetings'],
-            ['both', '⚡ Both'],
+            ['personal_brand', '\u{1F4E3} Grow my audience'],
+            ['b2b_outbound', '\u{1F3AF} Book meetings'],
+            ['both', '\u26A1 Both'],
           ] as const).map(([value, label]) => (
             <button
               key={value}
@@ -211,12 +211,11 @@ export default function Settings() {
                 setSavingMode(false)
               }}
               disabled={savingMode}
-              className="font-head text-xs font-semibold py-2.5 px-4 rounded-lg border transition-all"
-              style={{
-                borderColor: mode === value ? 'var(--blue-bright)' : 'var(--rule)',
-                backgroundColor: mode === value ? 'rgba(33,150,243,0.04)' : 'transparent',
-                color: mode === value ? 'var(--accent-blue)' : 'var(--ink-3)',
-              }}
+              className={`font-head text-xs font-semibold py-2.5 px-4 rounded-lg border transition-all ${
+                mode === value
+                  ? 'border-[color:var(--blue-bright)] bg-blue-tint text-accent'
+                  : 'border-rule text-ink-3 hover:border-ink-4'
+              }`}
             >
               {label}
             </button>
@@ -230,15 +229,14 @@ export default function Settings() {
           <div className="section-label mb-3">Weekly targets</div>
           <div className="space-y-2">
             {goals.map(g => (
-              <div key={g.id} className="card-flat flex items-center gap-4" style={{ padding: '10px 16px' }}>
+              <div key={g.id} className="card-flat flex items-center gap-4 py-2.5 px-4">
                 <span className="text-sm font-medium text-ink w-20 font-head">
                   {g.metric === 'reply' ? 'Replies' : g.metric === 'dm_send' ? 'DMs sent' : g.metric === 'scrape' ? 'Scrapes' : g.metric}
                 </span>
                 <input
                   type="number"
                   min={0}
-                  className="input text-center font-head font-bold"
-                  style={{ width: '64px', padding: '6px 8px', fontSize: '15px' }}
+                  className="input w-16 py-1.5 px-2 text-center font-head font-bold text-[15px]"
                   value={g.target_value}
                   onChange={e => {
                     const val = parseInt(e.target.value) || 0
@@ -254,11 +252,7 @@ export default function Settings() {
                   }}
                 />
                 <span className="text-xs text-ink-4">/ week</span>
-                <span className="badge" style={{
-                  backgroundColor: g.mode === 'personal_brand' ? 'rgba(33,150,243,0.08)' : 'rgba(255,138,101,0.08)',
-                  color: g.mode === 'personal_brand' ? 'var(--accent-blue)' : 'var(--accent-orange)',
-                  marginLeft: 'auto',
-                }}>
+                <span className={`badge ml-auto ${g.mode === 'personal_brand' ? 'badge-icp' : 'badge-replied'}`}>
                   {g.mode === 'personal_brand' ? 'Brand' : 'B2B'}
                 </span>
               </div>
@@ -304,7 +298,7 @@ export default function Settings() {
             </button>
           </div>
           {xConnected && xFollowers !== null && (
-            <div className="mt-2 text-sm text-green-600">
+            <div className="mt-2 text-sm text-green">
               Connected — {xFollowers.toLocaleString()} followers
             </div>
           )}
@@ -370,7 +364,7 @@ export default function Settings() {
                                   {s.headline && <div className="text-[10px] text-ink-3 truncate">{s.headline}</div>}
                                 </div>
                                 {alreadyWatched ? (
-                                  <span className="text-[10px] text-green-600 shrink-0 ml-2">Watching</span>
+                                  <span className="text-[10px] text-green shrink-0 ml-2">Watching</span>
                                 ) : (
                                   <button
                                     className="text-[11px] text-accent font-semibold hover:underline shrink-0 ml-2"
@@ -479,7 +473,7 @@ export default function Settings() {
         {trackKeywords.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
             {trackKeywords.map(t => (
-              <span key={t} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3 bg-green-100 text-green-700">
+              <span key={t} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3 bg-[color:var(--green-bg)] text-green">
                 {t}
                 <button onClick={() => removeFromList(t, trackKeywords, setTrackKeywords)} className="hover:opacity-60 ml-0.5">×</button>
               </span>
