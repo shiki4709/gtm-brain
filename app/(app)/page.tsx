@@ -358,14 +358,17 @@ export default function WatchlistFeed() {
     const isLinkedIn = item.platform === 'linkedin'
     const isSubstantive = item.text.length >= 80
 
+    // Mode-aware: suppress actions that don't match the user's goal
+    const showScrape = userMode === 'b2b_outbound' || userMode === 'both'
+    const showRepurpose = userMode === 'personal_brand' || userMode === 'both'
+
     type Action = { label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }
     const actions: Action[] = []
     const reasons: string[] = []
 
-    // ═══ REPLY — Visibility play ═══
-    // Qualifies: fresh + high engagement + your reply can stand out
+    // ═══ REPLY — Visibility play (always relevant) ═══
     const replyWindowOpen = ageHours < 12
-    const lowReplyCount = comments < 20 // your reply won't get buried
+    const lowReplyCount = comments < 20
     const highVisibility = totalEngagement >= 20 || velocity >= 10
 
     if (replyWindowOpen && highVisibility && lowReplyCount) {
@@ -382,26 +385,22 @@ export default function WatchlistFeed() {
       }
     }
 
-    // ═══ SCRAPE — Lead gen play ═══
-    // Qualifies: ICP topic + high comments (comments = intent signal) + LinkedIn preferred
-    // Note: ICP relevance is checked in the feed scoring layer, not here
-    // Here we check engagement quality for scraping
-    const worthScraping = comments >= 10 || (isLinkedIn && totalEngagement >= 15)
-
-    if (worthScraping) {
-      if (comments >= 20 || (isLinkedIn && comments >= 10)) {
-        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
-        reasons.push(`${comments} comments — high intent engagers`)
-      } else {
-        actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
-        reasons.push(`${totalEngagement} engagers worth scraping`)
+    // ═══ SCRAPE — Lead gen play (B2B + both only) ═══
+    if (showScrape) {
+      const worthScraping = comments >= 10 || (isLinkedIn && totalEngagement >= 15)
+      if (worthScraping) {
+        if (comments >= 20 || (isLinkedIn && comments >= 10)) {
+          actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'high' })
+          reasons.push(`${comments} comments — high intent engagers`)
+        } else {
+          actions.push({ label: 'Scrape engagers', type: 'scrape', priority: 'medium' })
+          reasons.push(`${totalEngagement} engagers worth scraping`)
+        }
       }
     }
 
-    // ═══ REPURPOSE — Authority play ═══
-    // Qualifies: substantive text + insight worth building on
-    // NOT just any post with engagement
-    if (isSubstantive && totalEngagement >= 5) {
+    // ═══ REPURPOSE — Authority play (personal brand + both only) ═══
+    if (showRepurpose && isSubstantive && totalEngagement >= 5) {
       actions.push({ label: 'Use as content idea', type: 'content', priority: 'medium' })
       reasons.push(`substantive insight worth repurposing`)
     }
