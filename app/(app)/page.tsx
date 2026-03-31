@@ -767,21 +767,15 @@ export default function WatchlistFeed() {
   }
 
   // Filter tabs based on mode
-  const visibleTabs = (() => {
-    const allTabs = [['all', 'All'], ['reply', 'Reply'], ['scrape', 'Scrape'], ['content', 'Repurpose']] as const
-    if (userMode === 'personal_brand') return allTabs.filter(([key]) => key !== 'scrape')
-    if (userMode === 'b2b_outbound') return allTabs.filter(([key]) => key !== 'content')
-    return allTabs
-  })()
+  const allTabs: Array<[string, string]> = [['all', 'All'], ['reply', 'Reply'], ['scrape', 'Scrape'], ['content', 'Repurpose']]
+  const visibleTabs = userMode === 'personal_brand'
+    ? allTabs.filter(([key]) => key !== 'scrape')
+    : userMode === 'b2b_outbound'
+      ? allTabs.filter(([key]) => key !== 'content')
+      : allTabs
 
-  // Reset filter if current tab is no longer visible
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const visibleKeys = visibleTabs.map(([k]) => k)
-    if (!visibleKeys.includes(actionFilter)) {
-      setActionFilter('all')
-    }
-  }, [userMode])
+  // Reset filter if current tab got hidden by mode change
+  const activeTabVisible = visibleTabs.some(([k]) => k === actionFilter)
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -795,17 +789,19 @@ export default function WatchlistFeed() {
 
       {/* ═══ ACTION FILTER TABS ═══ */}
       <div className="flex items-center gap-0 mb-4 border-b border-rule">
-        {visibleTabs.map(([key, label]) => (
+        {visibleTabs.map(([key, label]) => {
+          const isActive = activeTabVisible ? actionFilter === key : key === 'all'
+          return (
           <button
             key={key}
-            onClick={() => setActionFilter(key)}
+            onClick={() => setActionFilter(key as typeof actionFilter)}
             className={`text-sm font-semibold px-4 py-2.5 border-b-[2px] transition-colors ${
-              actionFilter === key ? 'text-ink border-accent' : 'text-ink-4 border-transparent hover:text-ink-3'
+              isActive ? 'text-ink border-accent' : 'text-ink-4 border-transparent hover:text-ink-3'
             }`}
           >
             {label}
           </button>
-        ))}
+        )})}
         <div className="ml-auto pb-1.5">
           <button onClick={() => fetchFeed(true)} disabled={loadingFeed} className="btn-outline text-xs">
             {loadingFeed ? '...' : '↻'}

@@ -53,11 +53,13 @@ export async function POST(request: Request) {
         { onConflict: 'user_id,metric,snapshot_date' }
       )
 
-    // Also save handle to user profile if not already there
-    await auth.sb
-      .from('sb_users')
-      .update({ x_handle: handle })
-      .eq('id', auth.dbUser.id)
+    // Also save handle to user profile if not already there (ignore if column doesn't exist yet)
+    try {
+      await auth.sb
+        .from('sb_users')
+        .update({ x_handle: handle } as Record<string, unknown>)
+        .eq('id', auth.dbUser.id)
+    } catch { /* column may not exist yet */ }
 
     return NextResponse.json({
       success: true,
