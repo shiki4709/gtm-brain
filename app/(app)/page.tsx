@@ -299,7 +299,14 @@ export default function WatchlistFeed() {
       const res = await fetch('/api/draft-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tweet_text: item.text, author_name: item.author, author_handle: item.authorHandle }),
+        body: JSON.stringify({
+          tweet_text: item.text,
+          author_name: item.author,
+          author_handle: item.authorHandle,
+          platform: item.platform,
+          likes: item.engagement?.likes,
+          retweets: item.engagement?.retweets,
+        }),
       })
       const json = await res.json()
       if (json.reply) setDraftReplies(prev => ({ ...prev, [item.url]: json.reply }))

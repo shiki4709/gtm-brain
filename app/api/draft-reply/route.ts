@@ -12,7 +12,41 @@ interface DraftReplyRequest {
   readonly current_draft?: string
   readonly likes?: number
   readonly retweets?: number
+  readonly platform?: 'x' | 'linkedin'
+  readonly author_followers?: number
 }
+
+// Platform-specific tone skills
+const X_REPLY_SKILL = `REPLY STYLE FOR X:
+- Tone: smart casual with an edge. The sharpest person at a dinner party.
+- Length: 3-5 lines (50-120 words) is the sweet spot. Shortest version that delivers the insight.
+- Structure options (pick the best one for this post):
+  * REFRAME: flip the OP's frame to create a new angle
+  * STACK: add 2-3 points the OP missed
+  * PROOF: share a personal data point or result
+  * QUESTION: ask something the OP can't ignore (triggers 150x algorithm boost)
+  * ONE-LINER: under 15 words, devastatingly accurate
+- Open with: "Underrated point:" / "Tested this." / "Genuine question:" / "The real issue is" / "Counterpoint:"
+- NEVER open with: "Great post!" / "Love this!" / "So true!" / "Couldn't agree more!"
+- Contrarian formula: Acknowledge + Pivot + Evidence. Use "and" not "but".
+- Humor: dry observations, self-deprecating expertise. Never forced, never sarcastic.
+- Mix: 30% agree+extend, 30% respectful disagree, 25% tangent to your expertise, 15% wit.
+- The test: does this make the reader think "I want to see what else this person posts"?`
+
+const LINKEDIN_REPLY_SKILL = `COMMENT STYLE FOR LINKEDIN:
+- Tone: professional-casual with substance. A respected colleague sharing insight over coffee.
+- Length: 20-60 words (2-4 sentences) is the sweet spot. Must be >15 words (algorithm threshold).
+- Structure options (pick the best one for this post):
+  * AGREE + ADD: validate with personal data or experience that extends the point
+  * RESPECTFUL CHALLENGE: disagree on a specific sub-point with evidence
+  * FRAMEWORK: add a mental model or system that builds on their point
+  * QUESTION: ask about their specific experience (highest OP reply rate)
+  * BRIDGE: connect their topic to something adjacent and insightful
+- Open with: "This matches what I've seen—" / "The part that resonated:" / "We tested this." / "I'd add one thing:"
+- NEVER open with: "Great post!" / "Love this!" / "Thanks for sharing!" / "As a [title], I believe..."
+- Don't use sarcasm (LinkedIn audience takes things literally)
+- Be more generous than on X. Acknowledge the OP's point before extending.
+- The test: does this make the reader think "this person knows what they're talking about"?`
 
 // Ported from Pingi (pingi-ai/bot/src/x-engage/drafter.ts)
 // Battle-tested anti-AI rules that produce human-sounding replies
@@ -49,8 +83,18 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { tweet_text, author_name, author_handle, engage_id, refine_instruction, current_draft, likes, retweets } =
+  const { tweet_text, author_name, author_handle, engage_id, refine_instruction, current_draft, likes, retweets, platform, author_followers } =
     body as DraftReplyRequest
+
+  const isLinkedIn = platform === 'linkedin'
+  const replySkill = isLinkedIn ? LINKEDIN_REPLY_SKILL : X_REPLY_SKILL
+  const charLimit = isLinkedIn ? 600 : 280
+  const authorSizeContext = author_followers
+    ? (author_followers >= 100000 ? 'Large account (100K+) — be concise, standalone quality matters.'
+      : author_followers >= 50000 ? 'Medium account (50K+) — be a peer, they often reply back.'
+      : author_followers >= 10000 ? 'Growing account (10K+) — genuine engagement compounds.'
+      : 'Smaller account — generous engagement builds relationships.')
+    : ''
 
   if (!tweet_text) {
     return NextResponse.json({ error: 'No tweet text provided' }, { status: 400 })
@@ -103,24 +147,23 @@ Return ONLY the rewritten reply. Nothing else. Keep under 280 characters.`,
     ].filter(Boolean).join(', ')
 
     const { text } = await callClaude(
-      `Write a reply to this tweet. ${nicheContext}${voiceIntro}
+      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}
 
-TWEET by @${author_handle} (${author_name}):
+${isLinkedIn ? 'POST' : 'TWEET'} by @${author_handle} (${author_name}):
 "${tweet_text.substring(0, 500)}"
 
-${stats ? `Stats: ${stats}\n` : ''}Your reply MUST do one of these:
-- Share a specific insight, data point, or experience related to the topic
-- Ask a sharp follow-up question that deepens the discussion
-- Offer a nuanced take the author didn't consider
-- Connect their point to something adjacent and interesting
+${stats ? `Stats: ${stats}` : ''}${authorSizeContext ? `\n${authorSizeContext}` : ''}
+
+${replySkill}
 
 ${ANTI_AI_RULES}
+${isLinkedIn ? '- Keep it 20-60 words (2-4 sentences). Must be over 15 words.' : '- Keep it under 280 characters.'}
 
-Output ONLY the reply text. Nothing else.`,
-      { maxTokens: 200 }
+Output ONLY the ${isLinkedIn ? 'comment' : 'reply'} text. Nothing else.`,
+      { maxTokens: isLinkedIn ? 300 : 200 }
     )
 
-    const reply = enforceCharLimit(text.trim())
+    const reply = enforceCharLimit(text.trim(), charLimit)
 
     // Save draft to sb_x_engage if engage_id provided
     if (engage_id) {
