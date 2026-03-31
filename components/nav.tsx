@@ -8,17 +8,20 @@ interface NavProps {
   email?: string
   outboundBadge?: number
   inboundBadge?: number
+  mode?: string
   onEditIcp?: () => void
   onSignOut?: () => void
 }
 
-export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inboundBadge = 0, onSignOut }: NavProps) {
+export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inboundBadge = 0, mode, onSignOut }: NavProps) {
   const path = usePathname()
 
-  const tabs = [
-    { href: '/', label: 'Feed', badge: 0, dot: true },
-    { href: '/find-leads', label: 'Pipeline', badge: outboundBadge, dot: false },
+  const allTabs = [
+    { href: '/', label: 'Feed', badge: 0, dot: true, modes: ['personal_brand', 'b2b_outbound', 'both'] },
+    { href: '/find-leads', label: 'Pipeline', badge: outboundBadge, dot: false, modes: ['b2b_outbound', 'both'] },
   ]
+
+  const tabs = allTabs.filter(t => !mode || t.modes.includes(mode))
 
   return (
     <header className="border-b border-rule">
@@ -34,9 +37,11 @@ export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inb
             )}
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-xs text-ink-4">
-              ICP: {icpTitles?.join(', ') ?? 'Not configured'}
-            </div>
+            {(mode === 'b2b_outbound' || mode === 'both') && (
+              <div className="text-xs text-ink-4">
+                ICP: {icpTitles?.join(', ') ?? 'Not configured'}
+              </div>
+            )}
             <Link href="/settings" className="text-ink-4 hover:text-ink transition-colors" title="Settings">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" />

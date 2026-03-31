@@ -106,6 +106,7 @@ export default function AppShell({ children }: AppShellProps) {
         email={user.email ?? undefined}
         outboundBadge={badges.outbound}
         inboundBadge={badges.inbound}
+        mode={user.mode ?? 'personal_brand'}
         onEditIcp={() => setEditingIcp(true)}
         onSignOut={async () => {
           const supabase = createAuthClientBrowser()
