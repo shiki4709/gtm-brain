@@ -1,6 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import ProgressWidget from '@/components/progress-widget'
+import ModeSelector from '@/components/mode-selector'
+import type { UserMode } from '@/lib/types'
 
 interface FeedItem {
   platform: 'linkedin' | 'x'
@@ -71,6 +74,10 @@ export default function WatchlistFeed() {
   const [repurposeEditing, setRepurposeEditing] = useState<Record<string, string>>({}) // platform → edited text
   const [repurposePosted, setRepurposePosted] = useState<Record<string, Set<string>>>({}) // url → Set of platforms posted to
 
+  // Mode gate state
+  const [showModeSelector, setShowModeSelector] = useState(false)
+  const [userMode, setUserMode] = useState<UserMode>('personal_brand')
+
   function fetchSuggestions() {
     setLoadingSuggestions(true)
     fetch('/api/suggest-watchlist').then(r => r.json()).then(json => {
@@ -88,6 +95,10 @@ export default function WatchlistFeed() {
       if (userJson.success && userJson.data?.icp_config?.titles) {
         setIcpTitles(userJson.data.icp_config.titles)
         setTrackKeywords(userJson.data.icp_config.track_keywords ?? [])
+      }
+      if (userJson.success && userJson.data) {
+        setUserMode(userJson.data.mode ?? 'personal_brand')
+        if (!userJson.data.mode_set) setShowModeSelector(true)
       }
       if (roiJson.success) setRoi(roiJson.data)
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
@@ -215,19 +226,33 @@ export default function WatchlistFeed() {
     finally { setRefiningUrl(null) }
   }
 
-  function copyAndOpen(text: string, url: string) {
+  function copyAndOpen(text: string, url: string, platform?: string) {
     navigator.clipboard.writeText(text)
     setCopied(url)
     window.open(url, '_blank')
     setTimeout(() => setCopied(null), 2000)
+    // Log reply action (high-intent: opening the post to reply)
+    fetch('/api/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_type: 'reply', post_id: url, platform: platform ?? 'x' }),
+    }).catch(() => {})
   }
 
-  function markDone(url: string, actionType?: string) {
+  function markDone(url: string, actionType?: string, platform?: string) {
     setTasks(prev => ({ ...prev, [url]: 'done' }))
     const item = feed.find(f => f.url === url)
     if (item) {
       const rec = getRecommendation(item)
       logBrainDecision(item, actionType ?? rec.actions[0]?.type ?? 'unknown', rec.actions[0]?.priority ?? 'medium', rec.reason, 'followed')
+    }
+    // Log action for goal tracking
+    if (actionType && ['scrape', 'reply', 'dm_send'].includes(actionType)) {
+      fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action_type: actionType, post_id: url, platform: platform ?? 'x' }),
+      }).catch(() => {})
     }
   }
 
@@ -740,16 +765,27 @@ export default function WatchlistFeed() {
     )
   }
 
+  // Filter tabs based on mode
+  const visibleTabs = (() => {
+    const allTabs = [['all', 'All'], ['reply', 'Reply'], ['scrape', 'Scrape'], ['content', 'Repurpose']] as const
+    if (userMode === 'personal_brand') return allTabs.filter(([key]) => key !== 'scrape')
+    if (userMode === 'b2b_outbound') return allTabs.filter(([key]) => key !== 'content')
+    return allTabs
+  })()
+
   return (
     <div className="max-w-2xl mx-auto">
+      {/* ═══ MODE SELECTOR GATE ═══ */}
+      {showModeSelector && (
+        <ModeSelector onComplete={(mode) => { setUserMode(mode); setShowModeSelector(false) }} />
+      )}
+
+      {/* ═══ PROGRESS WIDGET ═══ */}
+      <ProgressWidget />
+
       {/* ═══ ACTION FILTER TABS ═══ */}
       <div className="flex items-center gap-0 mb-4 border-b border-rule">
-        {([
-          ['all', 'All'],
-          ['reply', 'Reply'],
-          ['scrape', 'Scrape'],
-          ['content', 'Repurpose'],
-        ] as const).map(([key, label]) => (
+        {visibleTabs.map(([key, label]) => (
           <button
             key={key}
             onClick={() => setActionFilter(key)}

@@ -38,6 +38,21 @@ export interface Database {
         Insert: Omit<SbInsight, 'id' | 'generated_at'> & { id?: string; generated_at?: string }
         Update: Partial<Omit<SbInsight, 'id'>>
       }
+      user_goals: {
+        Row: UserGoal
+        Insert: Omit<UserGoal, 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string }
+        Update: Partial<Omit<UserGoal, 'id'>>
+      }
+      action_log: {
+        Row: ActionLogEntry
+        Insert: Omit<ActionLogEntry, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<ActionLogEntry, 'id'>>
+      }
+      metrics_snapshots: {
+        Row: MetricsSnapshot
+        Insert: Omit<MetricsSnapshot, 'id' | 'created_at'> & { id?: string; created_at?: string }
+        Update: Partial<Omit<MetricsSnapshot, 'id'>>
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -52,6 +67,8 @@ export interface NotificationChannel {
   webhook_url?: string
 }
 
+export type UserMode = 'personal_brand' | 'b2b_outbound' | 'both'
+
 export interface SbUser {
   id: string
   email: string | null
@@ -62,6 +79,8 @@ export interface SbUser {
   telegram_connected: boolean
   notification_channels: NotificationChannel[]
   timezone: string
+  mode: UserMode
+  mode_set: boolean
   created_at: string
 }
 
@@ -160,3 +179,49 @@ export type InsightType =
   | 'weekly_summary'
   | 'pipeline_run'
   | 'outcome'
+
+// Feedback loop types
+export type ActionType = 'reply' | 'reply_copy' | 'dm_draft' | 'dm_send' | 'scrape' | 'dm_reply_received'
+export type GoalMetric = 'reply' | 'dm_send' | 'scrape'
+
+export interface UserGoal {
+  id: string
+  user_id: string
+  mode: 'personal_brand' | 'b2b_outbound'
+  metric: GoalMetric
+  target_value: number
+  period: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ActionLogEntry {
+  id: string
+  user_id: string
+  action_type: ActionType
+  post_id: string | null
+  platform: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+
+export interface MetricsSnapshot {
+  id: string
+  user_id: string
+  metric: string
+  value: number
+  snapshot_date: string
+  created_at: string
+}
+
+export interface WeeklyProgress {
+  metric: GoalMetric
+  target: number
+  current: number
+  mode: 'personal_brand' | 'b2b_outbound'
+}
+
+export interface FollowerDelta {
+  current: number | null
+  delta7d: number | null
+}

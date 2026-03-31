@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { UserMode, UserGoal } from '@/lib/types'
 
 interface UserData {
   id: string
@@ -9,6 +10,8 @@ interface UserData {
   icp_config: { titles: string[]; exclude: string[]; track_keywords?: string[] }
   x_accounts: string[]
   x_topics: string[]
+  mode: UserMode
+  mode_set: boolean
 }
 
 interface WatchlistEntry {
@@ -44,6 +47,11 @@ export default function Settings() {
   const [trackKeywords, setTrackKeywords] = useState<string[]>([])
   const [trackKeywordInput, setTrackKeywordInput] = useState('')
 
+  // Mode & Goals
+  const [mode, setMode] = useState<UserMode>('personal_brand')
+  const [goals, setGoals] = useState<UserGoal[]>([])
+  const [savingMode, setSavingMode] = useState(false)
+
 
   // Watchlist
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
@@ -56,15 +64,18 @@ export default function Settings() {
     Promise.all([
       fetch('/api/user').then(r => r.json()),
       fetch('/api/watchlist').then(r => r.json()),
-    ]).then(([userJson, wlJson]) => {
+      fetch('/api/goals').then(r => r.json()),
+    ]).then(([userJson, wlJson, goalsJson]) => {
       if (userJson.success && userJson.data) {
         const u = userJson.data as UserData
         setUser(u)
         setTitles(u.icp_config?.titles ?? [])
         setExcludes(u.icp_config?.exclude ?? [])
         setTrackKeywords(u.icp_config?.track_keywords ?? [])
+        setMode(u.mode ?? 'personal_brand')
       }
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
+      if (goalsJson.success) setGoals(goalsJson.data?.goals ?? [])
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
@@ -160,6 +171,85 @@ export default function Settings() {
           <div className="text-xs text-ink-4">{user?.email}</div>
         </div>
       </div>
+
+      {/* Mode */}
+      <div className="mb-10">
+        <div className="section-label mb-3">Your goal</div>
+        <div className="flex gap-2">
+          {([
+            ['personal_brand', 'Grow my audience'],
+            ['b2b_outbound', 'Book meetings'],
+            ['both', 'Both'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={async () => {
+                setMode(value)
+                setSavingMode(true)
+                await fetch('/api/mode', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ mode: value }),
+                }).then(r => r.json()).then(json => {
+                  if (json.success) {
+                    // Refresh goals after mode change
+                    fetch('/api/goals').then(r => r.json()).then(gj => {
+                      if (gj.success) setGoals(gj.data?.goals ?? [])
+                    })
+                  }
+                }).catch(() => {})
+                setSavingMode(false)
+              }}
+              disabled={savingMode}
+              className={`text-sm py-2 px-4 rounded-lg border transition-all ${
+                mode === value ? 'border-accent bg-accent/5 text-accent font-medium' : 'border-rule text-ink-3 hover:border-ink-4'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Weekly Goals */}
+      {goals.length > 0 && (
+        <div className="mb-10">
+          <div className="section-label mb-3">Weekly targets</div>
+          <div className="space-y-3">
+            {goals.map(g => (
+              <div key={g.id} className="flex items-center gap-3">
+                <span className="text-sm text-ink w-24">
+                  {g.metric === 'reply' ? 'Replies' : g.metric === 'dm_send' ? 'DMs sent' : g.metric === 'scrape' ? 'Scrapes' : g.metric}
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  className="input w-20 py-1.5 px-3 text-sm text-center"
+                  value={g.target_value}
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 0
+                    setGoals(prev => prev.map(pg => pg.id === g.id ? { ...pg, target_value: val } : pg))
+                  }}
+                  onBlur={e => {
+                    const val = parseInt(e.target.value) || 0
+                    fetch('/api/goals', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ goal_id: g.id, target_value: val }),
+                    }).catch(() => {})
+                  }}
+                />
+                <span className="text-xs text-ink-4">per week</span>
+                <span className="text-[10px] text-ink-4 uppercase">
+                  {g.mode === 'personal_brand' ? 'brand' : 'B2B'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <hr className="border-rule-light my-10" />
 
       {/* People you watch */}
       <div className="mb-10">
