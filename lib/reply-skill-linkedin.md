@@ -35,12 +35,24 @@ Ask something the OP will want to answer. Highest OP reply rate.
 Connect their topic to something unexpected but relevant. Shows depth.
 - "This is the content version of what Costco does with the $1.50 hot dog — give away so much value up front that people feel compelled to buy. The 'free content to paid product' pipeline works the same way."
 
-## Length Rules
-- Under 15 words: Too short. LinkedIn's algorithm deprioritizes comments under 15 words.
-- 20-60 words (2-4 sentences): SWEET SPOT. Substantial enough for algorithmic boost, concise enough to get read.
-- 60-120 words: Works if every sentence earns the next. Good for stories and frameworks.
-- 120+ words: Too long for a comment. Write a post instead.
-- Rule: 360Brew rewards "meaningful comments" — the threshold is ~15 words with substance.
+## The Three-Part Comment Formula (highest performing structure)
+1. SPECIFIC ANCHOR — reference a specific sentence, data point, or idea from the post (proves you read it)
+2. VALUE ADD — personal experience/result, data point, reframe, or new angle
+3. OPEN LOOP — genuine question, mild tension, or "what would you do" scenario
+
+Example:
+- Bad: "So true! Warm intros are definitely better."
+- Good: "Your 5x conversion stat matches what we saw last quarter — tracked 200 outbound sequences vs referral calls and the gap was even wider at 7x. Still figuring out how to generate warm intros at scale without burning through the network. Found a repeatable system?"
+
+## Length Rules (2026 algorithm data)
+- Under 10 words: "Surface-level reaction." Zero algorithmic weight. Invisible.
+- 10-15 words: Minimum threshold to register as meaningful. 2x impact.
+- 15-30 words: Minimum you should aim for. Quick insight zone.
+- 30-80 words: SWEET SPOT. 2.5x+ impact. Long enough for value, short enough to read without expanding.
+- 80-150 words: Effective for story-based comments. Good for smaller accounts' posts.
+- 150+ words: Diminishing returns. Most won't click "see more."
+- First 140-150 characters are visible before truncation. Front-load the insight.
+- Maximum: 1,500 characters.
 
 ## Opening Patterns That Work
 - "This matches what I've seen—" — positions you as experienced peer
@@ -60,22 +72,32 @@ Connect their topic to something unexpected but relevant. Shows depth.
 - Emoji-only (thumbs up, clapping, fire)
 - "As a [title], I believe..." (sounds like a LinkedIn bot)
 
+## Comment Type Performance
+- Insight-based (data, framework, observation): Best for profile visits + follower growth
+- Story-based (1-2 sentence micro-story): Most likes + emotional engagement
+- Question-based: Strongest at getting OP to reply (which pins your comment)
+- Best combo: insight or story ENDING with a question
+
 ## Tone Calibration by OP's Level
 
-### C-suite / 100K+ followers
-- Be concise and peer-level. Don't fawn. Add a data point or specific experience.
-- 2-3 sentences max. Respect their time.
-- "We saw this play out in [context]. The counterintuitive part is [insight]."
+### C-suite / 50K+ followers
+- First 5 commenters win. Speed is everything.
+- 30-50 words max. One data point or experience.
+- DO NOT pitch or self-promote, ever.
+- Goal: get OP to reply (makes your comment visible to their entire audience)
+- One early substantive comment can generate thousands of profile views
 
-### Mid-level / 10K-100K followers
-- Most valuable for your growth. They reply often.
-- Full comment structure — story, data, or framework.
-- This is where the 60-90 min golden hour matters most.
+### Mid-level / 5K-50K followers
+- Go deeper: 50-80 words fine
+- Engage in the thread — reply to other commenters too
+- Reciprocity matters. Comment on same 20-30 people consistently.
+- Best visibility-to-competition ratio on the platform.
 
-### Peers / Under 10K followers
-- Generous engagement. These relationships compound.
-- Ask genuine follow-up questions. Share their content.
-- They tag you back, creating reciprocal visibility.
+### Peers / Under 5K followers
+- Most substantive comments welcome. 80-150 words work.
+- Your comment stays visible (less competition)
+- They reply most, building relationship and loyalty
+- These become advocates who share your content
 
 ## When to Agree vs Disagree vs Pivot
 

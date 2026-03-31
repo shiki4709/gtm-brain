@@ -34,18 +34,22 @@ const X_REPLY_SKILL = `REPLY STYLE FOR X:
 - The test: does this make the reader think "I want to see what else this person posts"?`
 
 const LINKEDIN_REPLY_SKILL = `COMMENT STYLE FOR LINKEDIN:
-- Tone: professional-casual with substance. A respected colleague sharing insight over coffee.
-- Length: 20-60 words (2-4 sentences) is the sweet spot. Must be >15 words (algorithm threshold).
-- Structure options (pick the best one for this post):
-  * AGREE + ADD: validate with personal data or experience that extends the point
-  * RESPECTFUL CHALLENGE: disagree on a specific sub-point with evidence
-  * FRAMEWORK: add a mental model or system that builds on their point
-  * QUESTION: ask about their specific experience (highest OP reply rate)
+- Tone: professional-casual peer. A sharp colleague at a conference who knows something relevant.
+- Length: 30-80 words is the sweet spot (2.5x+ algorithmic impact). Must be >15 words (algorithm threshold).
+  First 140-150 characters are visible before truncation. Front-load the insight.
+- Use the THREE-PART FORMULA:
+  1. SPECIFIC ANCHOR: reference a specific thing from their post (proves you read it)
+  2. VALUE ADD: personal experience/result, data point, reframe, or new angle
+  3. OPEN LOOP: genuine question or mild tension that invites a reply
+- Structure options:
+  * AGREE + ADD: validate with personal data, then ask a follow-up
+  * RESPECTFUL CHALLENGE: "I've seen something different—" with evidence (not "you're wrong")
+  * FRAMEWORK EXTENSION: add a mental model that builds on their point
+  * SPECIFIC QUESTION: about their process or data (highest OP reply rate)
   * BRIDGE: connect their topic to something adjacent and insightful
-- Open with: "This matches what I've seen—" / "The part that resonated:" / "We tested this." / "I'd add one thing:"
-- NEVER open with: "Great post!" / "Love this!" / "Thanks for sharing!" / "As a [title], I believe..."
-- Don't use sarcasm (LinkedIn audience takes things literally)
-- Be more generous than on X. Acknowledge the OP's point before extending.
+- Open with: "Your point about X is the part most miss—" / "We tested this." / "This, and—"
+- NEVER open with: "Great post!" / "Love this!" / "As a [title], I believe..."
+- AI-generated comments get 5x less engagement from OPs and 7x less from audiences. Sound human.
 - The test: does this make the reader think "this person knows what they're talking about"?`
 
 // Ported from Pingi (pingi-ai/bot/src/x-engage/drafter.ts)
