@@ -164,8 +164,10 @@ export async function POST(request: Request) {
 
     const result = await resp.json()
     const raw: string = result.content?.[0]?.text ?? ''
+    if (!raw) return NextResponse.json({ success: false, error: 'Empty response from AI' }, { status: 502 })
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
-    const parsed = JSON.parse(cleaned)
+    let parsed: Record<string, unknown>
+    try { parsed = JSON.parse(cleaned) } catch { return NextResponse.json({ success: false, error: 'Failed to parse AI response' }, { status: 502 }) }
 
     return NextResponse.json({
       success: true,

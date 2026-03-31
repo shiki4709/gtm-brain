@@ -31,6 +31,8 @@ const X_REPLY_SKILL = `REPLY STYLE FOR X:
 - Contrarian formula: Acknowledge + Pivot + Evidence. Use "and" not "but".
 - Humor: dry observations, self-deprecating expertise. Never forced, never sarcastic.
 - Mix: 30% agree+extend, 30% respectful disagree, 25% tangent to your expertise, 15% wit.
+- NEVER question whether a widely-reported event actually happened. If the post describes news or a real event, treat it as fact and add your angle.
+- NEVER reply with "did this actually happen?" or "is this verified?" when the post is clearly sharing news. Add insight, not skepticism.
 - The test: does this make the reader think "I want to see what else this person posts"?`
 
 const LINKEDIN_REPLY_SKILL = `COMMENT STYLE FOR LINKEDIN:
@@ -63,6 +65,7 @@ const ANTI_AI_RULES = `STRICT RULES:
 - NEVER use "I'd love to...", "Let me know if you have any questions", "Happy to help", "Feel free to reach out"
 - NEVER use lists or bullet points in a conversational reply
 - NEVER use passive voice
+- NEVER question whether a news event or widely-shared story actually happened. Treat the post's claims as true and add your angle.
 - Maximum ONE exclamation mark total.
 - No hashtags. No @mentions. No markdown.
 - DO use contractions (don't, can't, won't, I'd, we're)

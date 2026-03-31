@@ -961,9 +961,6 @@ export default function WatchlistFeed() {
               }`}
             >
               {section.label}
-              {section.count > 0 && (
-                <span className="ml-1.5 badge-count">{section.count}</span>
-              )}
             </button>
           )
         })}
@@ -1519,6 +1516,9 @@ export default function WatchlistFeed() {
                             <div className="flex gap-2 mb-2">
                               <button className="btn-primary" onClick={() => { copyAndOpen(draftReply, item.url); markDone(item.url, 'reply') }}>
                                 {copied === item.url ? 'Copied!' : 'Copy & Open tweet'}
+                              </button>
+                              <button className="btn-outline" onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}>
+                                {draftingUrl === item.url ? '...' : '\u21BB Regenerate'}
                               </button>
                             </div>
                             {/* Refine input */}

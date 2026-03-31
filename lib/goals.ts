@@ -14,14 +14,21 @@ const DEFAULT_GOALS: Record<'personal_brand' | 'b2b_outbound', Array<{ metric: G
 
 // Get start of current week (Monday) in user's timezone
 function weekStart(tz: string): string {
+  // Get current date parts in the user's timezone
   const now = new Date()
-  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })
-  const localDate = formatter.format(now)
-  const date = new Date(localDate + 'T00:00:00')
-  const day = date.getDay()
-  const diff = day === 0 ? 6 : day - 1 // Monday = 0
-  date.setDate(date.getDate() - diff)
-  return date.toISOString()
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(now)
+  const y = parts.find(p => p.type === 'year')!.value
+  const m = parts.find(p => p.type === 'month')!.value
+  const d = parts.find(p => p.type === 'day')!.value
+
+  // Build a UTC date from the user's local date (avoids server TZ drift)
+  const userToday = new Date(Date.UTC(+y, +m - 1, +d))
+  const dow = userToday.getUTCDay()
+  const diff = dow === 0 ? 6 : dow - 1 // Monday = 0
+  userToday.setUTCDate(userToday.getUTCDate() - diff)
+  return userToday.toISOString()
 }
 
 // Create default goals for a mode
