@@ -1033,7 +1033,10 @@ export default function WatchlistFeed() {
 
             // Word-boundary match — "ai" matches "ai" but not "raise" or "Oakland"
             // Negative signals — if post contains these, it's NOT about tech/AI
-            const SPAM_SIGNALS = /fan\s?meet|fan\s?ival|fancam|fanart|idol|k-?pop|bias|comeback|fancall|photocard|lightstick|aegyo|oppa|noona|ship\s?name|otp|stan|manga|anime|cosplay|horoscope|zodiac|♈|♉|♊|♋|♌|♍|♎|♏|♐|♑|♒|♓/i
+            const SPAM_SIGNALS = /fan\s?meet|fan\s?ival|fancam|fanart|idol|k-?pop|bias|comeback|fancall|photocard|lightstick|aegyo|oppa|noona|ship\s?name|otp|stan|manga|anime|cosplay|horoscope|zodiac|♈|♉|♊|♋|♌|♍|♎|♏|♐|♑|♒|♓|cheek\s?kiss|shyly|😭😭|fot\b|geminifourth|lookkhunnoo|gmmtv|fourth\s?nattawat|gem\s?fourth|nattawat|praew|คั่นกู/i
+
+            // Heavy emoji posts (3+ emotional emojis) with no tech terms = likely fan/entertainment content
+            const EMOJI_HEAVY = /(?:😭|😍|🥺|💕|💞|❤️|🫶|😆|🤣|💗|🥰|😘){3,}/
 
             function matchesWord(text: string, word: string): boolean {
               const re = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
@@ -1042,8 +1045,14 @@ export default function WatchlistFeed() {
 
             // Check if a post is spam/irrelevant (fan content, horoscopes, etc.)
             function isSpamContent(text: string): boolean {
-              return SPAM_SIGNALS.test(text)
+              if (SPAM_SIGNALS.test(text)) return true
+              // Heavy emoji posts without any tech context = entertainment
+              if (EMOJI_HEAVY.test(text) && !TECH_CONTEXT.test(text)) return true
+              return false
             }
+
+            // Tech context regex (moved up for use in isSpamContent)
+            const TECH_CONTEXT = /\bapi\b|startup|saas|b2b|founder|shipped|deploy|code|developer|engineer|benchmark|token|context window|fine.?tun|inference|parameter|prompt|llm|ml\b|neural|training|dataset|vc\b|series [a-c]|ipo|revenue|arr\b|pipeline|funnel|conversion|product|launch|build|ship|growth|metric/i
 
             // Expand keywords with common related terms
             const RELATED_TERMS: Record<string, string[]> = {
@@ -1074,8 +1083,7 @@ export default function WatchlistFeed() {
               // Filter out spam/fan content that false-matches keywords like "gemini"
               if (isSpamContent(text)) return { score: 0, matchedTopic: null }
 
-              // Context clues that confirm tech relevance (disambiguates "gemini", "claude", "model")
-              const TECH_CONTEXT = /\bapi\b|startup|saas|b2b|founder|shipped|deploy|code|developer|engineer|benchmark|token|context window|fine.?tun|inference|parameter|prompt|llm|ml\b|neural|training|dataset|vc\b|series [a-c]|ipo|revenue|arr\b|pipeline|funnel|conversion/i
+              // Uses TECH_CONTEXT defined above
               const hasTechContext = TECH_CONTEXT.test(text)
 
               // Ambiguous keywords that need tech context to confirm relevance
