@@ -10,7 +10,7 @@ interface TrendingTopic {
   userEngaged: boolean
   signalScore: number
   suggestedAngle: string
-  samplePosts: Array<{ author: string; text: string; engagement: number }>
+  samplePosts: Array<{ author: string; text: string; engagement: number; url: string }>
 }
 
 interface CalendarSlot {
@@ -22,7 +22,7 @@ interface CalendarSlot {
   draft: string
   signalEvidence: string
   authors: string[]
-  sourcePosts: Array<{ author: string; text: string; engagement: number }>
+  sourcePosts: Array<{ author: string; text: string; engagement: number; url: string }>
 }
 
 // Platform + time assignments from growth playbooks

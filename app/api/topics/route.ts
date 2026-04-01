@@ -19,7 +19,7 @@ interface TrendingTopic {
   userEngaged: boolean
   signalScore: number
   suggestedAngle: string
-  samplePosts: Array<{ author: string; text: string; engagement: number }>
+  samplePosts: Array<{ author: string; text: string; engagement: number; url: string }>
 }
 
 export async function GET() {
@@ -195,6 +195,7 @@ export async function GET() {
           author: p.author,
           text: p.text.substring(0, 200),
           engagement: p.likes + p.replies + p.retweets,
+          url: p.url,
         })),
       }
     })

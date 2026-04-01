@@ -11,7 +11,7 @@ interface CalendarSlot {
   draft: string
   signalEvidence: string
   authors: string[]
-  sourcePosts?: Array<{ author: string; text: string; engagement: number }>
+  sourcePosts?: Array<{ author: string; text: string; engagement: number; url?: string }>
 }
 
 interface CalendarData {
@@ -184,10 +184,18 @@ export default function ContentCalendar() {
                   </summary>
                   <div className="mt-1.5 space-y-1.5">
                     {slot.sourcePosts.map((sp, si) => (
-                      <div key={si} className="text-[11px] text-ink-3 bg-[var(--bg-warm)] rounded px-2.5 py-1.5">
-                        <span className="font-semibold text-ink-2">@{sp.author}</span>
-                        <span className="text-ink-4 ml-1">{sp.engagement.toLocaleString()} eng</span>
-                        <div className="mt-0.5 truncate">{sp.text}</div>
+                      <div key={si} className="text-[11px] text-ink-3 bg-[var(--bg-warm)] rounded px-2.5 py-1.5 flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="font-semibold text-ink-2">@{sp.author}</span>
+                          <span className="text-ink-4 ml-1">{sp.engagement.toLocaleString()} eng</span>
+                          <div className="mt-0.5 truncate">{sp.text}</div>
+                        </div>
+                        {sp.url && (
+                          <div className="flex gap-1.5 shrink-0">
+                            <a href={sp.url} target="_blank" rel="noopener noreferrer" className="btn-outline text-[10px] py-0.5 px-2">Open</a>
+                            <a href={`https://x.com/intent/tweet?url=${encodeURIComponent(sp.url)}`} target="_blank" rel="noopener noreferrer" className="btn-accent text-[10px] py-0.5 px-2">Quote</a>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
