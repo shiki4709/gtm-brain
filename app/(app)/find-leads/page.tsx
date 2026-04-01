@@ -472,7 +472,7 @@ export default function Outbound() {
                           {l.status === 'dm_sent' && <span className="badge badge-sent">sent</span>}
                           {l.status === 'replied' && <span className="badge badge-replied">replied</span>}
                           {l.status === 'dm_drafted' && <span className="badge badge-drafted">drafted</span>}
-                          {l.status === 'converted' && <span className="badge" style={{ background: 'var(--green-bg)', color: 'var(--green)', fontSize: 9 }}>meeting</span>}
+                          {l.status === 'converted' && <span className="badge badge-sent">meeting</span>}
                         </div>
                         <div className="text-[11px] text-ink-4 mt-0.5">
                           {l.title || 'No headline'}{l.company ? ` · ${l.company}` : ''}

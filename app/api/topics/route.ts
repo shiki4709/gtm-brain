@@ -29,24 +29,49 @@ export async function GET() {
   const user = auth.dbUser
   const trackKeywords = user.icp_config?.track_keywords ?? []
 
-  // Fetch feed posts (reuse watchlist feed logic)
+  // Get recent posts from brain_log (already processed by the feed)
   let feedPosts: FeedPost[] = []
   try {
-    // Use internal fetch to the existing feed API
-    const feedRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL ? 'https://gtm-brain-roan.vercel.app' : 'http://localhost:3000'}/api/watchlist/feed`, {
-      headers: { cookie: '' }, // Won't work server-to-server, use direct DB
-    })
-    if (feedRes.ok) {
-      const json = await feedRes.json()
-      feedPosts = (json.items ?? []).map((item: Record<string, unknown>) => ({
-        text: (item.text as string) ?? '',
-        author: (item.author as string) ?? '',
-        platform: (item.platform as string) ?? 'x',
-        likes: (item.engagement as Record<string, number>)?.likes ?? 0,
-        replies: (item.engagement as Record<string, number>)?.replies ?? 0,
-        retweets: (item.engagement as Record<string, number>)?.retweets ?? 0,
-        url: (item.url as string) ?? '',
-      }))
+    const { data: brainPosts } = await auth.sb
+      .from('sb_brain_log')
+      .select('source_url, author_handle, platform, engagement_at_time')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (brainPosts && brainPosts.length > 0) {
+      feedPosts = brainPosts.map((p: Record<string, unknown>) => {
+        const eng = (p.engagement_at_time as Record<string, number>) ?? {}
+        return {
+          text: '', // brain_log doesn't store full text — we'll use keywords
+          author: (p.author_handle as string) ?? '',
+          platform: (p.platform as string) ?? 'x',
+          likes: eng.likes ?? 0,
+          replies: eng.comments ?? eng.replies ?? 0,
+          retweets: eng.shares ?? eng.retweets ?? 0,
+          url: (p.source_url as string) ?? '',
+        }
+      })
+    }
+
+    // Also get recent X engage items which have full text
+    const { data: xEngagePosts } = await auth.sb
+      .from('sb_x_engage')
+      .select('tweet_url, author_handle, tweet_text')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(30)
+
+    if (xEngagePosts) {
+      for (const p of xEngagePosts) {
+        feedPosts.push({
+          text: (p.tweet_text as string) ?? '',
+          author: (p.author_handle as string) ?? '',
+          platform: 'x',
+          likes: 0, replies: 0, retweets: 0,
+          url: (p.tweet_url as string) ?? '',
+        })
+      }
     }
   } catch { /* */ }
 
