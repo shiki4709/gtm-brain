@@ -89,6 +89,19 @@ export default function Settings() {
   const [voiceError, setVoiceError] = useState('')
 
 
+  // Notifications
+  const [notifChannels, setNotifChannels] = useState<Array<{ type: string; chat_id?: string; webhook_url?: string; paused?: boolean }>>([])
+  const [telegramConnected, setTelegramConnected] = useState(false)
+  const [telegramLink, setTelegramLink] = useState('')
+  const [slackWebhookInput, setSlackWebhookInput] = useState('')
+  const [notifTesting, setNotifTesting] = useState<string | null>(null)
+  const [notifTimezone, setNotifTimezone] = useState('')
+  const [notifSaving, setNotifSaving] = useState(false)
+  const [recentNotifications, setRecentNotifications] = useState<Array<{
+    id: string; channel: string; post_url: string; action_type: string
+    status: string; pushed_at: string; acted_at: string | null
+  }>>([])
+
   // Watchlist
   const [watchlist, setWatchlist] = useState<WatchlistEntry[]>([])
   const [directAddInput, setDirectAddInput] = useState('')
@@ -105,7 +118,8 @@ export default function Settings() {
       safeFetch('/api/watchlist'),
       safeFetch('/api/goals'),
       safeFetch('/api/voice-profile'),
-    ]).then(([userJson, wlJson, goalsJson, voiceJson]) => {
+      safeFetch('/api/notifications'),
+    ]).then(([userJson, wlJson, goalsJson, voiceJson, notifJson]) => {
       if (userJson.success && userJson.data) {
         const u = userJson.data as UserData
         setUser(u)
@@ -119,6 +133,13 @@ export default function Settings() {
       if (goalsJson.success) {
         setGoals(goalsJson.data?.goals ?? [])
         if (goalsJson.data?.followerDelta?.current) setXFollowers(goalsJson.data.followerDelta.current)
+      }
+      if (notifJson.success) {
+        setNotifChannels(notifJson.channels ?? [])
+        setTelegramConnected(notifJson.telegramConnected ?? false)
+        setTelegramLink(notifJson.telegramLink ?? '')
+        setNotifTimezone(notifJson.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone)
+        setRecentNotifications(notifJson.recentNotifications ?? [])
       }
       if (voiceJson.success && voiceJson.profile) {
         setVoiceProfile(voiceJson.profile)
@@ -620,6 +641,204 @@ export default function Settings() {
         </div>
       </Section>
       </>)}
+
+      {/* Notifications */}
+      <hr className="border-rule-light my-6" />
+      <Section title="Notifications">
+        <p className="text-xs text-ink-4 mb-4">Get notified on Telegram or Slack when high-value posts appear in your feed.</p>
+
+        {/* Telegram */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold text-ink flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-[#229ED9]"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+              Telegram
+            </div>
+            {telegramConnected && (
+              <span className="badge badge-sent text-[10px]">Connected</span>
+            )}
+          </div>
+
+          {telegramConnected ? (
+            <div className="flex gap-2 items-center">
+              <span className="text-xs text-ink-3">Chat ID: {notifChannels.find(c => c.type === 'telegram')?.chat_id ?? '—'}</span>
+              <button
+                className="btn-ghost text-xs"
+                disabled={notifTesting === 'telegram'}
+                onClick={async () => {
+                  setNotifTesting('telegram')
+                  await fetch('/api/notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'test_telegram' }),
+                  })
+                  setNotifTesting(null)
+                }}
+              >
+                {notifTesting === 'telegram' ? 'Sending...' : 'Test'}
+              </button>
+              <button
+                className="btn-ghost text-xs text-red-500"
+                onClick={async () => {
+                  const res = await fetch('/api/notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'remove_telegram' }),
+                  })
+                  const json = await res.json()
+                  if (json.success) {
+                    setNotifChannels(json.channels)
+                    setTelegramConnected(false)
+                  }
+                }}
+              >
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <div>
+              {telegramLink ? (
+                <a
+                  href={telegramLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-accent inline-flex items-center gap-2 text-sm"
+                >
+                  Connect Telegram
+                </a>
+              ) : (
+                <span className="text-xs text-ink-4">Loading connection link...</span>
+              )}
+              <p className="text-[11px] text-ink-4 mt-1">Opens Telegram and connects this account to the bot.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Slack */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold text-ink flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-[#4A154B]"><path d="M5.042 15.165a2.528 2.528 0 01-2.52 2.523A2.528 2.528 0 010 15.165a2.527 2.527 0 012.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 012.521-2.52 2.527 2.527 0 012.521 2.52v6.313A2.528 2.528 0 018.834 24a2.528 2.528 0 01-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 01-2.521-2.52A2.528 2.528 0 018.834 0a2.528 2.528 0 012.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 012.521 2.521 2.528 2.528 0 01-2.521 2.521H2.522A2.528 2.528 0 010 8.834a2.528 2.528 0 012.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 012.522-2.521A2.528 2.528 0 0124 8.834a2.528 2.528 0 01-2.52 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 01-2.521 2.521 2.528 2.528 0 01-2.521-2.521V2.522A2.528 2.528 0 0115.165 0a2.528 2.528 0 012.522 2.522v6.312zm-2.522 10.124a2.528 2.528 0 012.522 2.522A2.528 2.528 0 0115.165 24a2.528 2.528 0 01-2.521-2.52v-2.522h2.521zm0-1.271a2.528 2.528 0 01-2.521-2.521 2.528 2.528 0 012.521-2.521h6.313A2.528 2.528 0 0124 15.165a2.528 2.528 0 01-2.52 2.522h-6.315z"/></svg>
+              Slack
+            </div>
+            {notifChannels.some(c => c.type === 'slack') && (
+              <span className="badge badge-sent text-[10px]">Connected</span>
+            )}
+          </div>
+
+          {notifChannels.some(c => c.type === 'slack') ? (
+            <div className="flex gap-2 items-center">
+              <span className="text-xs text-ink-3 truncate max-w-[200px]">{notifChannels.find(c => c.type === 'slack')?.webhook_url?.replace('https://hooks.slack.com/services/', '.../')}</span>
+              <button
+                className="btn-ghost text-xs"
+                disabled={notifTesting === 'slack'}
+                onClick={async () => {
+                  setNotifTesting('slack')
+                  await fetch('/api/notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'test_slack' }),
+                  })
+                  setNotifTesting(null)
+                }}
+              >
+                {notifTesting === 'slack' ? 'Sending...' : 'Test'}
+              </button>
+              <button
+                className="btn-ghost text-xs text-red-500"
+                onClick={async () => {
+                  const res = await fetch('/api/notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'remove_slack' }),
+                  })
+                  const json = await res.json()
+                  if (json.success) setNotifChannels(json.channels)
+                }}
+              >
+                Disconnect
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex gap-2">
+                <input
+                  className="input flex-1 py-2 px-3 text-sm"
+                  placeholder="Paste Slack webhook URL..."
+                  value={slackWebhookInput}
+                  onChange={e => setSlackWebhookInput(e.target.value)}
+                />
+                <button
+                  className="btn-accent text-sm"
+                  disabled={!slackWebhookInput.startsWith('https://hooks.slack.com/') || notifSaving}
+                  onClick={async () => {
+                    setNotifSaving(true)
+                    const res = await fetch('/api/notifications', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'add_slack', webhook_url: slackWebhookInput }),
+                    })
+                    const json = await res.json()
+                    if (json.success) {
+                      setNotifChannels(json.channels)
+                      setSlackWebhookInput('')
+                    }
+                    setNotifSaving(false)
+                  }}
+                >
+                  {notifSaving ? '...' : 'Connect'}
+                </button>
+              </div>
+              <p className="text-[11px] text-ink-4 mt-1">Create an Incoming Webhook in your Slack workspace and paste the URL here.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Timezone */}
+        <div className="mb-4">
+          <div className="text-sm font-semibold text-ink mb-2">Notification hours</div>
+          <div className="flex gap-2 items-center">
+            <select
+              className="input py-2 px-3 text-sm"
+              value={notifTimezone}
+              onChange={async (e) => {
+                setNotifTimezone(e.target.value)
+                await fetch('/api/notifications', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'update_timezone', timezone: e.target.value }),
+                })
+              }}
+            >
+              {['America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York',
+                'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai',
+                'Asia/Kolkata', 'Australia/Sydney', 'Pacific/Auckland'].map(tz => (
+                <option key={tz} value={tz}>{tz.replace('_', ' ')}</option>
+              ))}
+            </select>
+            <span className="text-xs text-ink-4">7am — 10pm only</span>
+          </div>
+        </div>
+
+        {/* Recent notifications */}
+        {recentNotifications.length > 0 && (
+          <div>
+            <div className="text-sm font-semibold text-ink mb-2">Recent ({recentNotifications.length})</div>
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {recentNotifications.slice(0, 10).map(n => (
+                <div key={n.id} className="flex items-center gap-2 text-[11px]">
+                  <span className={n.status === 'acted' ? 'text-green' : n.status === 'skipped' ? 'text-ink-4' : 'text-amber-500'}>
+                    {n.status === 'acted' ? '✓' : n.status === 'skipped' ? '—' : '•'}
+                  </span>
+                  <span className="text-ink-3 truncate max-w-[200px]">{n.action_type}</span>
+                  <span className="text-ink-4">{n.channel}</span>
+                  <span className="text-ink-4 ml-auto">{new Date(n.pushed_at).toLocaleDateString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Section>
 
       {/* Topic keywords */}
       <hr className="border-rule-light my-6" />

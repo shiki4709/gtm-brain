@@ -196,6 +196,24 @@ CREATE TABLE metrics_snapshots (
   UNIQUE(user_id, metric, snapshot_date)
 );
 
+-- Notifications (pushed to Telegram/Slack)
+CREATE TABLE sb_notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES sb_users(id),
+  channel TEXT NOT NULL, -- 'telegram' | 'slack'
+  post_url TEXT NOT NULL,
+  action_type TEXT NOT NULL, -- 'reply' | 'scrape' | 'repurpose'
+  draft_text TEXT,
+  score NUMERIC DEFAULT 0,
+  status TEXT DEFAULT 'pushed', -- 'pushed' | 'acted' | 'skipped'
+  pushed_at TIMESTAMPTZ DEFAULT now(),
+  acted_at TIMESTAMPTZ
+);
+
+-- User notification preferences
+ALTER TABLE sb_users ADD COLUMN IF NOT EXISTS notification_channels JSONB DEFAULT '[]';
+ALTER TABLE sb_users ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'America/Los_Angeles';
+
 -- Indexes for feedback loop tables
 CREATE INDEX idx_user_goals_user ON user_goals(user_id);
 CREATE INDEX idx_action_log_user ON action_log(user_id);
@@ -219,3 +237,6 @@ CREATE INDEX idx_content_tags_platform ON sb_content_tags(platform);
 CREATE INDEX idx_watchlist_user ON sb_watchlist(user_id);
 CREATE INDEX idx_brain_log_user ON sb_brain_log(user_id);
 CREATE INDEX idx_brain_log_action ON sb_brain_log(recommended_action);
+CREATE INDEX idx_notifications_user ON sb_notifications(user_id);
+CREATE INDEX idx_notifications_pushed ON sb_notifications(pushed_at);
+CREATE INDEX idx_notifications_status ON sb_notifications(status);
