@@ -191,10 +191,7 @@ export default function ContentCalendar() {
                           <div className="mt-0.5 truncate">{sp.text}</div>
                         </div>
                         {sp.url && (
-                          <div className="flex gap-1.5 shrink-0">
-                            <a href={sp.url} target="_blank" rel="noopener noreferrer" className="btn-outline text-[10px] py-0.5 px-2">Open</a>
-                            <a href={`https://x.com/intent/tweet?url=${encodeURIComponent(sp.url)}`} target="_blank" rel="noopener noreferrer" className="btn-accent text-[10px] py-0.5 px-2">Quote</a>
-                          </div>
+                          <a href={sp.url} target="_blank" rel="noopener noreferrer" className="btn-outline text-[10px] py-0.5 px-2 shrink-0">Open post</a>
                         )}
                       </div>
                     ))}
