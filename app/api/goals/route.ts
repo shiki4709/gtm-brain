@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
-import { getUserGoals, updateGoalTarget, getWeeklyProgress, getFollowerDelta, getPipelineFunnel } from '@/lib/goals'
+import { getUserGoals, updateGoalTarget, getWeeklyProgress, getFollowerDelta, getPipelineFunnel, createDefaultGoals } from '@/lib/goals'
+
+// Expected goal counts per mode (from DEFAULT_GOALS)
+const EXPECTED_GOAL_COUNTS: Record<string, number> = {
+  personal_brand: 6,
+  b2b_outbound: 4,
+  both: 10,
+}
 
 // GET: Fetch goals + weekly progress
 export async function GET() {
@@ -8,10 +15,18 @@ export async function GET() {
   if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
   const user = auth.dbUser
+  const mode = user.mode ?? 'personal_brand'
   const tz = user.timezone ?? 'America/Los_Angeles'
 
-  const [goals, progress, followerDelta, pipeline] = await Promise.all([
-    getUserGoals(auth.sb, user.id),
+  // Auto-migrate: if goals are stale (fewer than expected), regenerate
+  let goals = await getUserGoals(auth.sb, user.id)
+  const expectedCount = EXPECTED_GOAL_COUNTS[mode] ?? 6
+  if (goals.length < expectedCount && user.mode_set) {
+    await createDefaultGoals(auth.sb, user.id, mode)
+    goals = await getUserGoals(auth.sb, user.id)
+  }
+
+  const [progress, followerDelta, pipeline] = await Promise.all([
     getWeeklyProgress(auth.sb, user.id, tz),
     getFollowerDelta(auth.sb, user.id),
     getPipelineFunnel(auth.sb, user.id, tz),

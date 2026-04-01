@@ -155,6 +155,13 @@ export default function WatchlistFeed() {
           ...prev,
           [angleId]: { ...prev[angleId], ...json.content },
         }))
+        // Auto-log content creation
+        const actionMap: Record<string, string> = { quote: 'x_quote', thread: 'x_thread', linkedin: 'li_post' }
+        const actionType = actionMap[format]
+        if (actionType) {
+          fetch('/api/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action_type: actionType }) }).catch(() => {})
+        }
       }
     } catch { /* */ }
     finally { setCreateGenerating(null) }
@@ -233,6 +240,16 @@ export default function WatchlistFeed() {
             ...prev,
             [item.url]: { ...prev[item.url], ...json.content },
           }))
+          // Auto-log the content creation action
+          const actionMap: Record<string, string> = { quote: 'x_quote', thread: 'x_thread', linkedin: 'li_post' }
+          const actionType = actionMap[format]
+          if (actionType) {
+            fetch('/api/actions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action_type: actionType, post_id: item.url, platform: item.platform }),
+            }).catch(() => {})
+          }
         }
       } catch { /* silently fail */ }
       finally { setRepurposeLoading(false) }
