@@ -43,7 +43,7 @@ const SCHEDULE_TEMPLATES: Record<string, Array<{ time: string; platform: 'x' | '
 }
 
 const FORMAT_PROMPTS: Record<string, string> = {
-  thread: `Write an X thread (4-6 tweets separated by ---). Each max 270 chars.
+  thread: `Write an X thread (7-10 tweets separated by ---). Each max 270 chars. 8-12 tweets perform 47% better than shorter threads.
 
 HOOK (Tweet 1) — must do 3 things: pattern interrupt, qualify reader, promise value.
 Use one of these hook formulas:
@@ -61,6 +61,12 @@ Use "you" voice. Short punchy lines. Alternate insight tweets with story/data tw
 FINAL TWEET — either:
 - Question: "Which one hit hardest? Drop it below."
 - Repost ask: "Bookmark this. Repost if your timeline needs it."
+
+CURIOSITY LOOPS: Each tweet must close the previous hook and open a NEW one. Use: "But here's the catch...", "Most people stop here. Don't.", "The third one changed everything." The reader should never feel they can stop.
+
+RHYTHM: Alternate short punchy tweets (1-2 lines) with longer explanatory ones (3-4 lines). Monotonous structure loses readers.
+
+FORMAT: Use HYBRID — open with personal story/experience hook, transition to tactical insights, close with reflection + CTA. This captures both emotional engagement AND bookmarks.
 
 NEVER write a generic opinion thread. Every body tweet needs a specific number, named example, or concrete instruction. If a tweet could be written by anyone, rewrite it with YOUR specific experience from the source posts.`,
 

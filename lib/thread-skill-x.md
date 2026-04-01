@@ -123,12 +123,42 @@ Before outputting a thread, check: does every body tweet contain at least ONE of
 
 If a tweet has none of these, it's generic. Rewrite it.
 
-## Thread Length
+## The Curiosity Loop Technique
 
-- 4-6 tweets: optimal for most topics. Tight, bookmarkable.
-- 7-10 tweets: only for "steal my system" or curated list threads that need more space.
-- 3 or fewer: not a thread. It's a tweet storm. Doesn't get the thread algorithm boost.
-- 11+: most readers drop off. Only if every tweet is independently valuable.
+Each tweet must simultaneously CLOSE the previous loop and OPEN a new one. The reader is always mid-question.
+
+Transition phrases that create loops:
+- "But then something unexpected happened..."
+- "Here's where it gets interesting."
+- "Most people stop here. Don't."
+- "The third one changed everything."
+- "And the result? Numbers below."
+
+Structure: Tweet N delivers value from previous hook, then opens a NEW gap. Reader can never stop.
+
+## Thread Length (Sprout Social 2026 data)
+
+- 5-7 tweets: solid for quick tactical threads
+- 8-12 tweets: PEAK performance, 47% better than shorter threads
+- 12-15 tweets: only for data-heavy or curated list threads with real depth
+- 3-5 tweet threads get 40-60% more impressions than 5 standalone tweets on same topic
+
+## Hybrid Format Wins
+
+The highest-performing threads blend story + tactical/data:
+1. Open with personal story hook (emotional buy-in)
+2. Transition to tactical insights or data (deliver value)
+3. Close with personal reflection + CTA
+
+This captures BOTH emotional engagement AND bookmark/share behavior.
+
+## Rhythm and Formatting
+
+- Alternate: short punchy tweet (1-2 lines) then longer explanatory tweet (3-4 lines)
+- Monotonous structure (every tweet same length) loses readers
+- 80% of X users browse mobile, format for small screens
+- Line breaks aggressively within tweets
+- Image/screenshot every 3-4 tweets increases completion rate by 45%
 
 ## Adapting to Topic Type
 
