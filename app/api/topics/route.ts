@@ -27,82 +27,83 @@ export async function GET() {
   if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
   const user = auth.dbUser
-  const trackKeywords = user.icp_config?.track_keywords ?? []
+  const trackKeywords: string[] = user.icp_config?.track_keywords ?? []
 
-  // Get recent posts from brain_log (already processed by the feed)
-  let feedPosts: FeedPost[] = []
-  try {
-    const { data: brainPosts } = await auth.sb
-      .from('sb_brain_log')
-      .select('source_url, author_handle, platform, engagement_at_time')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(50)
+  // Fetch X posts directly from SocialData (same as watchlist/feed does)
+  const feedPosts: FeedPost[] = []
 
-    if (brainPosts && brainPosts.length > 0) {
-      feedPosts = brainPosts.map((p: Record<string, unknown>) => {
-        const eng = (p.engagement_at_time as Record<string, number>) ?? {}
-        return {
-          text: '', // brain_log doesn't store full text — we'll use keywords
-          author: (p.author_handle as string) ?? '',
-          platform: (p.platform as string) ?? 'x',
-          likes: eng.likes ?? 0,
-          replies: eng.comments ?? eng.replies ?? 0,
-          retweets: eng.shares ?? eng.retweets ?? 0,
-          url: (p.source_url as string) ?? '',
+  const { data: watchlist } = await auth.sb
+    .from('sb_watchlist')
+    .select('username, platform')
+    .eq('user_id', user.id)
+
+  const xAccounts = (watchlist ?? []).filter((w: { platform: string }) => w.platform === 'x')
+  const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
+
+  if (socialDataKey && xAccounts.length > 0) {
+    const TWITTER_EPOCH = 1288834974657
+    const promises = xAccounts.slice(0, 10).map(async (account: { username: string }) => {
+      try {
+        const query = `from:${account.username}`
+        const resp = await fetch(
+          `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(query)}&type=Latest`,
+          {
+            headers: { Authorization: `Bearer ${socialDataKey}`, Accept: 'application/json' },
+            signal: AbortSignal.timeout(8000),
+          }
+        )
+        if (!resp.ok) return
+        const data = await resp.json()
+        const tweets = (data.tweets ?? [])
+          .filter((tw: Record<string, unknown>) => {
+            const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
+            return !text.startsWith('RT @') && !text.startsWith('@')
+          })
+          .slice(0, 5)
+
+        for (const tw of tweets) {
+          const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
+          const idStr = tw.id_str as string
+          let tweetTime = ''
+          if (idStr) {
+            const tweetMs = (Number(BigInt(idStr) >> BigInt(22))) + TWITTER_EPOCH
+            tweetTime = new Date(tweetMs).toISOString()
+          }
+          feedPosts.push({
+            text,
+            author: account.username,
+            platform: 'x',
+            likes: (tw.favorite_count as number) ?? 0,
+            replies: (tw.reply_count as number) ?? 0,
+            retweets: (tw.retweet_count as number) ?? 0,
+            url: `https://x.com/${account.username}/status/${idStr}`,
+          })
         }
-      })
-    }
+      } catch { /* skip this account */ }
+    })
+    await Promise.all(promises)
+  }
 
-    // Also get recent X engage items which have full text
-    const { data: xEngagePosts } = await auth.sb
-      .from('sb_x_engage')
-      .select('tweet_url, author_handle, tweet_text')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(30)
+  if (feedPosts.length === 0 && trackKeywords.length > 0) {
+    // Fallback: use tracked keywords as topics without feed data
+    const topics: TrendingTopic[] = trackKeywords.slice(0, 5).map((kw: string) => ({
+      topic: kw,
+      postCount: 0,
+      totalEngagement: 0,
+      authors: [],
+      userEngaged: false,
+      signalScore: 10,
+      suggestedAngle: 'key_insight',
+      samplePosts: [],
+    }))
+    return NextResponse.json({ success: true, data: { topics, source: 'keywords' } })
+  }
 
-    if (xEngagePosts) {
-      for (const p of xEngagePosts) {
-        feedPosts.push({
-          text: (p.tweet_text as string) ?? '',
-          author: (p.author_handle as string) ?? '',
-          platform: 'x',
-          likes: 0, replies: 0, retweets: 0,
-          url: (p.tweet_url as string) ?? '',
-        })
-      }
-    }
-  } catch { /* */ }
-
-  // If feed fetch failed, try getting topics from action_log (posts user replied to)
   if (feedPosts.length === 0) {
-    const { data: recentActions } = await auth.sb
-      .from('action_log')
-      .select('metadata, post_id, platform')
-      .eq('user_id', user.id)
-      .in('action_type', ['reply', 'x_thread', 'x_quote', 'li_post'])
-      .order('created_at', { ascending: false })
-      .limit(20)
-
-    // Use tracked keywords as fallback topics
-    if (trackKeywords.length > 0) {
-      const topics: TrendingTopic[] = trackKeywords.slice(0, 5).map((kw: string) => ({
-        topic: kw,
-        postCount: 0,
-        totalEngagement: 0,
-        authors: [],
-        userEngaged: (recentActions ?? []).some(a => JSON.stringify(a.metadata).toLowerCase().includes(kw.toLowerCase())),
-        signalScore: 10,
-        suggestedAngle: 'key_insight',
-        samplePosts: [],
-      }))
-      return NextResponse.json({ success: true, data: { topics, source: 'keywords' } })
-    }
     return NextResponse.json({ success: true, data: { topics: [], source: 'empty' } })
   }
 
-  // Get user's reply history to check engagement
+  // Get user's reply history
   const { data: userReplies } = await auth.sb
     .from('action_log')
     .select('post_id')
@@ -110,14 +111,13 @@ export async function GET() {
     .eq('action_type', 'reply')
     .order('created_at', { ascending: false })
     .limit(50)
-  const repliedUrls = new Set((userReplies ?? []).map(r => r.post_id).filter(Boolean))
+  const repliedUrls = new Set((userReplies ?? []).map((r: { post_id: string }) => r.post_id).filter(Boolean))
 
-  // Extract topics using keyword matching + frequency analysis
+  // Group posts by topic using tracked keywords
   const topicMap = new Map<string, {
     posts: FeedPost[]; engagement: number; authors: Set<string>; userEngaged: boolean
   }>()
 
-  // Match tracked keywords
   for (const post of feedPosts) {
     const textLower = post.text.toLowerCase()
     const eng = post.likes + post.replies + post.retweets
@@ -125,7 +125,7 @@ export async function GET() {
 
     for (const kw of trackKeywords) {
       if (textLower.includes(kw.toLowerCase())) {
-        const existing = topicMap.get(kw) ?? { posts: [], engagement: 0, authors: new Set(), userEngaged: false }
+        const existing = topicMap.get(kw) ?? { posts: [], engagement: 0, authors: new Set<string>(), userEngaged: false }
         existing.posts.push(post)
         existing.engagement += eng
         existing.authors.add(post.author)
@@ -135,7 +135,7 @@ export async function GET() {
     }
   }
 
-  // If fewer than 3 topics, use Claude Haiku to extract additional topics
+  // If fewer than 3 keyword-matched topics, use Claude Haiku for topic extraction
   if (topicMap.size < 3 && feedPosts.length >= 5) {
     const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
     if (apiKey) {
@@ -147,7 +147,7 @@ export async function GET() {
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
             max_tokens: 300,
-            messages: [{ role: 'user', content: `Extract 3-5 trending topics from these social media posts. Return ONLY a JSON array of topic strings, no explanation.\n\n${sampleTexts}` }],
+            messages: [{ role: 'user', content: `Extract 3-5 trending topics from these social media posts. Return ONLY a JSON array of short topic strings (2-4 words each), no explanation.\n\n${sampleTexts}` }],
           }),
         })
         if (resp.ok) {
@@ -155,12 +155,13 @@ export async function GET() {
           const raw = result.content?.[0]?.text ?? ''
           const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
           try {
-            const extractedTopics = JSON.parse(cleaned) as string[]
-            for (const topic of extractedTopics) {
-              if (topicMap.has(topic.toLowerCase())) continue
-              const matching = feedPosts.filter(p => p.text.toLowerCase().includes(topic.toLowerCase()))
+            const extracted = JSON.parse(cleaned) as string[]
+            for (const topic of extracted) {
+              const key = topic.toLowerCase()
+              if (topicMap.has(key)) continue
+              const matching = feedPosts.filter(p => p.text.toLowerCase().includes(key))
               if (matching.length >= 2) {
-                topicMap.set(topic.toLowerCase(), {
+                topicMap.set(key, {
                   posts: matching,
                   engagement: matching.reduce((s, p) => s + p.likes + p.replies + p.retweets, 0),
                   authors: new Set(matching.map(p => p.author)),
@@ -174,12 +175,10 @@ export async function GET() {
     }
   }
 
-  // Score and rank topics
+  // Score and rank
   const topics: TrendingTopic[] = [...topicMap.entries()]
     .map(([topic, data]) => {
       const signal = (data.posts.length * 10) + (data.engagement * 0.1) + (data.userEngaged ? 50 : 0)
-
-      // Determine best angle
       const hasData = data.posts.some(p => /\d+%|\$\d|x\d|\d+x/i.test(p.text))
       const hasFramework = data.posts.some(p => /step|framework|system|playbook|process|how to/i.test(p.text))
       const angle = hasFramework ? 'framework' : hasData ? 'data_point' : data.posts.length >= 4 ? 'trending' : 'key_insight'
