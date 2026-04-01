@@ -97,6 +97,37 @@ export default function WatchlistFeed() {
   const [createGenerating, setCreateGenerating] = useState<string | null>(null) // angle id being generated
   const [createResults, setCreateResults] = useState<Record<string, Record<string, string>>>({}) // angleId → { platform: content }
 
+  // Profile-based scoring state
+  const [profileScores, setProfileScores] = useState<Record<string, { score: number; topic: string | null; reason: string }>>({})
+  const [profileInterests, setProfileInterests] = useState<string[]>([])
+  const [profileScoring, setProfileScoring] = useState(false)
+
+  // Fetch profile scores when feed changes
+  useEffect(() => {
+    if (feed.length === 0) return
+    let cancelled = false
+    setProfileScoring(true)
+
+    const posts = feed.map(f => ({ url: f.url, text: f.text, author: f.authorHandle }))
+    fetch('/api/profile-score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ posts }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return
+        if (data.success && data.scores) {
+          setProfileScores(data.scores)
+          if (data.profile?.interests) setProfileInterests(data.profile.interests)
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setProfileScoring(false) })
+
+    return () => { cancelled = true }
+  }, [feed])
+
   function looksLikeUrl(s: string): boolean {
     const t = s.trim()
     return t.startsWith('http://') || t.startsWith('https://') || t.includes('.com/') || t.includes('.co/')
@@ -1004,6 +1035,13 @@ export default function WatchlistFeed() {
       )}
       {(feed.length > 0 || !loadingFeed) && (
         <>
+          {/* Profile scoring status */}
+          {profileScoring && feed.length > 0 && (
+            <div className="text-[11px] text-ink-4 text-center mb-2 animate-pulse">Scoring posts with your profile...</div>
+          )}
+          {!profileScoring && Object.keys(profileScores).length > 0 && (
+            <div className="text-[11px] text-ink-4 text-center mb-2">Ranked by your profile graph</div>
+          )}
           {/* ═══ UNIFIED FEED — sorted by ICP relevance + ROI ═══ */}
           {(() => {
             // Build ICP keyword set from user's actual ICP titles + topic insights
@@ -1133,7 +1171,13 @@ export default function WatchlistFeed() {
                 const comments = item.engagement?.replies ?? 0
                 const rts = item.engagement?.retweets ?? 0
                 const eng = likes + comments + rts
-                const icpRel = getIcpRelevance(item.text)
+
+                // Use AI profile scores when available, fall back to keyword matching
+                const ps = profileScores[item.url]
+                const icpRel: { score: number; matchedTopic: string | null } = ps && ps.score > 0
+                  ? { score: ps.score, matchedTopic: ps.topic }
+                  : getIcpRelevance(item.text)
+
                 const { ageHours } = getVelocity(item)
 
                 // Playbook-informed scoring
@@ -1354,9 +1398,12 @@ export default function WatchlistFeed() {
                             </span>
                           )}
                           {icpRelevance.score > 0 && (
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                              icpRelevance.score >= 0.1 ? 'bg-green-100 text-green-700' : 'bg-[var(--rule-light)] text-ink-4'
-                            }`}>
+                            <span
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                icpRelevance.score >= 0.1 ? 'bg-green-100 text-green-700' : 'bg-[var(--rule-light)] text-ink-4'
+                              }`}
+                              title={profileScores[item.url]?.reason || undefined}
+                            >
                               {icpRelevance.matchedTopic ? `ICP: ${icpRelevance.matchedTopic}` : 'ICP relevant'}
                             </span>
                           )}

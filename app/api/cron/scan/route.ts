@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { scorePost, getIcpRelevanceWithHaiku, getRecommendation } from '@/lib/scoring'
+import { scorePost, getIcpRelevanceWithHaiku, getIcpRelevanceWithProfile, getRecommendation } from '@/lib/scoring'
 import type { ScoredPost, UserScoringConfig } from '@/lib/scoring'
+import { buildUserProfile } from '@/lib/user-profile'
 
 // Cron scanner — runs every 30 min via GitHub Actions
 // Fetches posts from watched accounts + topic keywords
@@ -113,19 +114,25 @@ export async function POST(request: Request) {
       return true
     })
 
-    // Score with Haiku for accurate ICP relevance
+    // Score with user profile graph for accurate semantic relevance
     const config: UserScoringConfig = {
       trackKeywords: user.icp_config?.track_keywords ?? [],
       icpTitles: user.icp_config?.titles ?? [],
     }
 
+    // Build user profile for semantic scoring
+    const userProfile = await buildUserProfile(
+      sb,
+      user.id,
+      user.icp_config ?? { titles: [], exclude: [] },
+      user.mode ?? 'personal_brand',
+    )
+
     const scored = await Promise.all(freshPosts.map(async (post) => {
-      // Use Haiku for semantic scoring (more accurate than keywords)
-      const haikuRelevance = await getIcpRelevanceWithHaiku(
-        post.text,
-        config.icpTitles,
-        config.trackKeywords
-      )
+      // Use profile-based scoring (semantic, uses full user context)
+      const haikuRelevance = userProfile.text.length > 50
+        ? await getIcpRelevanceWithProfile(post.text, userProfile.text)
+        : await getIcpRelevanceWithHaiku(post.text, config.icpTitles, config.trackKeywords)
       const rec = getRecommendation(post)
 
       // Skip posts with no real actions

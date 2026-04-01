@@ -15,7 +15,7 @@ export interface ScoredPost {
 export interface IcpRelevanceResult {
   score: number // 0-1
   matchedTopic: string | null
-  method: 'exact' | 'expanded' | 'topic_insight' | 'title_keyword' | 'haiku' | 'none'
+  method: 'exact' | 'expanded' | 'topic_insight' | 'title_keyword' | 'haiku' | 'profile' | 'none'
 }
 
 export interface ActionRecommendation {
@@ -169,6 +169,63 @@ Output ONLY a JSON object: {"score": 0-10, "topic": "matched topic or null"}
       score,
       matchedTopic: parsed.topic || null,
       method: 'haiku',
+    }
+  } catch {
+    return { score: 0, matchedTopic: null, method: 'none' }
+  }
+}
+
+// ═══ HAIKU PROFILE SCORING — uses rich user profile for semantic scoring ═══
+
+export async function getIcpRelevanceWithProfile(
+  text: string,
+  profileText: string,
+): Promise<IcpRelevanceResult> {
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
+  if (!apiKey) return { score: 0, matchedTopic: null, method: 'none' }
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: `Rate how relevant this social media post is to this user:
+
+USER PROFILE:
+${profileText.substring(0, 1500)}
+
+Post: "${text.substring(0, 300)}"
+
+Output ONLY a JSON object: {"score": 0-10, "topic": "matched topic or null"}
+- 0 = completely irrelevant (personal life, entertainment, unrelated news)
+- 3 = tangentially related
+- 7 = clearly relevant to their interests/industry
+- 10 = directly about their focus area or pain point
+Score based on semantic meaning, not keyword matching.`,
+        }],
+      }),
+    })
+
+    if (!resp.ok) return { score: 0, matchedTopic: null, method: 'none' }
+
+    const result = await resp.json()
+    const raw: string = result.content?.[0]?.text ?? ''
+    const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+
+    const parsed = JSON.parse(cleaned)
+    const score = Math.min(10, Math.max(0, parsed.score ?? 0)) / 10
+    return {
+      score,
+      matchedTopic: parsed.topic || null,
+      method: 'profile',
     }
   } catch {
     return { score: 0, matchedTopic: null, method: 'none' }
