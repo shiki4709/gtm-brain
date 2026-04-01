@@ -1294,17 +1294,10 @@ export default function WatchlistFeed() {
                   </div>
                 )}
 
-                {/* Feed posts for repurposing */}
-                {currentSection?.key === 'create' && allTodo.length > 0 && (
-                  <div className="flex items-center gap-3 my-4">
-                    <div className="flex-1 h-px bg-rule" />
-                    <span className="text-[10px] text-ink-4 uppercase tracking-wider">From your feed</span>
-                    <div className="flex-1 h-px bg-rule" />
-                  </div>
-                )}
+                {/* Hide feed posts on Create tab — calendar replaces them */}
 
                 <div className="flex flex-col gap-2">
-                  {allTodo.map(({ item, rec, icpRelevance }, i) => {
+                  {currentSection?.key === 'create' ? null : allTodo.map(({ item, rec, icpRelevance }, i) => {
                     const isLinkedIn = item.platform === 'linkedin'
                     const primaryAction = rec.actions[0]
                     const draftReply = draftReplies[item.url]

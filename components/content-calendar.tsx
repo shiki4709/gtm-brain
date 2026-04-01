@@ -11,6 +11,7 @@ interface CalendarSlot {
   draft: string
   signalEvidence: string
   authors: string[]
+  sourcePosts?: Array<{ author: string; text: string; engagement: number }>
 }
 
 interface CalendarData {
@@ -174,6 +175,24 @@ export default function ContentCalendar() {
                   </span>
                 )}
               </div>
+
+              {/* Source posts */}
+              {slot.sourcePosts && slot.sourcePosts.length > 0 && !isEditing && (
+                <details className="mb-2">
+                  <summary className="text-[11px] text-accent cursor-pointer hover:underline">
+                    Based on {slot.sourcePosts.length} posts from your feed
+                  </summary>
+                  <div className="mt-1.5 space-y-1.5">
+                    {slot.sourcePosts.map((sp, si) => (
+                      <div key={si} className="text-[11px] text-ink-3 bg-[var(--bg-warm)] rounded px-2.5 py-1.5">
+                        <span className="font-semibold text-ink-2">@{sp.author}</span>
+                        <span className="text-ink-4 ml-1">{sp.engagement.toLocaleString()} eng</span>
+                        <div className="mt-0.5 truncate">{sp.text}</div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
 
               {/* Draft */}
               {isEditing ? (

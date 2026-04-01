@@ -22,6 +22,7 @@ interface CalendarSlot {
   draft: string
   signalEvidence: string
   authors: string[]
+  sourcePosts: Array<{ author: string; text: string; engagement: number }>
 }
 
 // Platform + time assignments from growth playbooks
@@ -189,6 +190,7 @@ Output ONLY the content. Nothing else.`,
         draft,
         signalEvidence: evidence,
         authors: topic.authors,
+        sourcePosts: topic.samplePosts.slice(0, 3),
       })
     } catch { /* skip this slot */ }
   }
