@@ -43,37 +43,40 @@ const SCHEDULE_TEMPLATES: Record<string, Array<{ time: string; platform: 'x' | '
 }
 
 const FORMAT_PROMPTS: Record<string, string> = {
-  thread: `Write an X thread (7-10 tweets separated by ---). Each max 270 chars. 8-12 tweets perform 47% better than shorter threads.
+  thread: `Write an X thread (4-6 tweets separated by ---). Each max 270 chars. Keep it TIGHT. Every tweet must earn its spot.
 
-HOOK (Tweet 1) — must do 3 things: pattern interrupt, qualify reader, promise value.
-Use one of these hook formulas:
-- Specific number: "I analyzed 500 [things]. Here's what the top 1% do:"
-- Transformation: "6 months ago I had [bad state]. Today: [good state]. The playbook:"
-- Contrarian: "Unpopular opinion: [common belief] is wrong. The math:"
-- Steal-my-system: "My exact system for [outcome] (2 years to build, 5 min to read):"
-- Mistake thread: "$50K in mistakes so you don't have to. 7 things I'd change:"
+Pick the BEST format for this topic:
 
-BODY TWEETS — each tweet must have:
-1. One specific insight (number, named tool, concrete "do this not that")
-2. A reason to read the next tweet (open loop, "but here's the catch", pivot)
-Use "you" voice. Short punchy lines. Alternate insight tweets with story/data tweets.
+FORMAT A — REACTIVE TAKE (if topic is breaking news):
+3-4 tweets. Tweet 1: your spicy take on the news. Tweet 2-3: why this matters that nobody is saying. Tweet 4: question. Fast, opinionated, timely.
 
-FINAL TWEET — either:
-- Question: "Which one hit hardest? Drop it below."
-- Repost ask: "Bookmark this. Repost if your timeline needs it."
+FORMAT B — SKILL SHARE (if topic is how-to):
+5-6 tweets. Tweet 1: "Here's exactly how I [do thing]:" Tweet 2-5: one concrete step per tweet with specific details. Tweet 6: "Bookmark this." Actionable and save-worthy.
 
-CURIOSITY LOOPS: Each tweet must close the previous hook and open a NEW one. Use: "But here's the catch...", "Most people stop here. Don't.", "The third one changed everything." The reader should never feel they can stop.
+FORMAT C — RESOURCE LIST (if topic has tools/links):
+4-5 tweets. Tweet 1: "[N] tools/resources that [solve problem]:" Tweet 2-4: one per tweet with what it does and why. Tweet 5: "Which ones are you using?" High bookmark rate.
 
-RHYTHM: Alternate short punchy tweets (1-2 lines) with longer explanatory ones (3-4 lines). Monotonous structure loses readers.
+FORMAT D — OPINION ON NEWS (if topic is industry event):
+3-4 tweets. Tweet 1: the event + your contrarian angle. Tweet 2: what everyone is missing. Tweet 3: what this actually means for [your audience]. Tweet 4: question.
 
-FORMAT: Use HYBRID — open with personal story/experience hook, transition to tactical insights, close with reflection + CTA. This captures both emotional engagement AND bookmarks.
+RULES:
+- 4-6 tweets MAX. Shorter is better. If you can say it in 4, don't use 6.
+- Every tweet under 240 chars for readability
+- Hook must pattern-interrupt in under 15 words
+- Use "you" voice, contractions, sentence fragments
+- End with question or bookmark ask
+- Reference specific details from the source posts
+- NEVER write a 10-tweet generic insight dump. Be sharp, be specific, be short.`,
 
-NEVER write a generic opinion thread. Every body tweet needs a specific number, named example, or concrete instruction. If a tweet could be written by anyone, rewrite it with YOUR specific experience from the source posts.`,
+  quote: `Write a quote tweet (max 270 chars). Pick the best style:
 
-  quote: `Write a quote tweet (max 270 chars). Add your unique perspective. Don't just agree.
-Must do one of: add a specific data point, share a personal "when I tried this" result,
-offer a contrarian nuance, or ask a question the OP can't ignore.
-NEVER: "Great thread!", "So true!", generic agreement, or just summarizing what they said.`,
+STYLE A — SPICY TAKE: One sentence that reframes the whole conversation. Contrarian, specific, makes people stop scrolling.
+STYLE B — "THE REAL STORY IS...": Point out what everyone is missing about this topic. Short, sharp.
+STYLE C — MEME ENERGY: Funny observation about the topic. Dry humor, relatable, slightly unhinged. NOT a joke — an observation that's funny because it's true.
+STYLE D — PERSONAL RECEIPT: "We tried this. Here's what actually happened: [specific result]." 1-2 sentences.
+
+Pick whichever style fits the source posts best. Under 200 chars is ideal. 270 max.
+NEVER: agree generically, summarize, use "Great thread!", or be boring.`,
 
   post: `Write a LinkedIn post (800-1300 chars).
 HOOK (first 2 lines before "see more" — under 210 chars combined):
