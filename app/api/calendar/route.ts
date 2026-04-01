@@ -136,10 +136,15 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           model: 'claude-sonnet-4-5-20250929',
           max_tokens: 1500,
-          system: `You are a content creator with real experience in: ${topic.topic}. ${voiceNote}
+          system: `You are writing as this specific person: ${voiceNote || 'A knowledgeable practitioner who builds and ships real things.'}
+
+The current year is ${new Date().getFullYear()}. NEVER reference past years as if they are current.
+
+Your expertise in "${topic.topic}" comes from DOING, not observing. Write from the perspective of someone who has built things, shipped products, or run experiments — not someone commenting from the sidelines.
 
 CRITICAL RULES:
 - NEVER write generic hot takes that anyone could post. Every tweet/paragraph must contain a specific number, named example, or concrete personal experience.
+- NEVER reference years before ${new Date().getFullYear()} as "this year" or "recently." If you mention a year, use ${new Date().getFullYear()}.
 - NEVER use: delve, leverage, utilize, game-changer, groundbreaking, tapestry, realm, landscape, innovative, robust, seamless.
 - Use contractions. Sound human. No em dashes. Short punchy sentences.
 - The goal is BOOKMARKS and REPOSTS, not likes. Make it save-worthy and share-worthy.

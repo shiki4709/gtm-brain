@@ -82,6 +82,7 @@ export default function Settings() {
     vocabulary?: string; hooks?: string; avoid?: string
     samplePhrases?: string[]; analyzedAt?: string
   } | null>(null)
+  const [voicePersona, setVoicePersona] = useState('')
   const [voiceSamples, setVoiceSamples] = useState('') // reused for description text
   const [voiceAvoid, setVoiceAvoid] = useState('')
   const [voiceExtracting, setVoiceExtracting] = useState(false)
@@ -126,6 +127,7 @@ export default function Settings() {
         if (vp.description) setVoiceSamples(vp.description)
         else if (vp.tone) setVoiceSamples(`${vp.tone}. ${vp.sentenceStyle ?? ''}. ${vp.vocabulary ?? ''}`.trim())
         if (vp.avoid) setVoiceAvoid(vp.avoid)
+        if ((vp as Record<string, unknown>).persona) setVoicePersona((vp as Record<string, unknown>).persona as string)
       }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
@@ -399,10 +401,17 @@ export default function Settings() {
         <div className="card-flat p-4 space-y-4">
           {/* Description */}
           <div>
+            <label className="font-head text-xs font-semibold text-ink block mb-1.5">Who are you? (your persona)</label>
+            <input
+              className="input w-full text-xs mb-3"
+              placeholder="e.g. AI startup COO building GTM tools, solo founder shipping with Claude daily"
+              value={voicePersona}
+              onChange={e => setVoicePersona(e.target.value)}
+            />
             <label className="font-head text-xs font-semibold text-ink block mb-1.5">How do you sound?</label>
             <textarea
               className="input w-full min-h-[80px] text-xs leading-relaxed"
-              placeholder="e.g. Casual and direct. Short sentences. I use humor and sarcasm. No corporate speak. I talk like I'm texting a smart friend, not writing a blog post. Occasionally drop f-bombs."
+              placeholder="e.g. Casual and direct. Short sentences. I use humor and sarcasm. No corporate speak."
               value={voiceSamples}
               onChange={e => setVoiceSamples(e.target.value)}
             />
@@ -431,7 +440,7 @@ export default function Settings() {
                   const res = await fetch('/api/voice-profile', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ description: voiceSamples.trim(), avoid: voiceAvoid.trim() }),
+                    body: JSON.stringify({ description: voiceSamples.trim(), avoid: voiceAvoid.trim(), persona: voicePersona.trim() }),
                   })
                   const json = await res.json()
                   if (json.success && json.profile) {

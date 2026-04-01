@@ -21,9 +21,10 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { description, avoid, samples } = body as {
+  const { description, avoid, persona, samples } = body as {
     description?: string
     avoid?: string
+    persona?: string
     samples?: string[]
   }
 
@@ -36,7 +37,8 @@ export async function POST(request: Request) {
       vocabulary: '',
       hooks: '',
       avoid: avoid ?? '',
-      description, // store the raw description for easy editing
+      description,
+      persona: persona ?? '', // WHO the user is (e.g., "AI startup COO building GTM tools")
       samplePhrases: [] as string[],
       analyzedAt: new Date().toISOString(),
     }

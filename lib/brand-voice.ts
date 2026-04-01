@@ -97,11 +97,15 @@ export function voiceToPrompt(profile: VoiceProfile | null): string {
   }
 
   // Description-based profile (new, simpler)
-  const desc = (profile as unknown as Record<string, unknown>).description as string | undefined
-  if (desc) {
-    const parts = [`AUTHOR'S VOICE: ${desc}`]
+  const profileData = profile as unknown as Record<string, unknown>
+  const desc = profileData.description as string | undefined
+  const persona = profileData.persona as string | undefined
+  if (desc || persona) {
+    const parts: string[] = []
+    if (persona) parts.push(`WHO YOU ARE: ${persona}`)
+    if (desc) parts.push(`YOUR VOICE: ${desc}`)
     if (profile.avoid) parts.push(`NEVER: ${profile.avoid}`)
-    parts.push('IMPORTANT: Match this voice exactly. The output should sound like the same person wrote it.')
+    parts.push('IMPORTANT: Write as this specific person. The reader should be able to tell WHO wrote this from the perspective and expertise shown.')
     return parts.join('\n')
   }
 
