@@ -251,6 +251,40 @@ body {
 .stat-num-green { color: var(--green); }
 .stat-label { font-size: 11px; color: var(--ink-4); margin-top: 2px; }
 
+/* ═══ Collapsible Section ═══ */
+.collapsible-header {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+  padding: 0 0 8px 0;
+}
+.collapsible-header:hover .section-label { color: var(--ink-3); }
+.collapsible-chevron {
+  width: 16px; height: 16px; color: var(--ink-4);
+  transition: transform 0.2s;
+}
+.collapsible-chevron.open { transform: rotate(180deg); }
+.collapsible-body {
+  overflow: hidden; transition: max-height 0.3s ease, opacity 0.2s;
+}
+.collapsible-body.collapsed { max-height: 0; opacity: 0; pointer-events: none; }
+.collapsible-body.expanded { max-height: 2000px; opacity: 1; }
+
+/* ═══ Skeleton Loading ═══ */
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--rule-light) 25%, var(--bg-warm) 50%, var(--rule-light) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+.skeleton-text { height: 12px; margin-bottom: 8px; }
+.skeleton-text-sm { height: 10px; width: 60%; margin-bottom: 6px; }
+.skeleton-card { height: 80px; margin-bottom: 8px; border-radius: var(--radius); }
+.skeleton-stat { height: 64px; border-radius: var(--radius-sm); }
+
 /* ═══ Empty State ═══ */
 .empty-state {
   text-align: center; padding: 40px 24px;
@@ -316,15 +350,22 @@ body {
   outline: none;
 }
 
-/* Buttons + interactive elements */
+/* Buttons, cards, and interactive elements */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
-select:focus-visible {
+select:focus-visible,
+.card:focus-visible,
+.card-flat:focus-visible {
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
 }
+
+/* ═══ Typography Hierarchy ═══ */
+h1 { font-family: var(--font-head); font-size: 24px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+h2 { font-family: var(--font-head); font-size: 18px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+h3 { font-family: var(--font-head); font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.4; }
 
 /* Skip to content link */
 .skip-link {

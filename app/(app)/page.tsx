@@ -51,7 +51,10 @@ export default function WatchlistFeed() {
   const [loadingFeed, setLoadingFeed] = useState(false)
   const [addInput, setAddInput] = useState('')
   const [adding, setAdding] = useState(false)
-  const [tasks, setTasks] = useState<TaskState>({})
+  const [tasks, setTasks] = useState<TaskState>(() => {
+    if (typeof window === 'undefined') return {}
+    try { return JSON.parse(localStorage.getItem('gtm-brain-tasks') ?? '{}') } catch { return {} }
+  })
   const [roi, setRoi] = useState<RoiData | null>(null)
   const [watchSuggestions, setWatchSuggestions] = useState<Array<{ platform: string; username: string; name: string; reason: string; headline?: string; followers?: number }>>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
@@ -156,6 +159,11 @@ export default function WatchlistFeed() {
     } catch { /* */ }
     finally { setCreateGenerating(null) }
   }
+
+  // Persist tasks (skips/done) to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('gtm-brain-tasks', JSON.stringify(tasks)) } catch { /* */ }
+  }, [tasks])
 
   function fetchSuggestions() {
     setLoadingSuggestions(true)

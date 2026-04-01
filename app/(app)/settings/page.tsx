@@ -1,7 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, ReactNode } from 'react'
 import type { UserMode, UserGoal } from '@/lib/types'
+
+function Section({ title, children, defaultOpen = true }: { title: string; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="mb-6">
+      <button className="collapsible-header w-full" onClick={() => setOpen(!open)}>
+        <div className="section-label !mb-0">{title}</div>
+        <svg className={`collapsible-chevron ${open ? 'open' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </button>
+      <div className={`collapsible-body ${open ? 'expanded' : 'collapsed'}`}>
+        {children}
+      </div>
+    </div>
+  )
+}
 
 interface UserData {
   id: string
@@ -247,17 +264,15 @@ export default function Settings() {
       </p>
 
       {/* Account */}
-      <div className="mb-10">
-        <div className="section-label mb-3">Account</div>
+      <Section title="Account" defaultOpen={false}>
         <div className="border-l-2 border-rule pl-4">
           <div className="text-sm text-ink">{user?.name}</div>
           <div className="text-xs text-ink-4">{user?.email}</div>
         </div>
-      </div>
+      </Section>
 
       {/* Mode */}
-      <div className="mb-10">
-        <div className="section-label mb-3">Your goal</div>
+      <Section title="Your goal">
         <div className="flex gap-2 flex-wrap">
           {([
             ['personal_brand', '\u{1F4E3} Grow my audience'],
@@ -293,12 +308,11 @@ export default function Settings() {
             </button>
           ))}
         </div>
-      </div>
+      </Section>
 
       {/* Weekly Goals */}
       {goals.length > 0 && (
-        <div className="mb-10">
-          <div className="section-label mb-3">Weekly targets</div>
+        <Section title="Weekly targets">
           <div className="space-y-2">
             {goals.map(g => (
               <div key={g.id} className="card-flat flex items-center gap-4 py-2.5 px-4">
@@ -330,13 +344,12 @@ export default function Settings() {
               </div>
             ))}
           </div>
-        </div>
+        </Section>
       )}
 
       {/* X Handle for follower tracking */}
       {(mode === 'personal_brand' || mode === 'both') && (
-        <div className="mb-10">
-          <div className="section-label mb-1">Your X account</div>
+        <Section title="Your X account">
           <p className="text-xs text-ink-4 mb-3">Connect your X handle to track follower growth automatically.</p>
           <div className="flex gap-2 items-center">
             <span className="text-sm text-ink-3">@</span>
@@ -374,12 +387,11 @@ export default function Settings() {
               Connected — {xFollowers.toLocaleString()} followers
             </div>
           )}
-        </div>
+        </Section>
       )}
 
       {/* Voice & Tone */}
-      <div className="mb-10">
-        <div className="section-label mb-1">Your voice &amp; tone</div>
+      <Section title="Your voice &amp; tone">
         <p className="text-xs text-ink-4 mb-4">
           Describe how you write. All replies, threads, and content will match this style.
         </p>
@@ -440,13 +452,12 @@ export default function Settings() {
           </div>
           {voiceError && <div className="text-xs text-orange mt-2">{voiceError}</div>}
         </div>
-      </div>
+      </Section>
 
-      <hr className="border-rule-light my-10" />
+      <hr className="border-rule-light my-6" />
 
       {/* People you watch */}
-      <div className="mb-10">
-        <div className="section-label mb-1">People you watch</div>
+      <Section title="People you watch">
         <p className="text-xs text-ink-4 mb-3">Tell the brain who you want to follow. It finds real influencers on LinkedIn and X.</p>
 
         {/* Current watchlist */}
@@ -541,14 +552,13 @@ export default function Settings() {
           </div>
         </div>
         <p className="text-[11px] text-ink-4 mt-2">Paste a handle to add directly, or describe who you&apos;re looking for to search.</p>
-      </div>
+      </Section>
 
       {/* ICP Config — B2B and Both only */}
       {(mode === 'b2b_outbound' || mode === 'both') && (<>
       <hr className="border-rule-light my-10" />
 
-      <div className="mb-10">
-        <div className="section-label mb-1">ICP — Target titles</div>
+      <Section title="ICP — Target titles">
         <p className="text-xs text-ink-4 mb-3">Job titles you want to reach. Used to filter leads from every scrape.</p>
 
         {titles.length > 0 && (
@@ -572,11 +582,10 @@ export default function Settings() {
           />
           <button className="btn-accent" onClick={() => addToList(titleInput, titles, setTitles, setTitleInput)} disabled={!titleInput.trim()}>Add</button>
         </div>
-      </div>
+      </Section>
 
       {/* ICP Excludes */}
-      <div className="mb-10">
-        <div className="section-label mb-1">ICP — Exclude</div>
+      <Section title="ICP — Exclude" defaultOpen={false}>
         <p className="text-xs text-ink-4 mb-3">Titles to filter out from results.</p>
 
         {excludes.length > 0 && (
@@ -600,13 +609,12 @@ export default function Settings() {
           />
           <button className="btn-outline" onClick={() => addToList(excludeInput, excludes, setExcludes, setExcludeInput)} disabled={!excludeInput.trim()}>Add</button>
         </div>
-      </div>
+      </Section>
       </>)}
 
       {/* Topic keywords */}
-      <hr className="border-rule-light my-10" />
-      <div className="mb-10">
-        <div className="section-label mb-1">Topics to track</div>
+      <hr className="border-rule-light my-6" />
+      <Section title="Topics to track">
         <p className="text-xs text-ink-4 mb-3">Keywords that matter to you. Posts matching these get boosted in the Feed.</p>
 
         {trackKeywords.length > 0 && (
@@ -630,7 +638,7 @@ export default function Settings() {
           />
           <button className="btn-accent" onClick={() => addToList(trackKeywordInput.toLowerCase(), trackKeywords, setTrackKeywords, setTrackKeywordInput)} disabled={!trackKeywordInput.trim()}>Add</button>
         </div>
-      </div>
+      </Section>
 
       {/* Save */}
       <div className="flex items-center gap-3">

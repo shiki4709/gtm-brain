@@ -56,7 +56,17 @@ export default function GrowthCoach() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading || !plan) return null
+  if (loading) return (
+    <div className="brain-card mb-5">
+      <div className="skeleton skeleton-text" style={{ width: '40%' }} />
+      <div className="skeleton skeleton-text" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+        <div className="skeleton skeleton-stat" />
+        <div className="skeleton skeleton-stat" />
+      </div>
+    </div>
+  )
+  if (!plan) return null
 
   const highPriority = plan.suggestions.filter(s => s.priority === 'high')
   const medPriority = plan.suggestions.filter(s => s.priority === 'medium')

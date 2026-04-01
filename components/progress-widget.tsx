@@ -42,7 +42,15 @@ export default function ProgressWidget({ mode: propMode }: ProgressWidgetProps) 
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return null
+  if (loading) return (
+    <div className="mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div className="skeleton skeleton-stat" />
+        <div className="skeleton skeleton-stat" />
+      </div>
+      <div className="skeleton skeleton-text" style={{ width: '100%', height: '6px' }} />
+    </div>
+  )
   if (!data || data.progress.length === 0) return null
 
   const mode = propMode ?? data.mode ?? 'personal_brand'
