@@ -43,10 +43,45 @@ const SCHEDULE_TEMPLATES: Record<string, Array<{ time: string; platform: 'x' | '
 }
 
 const FORMAT_PROMPTS: Record<string, string> = {
-  thread: `Write an X thread (4-6 tweets separated by ---). Each max 270 chars. Hook first with curiosity gap. One insight per tweet. End with question or CTA.`,
-  quote: `Write a quote tweet (max 270 chars). Add your unique perspective. Don't just agree. Add context, challenge, or connect to something non-obvious.`,
-  post: `Write a LinkedIn post (800-1300 chars). Hook in first 2 lines (bold statement or data point). Personal story or observation. End with question. No links in body.`,
-  carousel: `Write a LinkedIn carousel outline (8-12 slides). Slide 1: hook. Each slide: one insight. Last slide: CTA. Format as numbered list.`,
+  thread: `Write an X thread (4-6 tweets separated by ---). Each max 270 chars.
+
+HOOK (Tweet 1) — must do 3 things: pattern interrupt, qualify reader, promise value.
+Use one of these hook formulas:
+- Specific number: "I analyzed 500 [things]. Here's what the top 1% do:"
+- Transformation: "6 months ago I had [bad state]. Today: [good state]. The playbook:"
+- Contrarian: "Unpopular opinion: [common belief] is wrong. The math:"
+- Steal-my-system: "My exact system for [outcome] (2 years to build, 5 min to read):"
+- Mistake thread: "$50K in mistakes so you don't have to. 7 things I'd change:"
+
+BODY TWEETS — each tweet must have:
+1. One specific insight (number, named tool, concrete "do this not that")
+2. A reason to read the next tweet (open loop, "but here's the catch", pivot)
+Use "you" voice. Short punchy lines. Alternate insight tweets with story/data tweets.
+
+FINAL TWEET — either:
+- Question: "Which one hit hardest? Drop it below."
+- Repost ask: "Bookmark this. Repost if your timeline needs it."
+
+NEVER write a generic opinion thread. Every body tweet needs a specific number, named example, or concrete instruction. If a tweet could be written by anyone, rewrite it with YOUR specific experience from the source posts.`,
+
+  quote: `Write a quote tweet (max 270 chars). Add your unique perspective. Don't just agree.
+Must do one of: add a specific data point, share a personal "when I tried this" result,
+offer a contrarian nuance, or ask a question the OP can't ignore.
+NEVER: "Great thread!", "So true!", generic agreement, or just summarizing what they said.`,
+
+  post: `Write a LinkedIn post (800-1300 chars).
+HOOK (first 2 lines before "see more" — under 210 chars combined):
+Use: bold number, vulnerable admission, contrarian claim, or curiosity gap.
+BODY: Personal story or observation (3-4 short paragraphs). Line break every 1-2 sentences.
+Use "I" perspective. Include one specific number or data point.
+END: Question that invites long comments, not one-word replies.
+No links in body. 3-5 hashtags at very end after blank line.`,
+
+  carousel: `Write a LinkedIn carousel outline (8-12 slides).
+Slide 1: Bold hook (pattern interrupt + value promise). Same rules as post hook.
+Slides 2-10: One actionable insight per slide. Specific, concrete, "do this not that."
+Last slide: CTA (follow, comment, repost).
+Format as numbered list with one line per slide.`,
 }
 
 export async function POST(request: Request) {
@@ -95,10 +130,27 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           model: 'claude-sonnet-4-5-20250929',
           max_tokens: 1500,
-          system: `You are a content creator writing about: ${topic.topic}. ${voiceNote}\n\nNEVER use: delve, leverage, utilize, game-changer, groundbreaking, tapestry, realm, landscape. Use contractions. Sound human. No em dashes.`,
+          system: `You are a content creator with real experience in: ${topic.topic}. ${voiceNote}
+
+CRITICAL RULES:
+- NEVER write generic hot takes that anyone could post. Every tweet/paragraph must contain a specific number, named example, or concrete personal experience.
+- NEVER use: delve, leverage, utilize, game-changer, groundbreaking, tapestry, realm, landscape, innovative, robust, seamless.
+- Use contractions. Sound human. No em dashes. Short punchy sentences.
+- The goal is BOOKMARKS and REPOSTS, not likes. Make it save-worthy and share-worthy.
+- Reference specific details from the source posts below to make the content grounded in real observations.`,
           messages: [{
             role: 'user',
-            content: `Write content about "${topic.topic}" for ${slot.platform === 'linkedin' ? 'LinkedIn' : 'X/Twitter'}.\n\nContext from your feed (trending posts on this topic):\n${sampleContext}\n\nAngle: ${topic.suggestedAngle}\n\n${formatPrompt}\n\nOutput ONLY the content. Nothing else.`,
+            content: `Write content about "${topic.topic}" for ${slot.platform === 'linkedin' ? 'LinkedIn' : 'X/Twitter'}.
+
+Here are real posts from your feed on this topic (use these as context, not to copy):
+${sampleContext}
+
+Your angle: ${topic.suggestedAngle}
+${topic.userEngaged ? 'NOTE: You already replied to posts on this topic — write from that engaged perspective.' : ''}
+
+${formatPrompt}
+
+Output ONLY the content. Nothing else.`,
           }],
         }),
       })
