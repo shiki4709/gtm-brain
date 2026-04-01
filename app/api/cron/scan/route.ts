@@ -26,10 +26,20 @@ interface FeedItem {
   authorFollowers?: number
 }
 
+// Vercel Cron calls GET, GitHub Actions calls POST — support both
+export async function GET(request: Request) {
+  return handleScan(request)
+}
+
 export async function POST(request: Request) {
-  // Verify cron secret
+  return handleScan(request)
+}
+
+async function handleScan(request: Request) {
+  // Verify cron secret — Vercel sends CRON_SECRET header automatically
   const authHeader = request.headers.get('authorization') ?? ''
-  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+  const vercelCron = request.headers.get('x-vercel-cron') // Vercel sets this for cron jobs
+  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}` && !vercelCron) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
