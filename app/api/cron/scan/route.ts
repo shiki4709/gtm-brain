@@ -10,10 +10,11 @@ import { buildUserProfile } from '@/lib/user-profile'
 // Pushes top posts to connected notification channels
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
-const MAX_PUSHES_PER_SCAN = 5
+const MAX_PUSHES_PER_SCAN = 15
 const DEDUP_WINDOW_DAYS = 7
 const WAKING_HOUR_START = 7
 const WAKING_HOUR_END = 22
+const MAX_PUSHES_PER_3H = 20
 
 interface FeedItem {
   platform: 'linkedin' | 'x'
@@ -104,12 +105,12 @@ async function handleScan(request: Request) {
       .eq('user_id', user.id)
       .gte('pushed_at', threeHoursAgo)
 
-    if ((recentPushCount ?? 0) >= 5) {
+    if ((recentPushCount ?? 0) >= MAX_PUSHES_PER_3H) {
       results.push({ userId: user.id, pushed: 0, skipped: 0 })
       continue
     }
 
-    const remainingSlots = Math.min(MAX_PUSHES_PER_SCAN, 5 - (recentPushCount ?? 0))
+    const remainingSlots = Math.min(MAX_PUSHES_PER_SCAN, MAX_PUSHES_PER_3H - (recentPushCount ?? 0))
 
     // Fetch posts from watched accounts + topics
     const posts = await fetchPosts(watchlist, user.icp_config?.track_keywords ?? [])
@@ -164,7 +165,7 @@ async function handleScan(request: Request) {
 
     // Filter nulls, sort by score, take top N
     const topPosts = scored
-      .filter((s): s is NonNullable<typeof s> => s !== null && s.haikuRelevance.score >= 0.3)
+      .filter((s): s is NonNullable<typeof s> => s !== null && s.haikuRelevance.score >= 0.15)
       .sort((a, b) => b.finalScore - a.finalScore)
       .slice(0, remainingSlots)
 
