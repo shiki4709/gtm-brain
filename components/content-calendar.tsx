@@ -20,6 +20,26 @@ interface CalendarData {
   slots: CalendarSlot[]
 }
 
+interface ReplyToRepurpose {
+  text: string
+  fullText: string
+  url: string
+  replyTo: string | null
+  engagement: number
+  likes: number
+  retweets: number
+  replies: number
+  time: string
+}
+
+interface TrendingTopic {
+  topic: string
+  postCount: number
+  totalEngagement: number
+  authors: string[]
+  suggestedAngle: string
+}
+
 const ANGLE_ICONS: Record<string, string> = {
   trending: '\u{1F525}',
   data_point: '\u{1F4CA}',
@@ -36,7 +56,12 @@ const FORMAT_LABELS: Record<string, string> = {
   carousel: 'LinkedIn Carousel',
 }
 
+type TabKey = 'calendar' | 'replies' | 'topics'
+
 export default function ContentCalendar() {
+  const [activeTab, setActiveTab] = useState<TabKey>('calendar')
+
+  // Calendar state
   const [calendar, setCalendar] = useState<CalendarData | null>(null)
   const [loading, setLoading] = useState(false)
   const [generated, setGenerated] = useState(false)
@@ -45,18 +70,49 @@ export default function ContentCalendar() {
   const [editing, setEditing] = useState<number | null>(null)
   const [editDrafts, setEditDrafts] = useState<Record<number, string>>({})
 
+  // Repurpose replies state
+  const [repurposeReplies, setRepurposeReplies] = useState<ReplyToRepurpose[]>([])
+  const [loadingReplies, setLoadingReplies] = useState(false)
+  const [expandingReply, setExpandingReply] = useState<string | null>(null) // url of reply being expanded
+  const [expandedContent, setExpandedContent] = useState<Record<string, string>>({}) // url → expanded content
+  const [expandFormat, setExpandFormat] = useState<Record<string, string>>({}) // url → format
+  const [copiedReply, setCopiedReply] = useState<string | null>(null)
+
+  // Hot topics state
+  const [hotTopics, setHotTopics] = useState<TrendingTopic[]>([])
+  const [loadingTopics, setLoadingTopics] = useState(false)
+
+  // Load calendar on mount
+  useEffect(() => {
+    if (!generated) generateCalendar()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Load replies when tab switches
+  useEffect(() => {
+    if (activeTab === 'replies' && repurposeReplies.length === 0 && !loadingReplies) {
+      loadReplies()
+    }
+    if (activeTab === 'topics' && hotTopics.length === 0 && !loadingTopics) {
+      loadTopics()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
+
   async function generateCalendar() {
     setLoading(true)
     try {
-      // Step 1: Get trending topics
       const topicsRes = await fetch('/api/topics')
       const topicsJson = await topicsRes.json()
       if (!topicsJson.success || !topicsJson.data?.topics?.length) {
         setLoading(false)
+        setGenerated(true)
         return
       }
 
-      // Step 2: Generate calendar from topics
+      // Also save topics for the hot topics tab
+      setHotTopics(topicsJson.data.topics)
+
       const calRes = await fetch('/api/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -71,12 +127,49 @@ export default function ContentCalendar() {
     finally { setLoading(false) }
   }
 
+  async function loadReplies() {
+    setLoadingReplies(true)
+    try {
+      const res = await fetch('/api/repurpose-replies')
+      const json = await res.json()
+      if (json.success) setRepurposeReplies(json.replies ?? [])
+    } catch { /* */ }
+    finally { setLoadingReplies(false) }
+  }
+
+  async function loadTopics() {
+    if (hotTopics.length > 0) return // already loaded from calendar generation
+    setLoadingTopics(true)
+    try {
+      const res = await fetch('/api/topics')
+      const json = await res.json()
+      if (json.success) setHotTopics(json.data?.topics ?? [])
+    } catch { /* */ }
+    finally { setLoadingTopics(false) }
+  }
+
+  async function expandReply(reply: ReplyToRepurpose, format: 'thread' | 'post' | 'quote') {
+    setExpandingReply(reply.url)
+    setExpandFormat(prev => ({ ...prev, [reply.url]: format }))
+    try {
+      const res = await fetch('/api/repurpose-replies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ replyText: reply.text, format }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setExpandedContent(prev => ({ ...prev, [reply.url]: json.content }))
+      }
+    } catch { /* */ }
+    finally { setExpandingReply(null) }
+  }
+
   function handleCopy(index: number, text: string) {
     navigator.clipboard.writeText(text)
     setCopied(index)
     setTimeout(() => setCopied(null), 2000)
 
-    // Log the action
     const slot = calendar?.slots[index]
     if (slot) {
       const actionMap: Record<string, string> = { thread: 'x_thread', quote: 'x_quote', post: 'li_post', carousel: 'li_carousel' }
@@ -91,149 +184,330 @@ export default function ContentCalendar() {
     }
   }
 
-  // Auto-generate on mount
-  useEffect(() => {
-    if (!generated) generateCalendar()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  function handleCopyReply(url: string, text: string) {
+    navigator.clipboard.writeText(text)
+    setCopiedReply(url)
+    setTimeout(() => setCopiedReply(null), 2000)
 
-  if (loading) return (
-    <div className="space-y-3">
-      <div className="section-label">Generating your content calendar...</div>
-      <div className="skeleton skeleton-card" />
-      <div className="skeleton skeleton-card" />
-      <div className="skeleton skeleton-card" />
-    </div>
-  )
-
-  if (!calendar || calendar.slots.length === 0) {
-    if (generated) return (
-      <div className="empty-state">
-        <div className="empty-state-icon">{'\u{1F4DD}'}</div>
-        <div className="empty-state-title">No content ideas yet</div>
-        <div className="empty-state-desc">Your feed needs more posts to find trending topics. Check back after your watched people post today.</div>
-      </div>
-    )
-
-    return (
-      <div className="brain-card text-center py-6">
-        <div className="text-sm text-ink-3 mb-3">Generate today&apos;s content calendar based on trending topics in your feed</div>
-        <button className="btn-primary" onClick={generateCalendar} disabled={loading}>
-          {loading ? 'Generating...' : 'Generate content calendar'}
-        </button>
-      </div>
-    )
+    fetch('/api/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_type: 'x_post', metadata: { source: 'repurpose_reply' } }),
+    }).catch(() => {})
   }
+
+  const tabs: Array<{ key: TabKey; label: string; count?: number }> = [
+    { key: 'calendar', label: 'Post today', count: calendar?.slots ? calendar.slots.length - skipped.size : 0 },
+    { key: 'replies', label: 'From your replies', count: repurposeReplies.length },
+    { key: 'topics', label: 'Hot topics', count: hotTopics.length },
+  ]
 
   return (
     <div>
-      {/* Day header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <div className="section-label !mb-0">TODAY &middot; {calendar.dayName}</div>
-          <div className="text-xs text-ink-4">{calendar.slots.length - skipped.size} posts planned</div>
-        </div>
-        <button className="btn-outline text-xs" onClick={generateCalendar} disabled={loading}>
-          {loading ? '...' : '\u21BB Regenerate'}
-        </button>
+      {/* Sub-tabs */}
+      <div className="flex gap-0 mb-4 border-b border-rule">
+        {tabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`text-xs font-semibold px-3 py-2 border-b-[2px] transition-colors ${
+              activeTab === tab.key
+                ? 'border-[var(--accent)] text-ink'
+                : 'border-transparent text-ink-4 hover:text-ink-3'
+            }`}
+          >
+            {tab.label}
+            {(tab.count ?? 0) > 0 && (
+              <span className="ml-1.5 text-[10px] bg-[var(--rule-light)] rounded-full px-1.5 py-0.5">{tab.count}</span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Slot cards */}
-      <div className="space-y-3 mb-6">
-        {calendar.slots.map((slot, i) => {
-          if (skipped.has(i)) return null
-          const isEditing = editing === i
-          const currentDraft = editDrafts[i] ?? slot.draft
-          const isCopied = copied === i
-          const isThread = slot.format === 'thread'
+      {/* ═══ TAB: Post today (calendar) ═══ */}
+      {activeTab === 'calendar' && (
+        <>
+          {loading && (
+            <div className="space-y-3">
+              <div className="section-label">Generating your content calendar...</div>
+              <div className="skeleton skeleton-card" />
+              <div className="skeleton skeleton-card" />
+              <div className="skeleton skeleton-card" />
+            </div>
+          )}
 
-          return (
-            <div key={i} className="card p-4">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-head text-xs font-semibold text-ink-3">{slot.time}</span>
-                  <span className={`badge ${slot.platform === 'linkedin' ? 'badge-icp' : 'badge-replied'}`}>
-                    {FORMAT_LABELS[slot.format] ?? slot.format}
-                  </span>
+          {!loading && (!calendar || calendar.slots.length === 0) && generated && (
+            <div className="empty-state">
+              <div className="empty-state-icon">{'\u{1F4DD}'}</div>
+              <div className="empty-state-title">No content ideas yet</div>
+              <div className="empty-state-desc">Your feed needs more posts to find trending topics. Check back after your watched people post today.</div>
+            </div>
+          )}
+
+          {!loading && calendar && calendar.slots.length > 0 && (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="section-label !mb-0">TODAY &middot; {calendar.dayName}</div>
+                  <div className="text-xs text-ink-4">{calendar.slots.length - skipped.size} posts planned</div>
                 </div>
-                <button className="text-[11px] text-ink-4 hover:text-ink" onClick={() => setSkipped(prev => new Set([...prev, i]))}>
-                  Skip
+                <button className="btn-outline text-xs" onClick={generateCalendar} disabled={loading}>
+                  {loading ? '...' : '\u21BB Regenerate'}
                 </button>
               </div>
 
-              {/* Topic + signal */}
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-base">{ANGLE_ICONS[slot.angle] ?? '\u{1F4A1}'}</span>
-                <span className="font-head text-sm font-semibold text-ink">{slot.topic}</span>
-              </div>
-              <div className="text-[11px] text-ink-4 mb-3">
-                {slot.signalEvidence}
-                {slot.authors.length > 0 && (
-                  <span className="ml-1">
-                    &middot; {slot.authors.slice(0, 3).map(a => `@${a}`).join(', ')}
-                  </span>
-                )}
-              </div>
+              <div className="space-y-3 mb-6">
+                {calendar.slots.map((slot, i) => {
+                  if (skipped.has(i)) return null
+                  const isEditing = editing === i
+                  const currentDraft = editDrafts[i] ?? slot.draft
+                  const isCopied = copied === i
+                  const isThread = slot.format === 'thread'
 
-              {/* Source posts */}
-              {slot.sourcePosts && slot.sourcePosts.length > 0 && !isEditing && (
-                <details className="mb-2">
-                  <summary className="text-[11px] text-accent cursor-pointer hover:underline">
-                    Based on {slot.sourcePosts.length} posts from your feed
-                  </summary>
-                  <div className="mt-1.5 space-y-1.5">
-                    {slot.sourcePosts.map((sp, si) => (
-                      <div key={si} className="text-[11px] text-ink-3 bg-[var(--bg-warm)] rounded px-2.5 py-1.5 flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <span className="font-semibold text-ink-2">@{sp.author}</span>
-                          <span className="text-ink-4 ml-1">{sp.engagement.toLocaleString()} eng</span>
-                          <div className="mt-0.5 truncate">{sp.text}</div>
+                  return (
+                    <div key={i} className="card p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-head text-xs font-semibold text-ink-3">{slot.time}</span>
+                          <span className={`badge ${slot.platform === 'linkedin' ? 'badge-icp' : 'badge-replied'}`}>
+                            {FORMAT_LABELS[slot.format] ?? slot.format}
+                          </span>
                         </div>
-                        {sp.url && (
-                          <a href={sp.url} target="_blank" rel="noopener noreferrer" className="btn-outline text-[10px] py-0.5 px-2 shrink-0">Open post</a>
+                        <button className="text-[11px] text-ink-4 hover:text-ink" onClick={() => setSkipped(prev => new Set([...prev, i]))}>
+                          Skip
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-base">{ANGLE_ICONS[slot.angle] ?? '\u{1F4A1}'}</span>
+                        <span className="font-head text-sm font-semibold text-ink">{slot.topic}</span>
+                      </div>
+                      <div className="text-[11px] text-ink-4 mb-3">
+                        {slot.signalEvidence}
+                        {slot.authors.length > 0 && (
+                          <span className="ml-1">
+                            &middot; {slot.authors.slice(0, 3).map(a => `@${a}`).join(', ')}
+                          </span>
                         )}
                       </div>
-                    ))}
-                  </div>
-                </details>
-              )}
 
-              {/* Draft */}
-              {isEditing ? (
-                <textarea
-                  className="input w-full min-h-[120px] text-xs leading-relaxed mb-2"
-                  value={currentDraft}
-                  onChange={e => setEditDrafts(prev => ({ ...prev, [i]: e.target.value }))}
-                  autoFocus
-                />
-              ) : isThread ? (
-                <div className="flex flex-col gap-1.5 mb-2">
-                  {currentDraft.split(/\n---\n/).map((tweet, ti) => (
-                    <div key={ti} className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded px-2.5 py-2">
-                      <span className="text-ink-4 text-[10px] mr-1">{ti + 1}.</span>{tweet.trim()}
+                      {slot.sourcePosts && slot.sourcePosts.length > 0 && !isEditing && (
+                        <details className="mb-2">
+                          <summary className="text-[11px] text-accent cursor-pointer hover:underline">
+                            Based on {slot.sourcePosts.length} posts from your feed
+                          </summary>
+                          <div className="mt-1.5 space-y-1.5">
+                            {slot.sourcePosts.map((sp, si) => (
+                              <div key={si} className="text-[11px] text-ink-3 bg-[var(--bg-warm)] rounded px-2.5 py-1.5 flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-semibold text-ink-2">@{sp.author}</span>
+                                  <span className="text-ink-4 ml-1">{sp.engagement.toLocaleString()} eng</span>
+                                  <div className="mt-0.5 truncate">{sp.text}</div>
+                                </div>
+                                {sp.url && (
+                                  <a href={sp.url} target="_blank" rel="noopener noreferrer" className="btn-outline text-[10px] py-0.5 px-2 shrink-0">Open</a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+
+                      {isEditing ? (
+                        <textarea
+                          className="input w-full min-h-[120px] text-xs leading-relaxed mb-2"
+                          value={currentDraft}
+                          onChange={e => setEditDrafts(prev => ({ ...prev, [i]: e.target.value }))}
+                          autoFocus
+                        />
+                      ) : isThread ? (
+                        <div className="flex flex-col gap-1.5 mb-2">
+                          {currentDraft.split(/\n---\n/).map((tweet, ti) => (
+                            <div key={ti} className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded px-2.5 py-2">
+                              <span className="text-ink-4 text-[10px] mr-1">{ti + 1}.</span>{tweet.trim()}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded-lg px-3 py-2.5 mb-2 whitespace-pre-wrap">
+                          {currentDraft.length > 300 ? currentDraft.substring(0, 300) + '...' : currentDraft}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button className="btn-primary" onClick={() => handleCopy(i, currentDraft)}>
+                          {isCopied ? 'Copied!' : 'Copy & post'}
+                        </button>
+                        <button className="btn-outline" onClick={() => setEditing(isEditing ? null : i)}>
+                          {isEditing ? 'Done editing' : 'Edit draft'}
+                        </button>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded-lg px-3 py-2.5 mb-2 whitespace-pre-wrap">
-                  {currentDraft.length > 300 ? currentDraft.substring(0, 300) + '...' : currentDraft}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-2">
-                <button className="btn-primary" onClick={() => handleCopy(i, currentDraft)}>
-                  {isCopied ? 'Copied!' : 'Copy & post'}
-                </button>
-                <button className="btn-outline" onClick={() => setEditing(isEditing ? null : i)}>
-                  {isEditing ? 'Done editing' : 'Edit draft'}
-                </button>
+                  )
+                })}
               </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* ═══ TAB: From your replies ═══ */}
+      {activeTab === 'replies' && (
+        <>
+          {loadingReplies && (
+            <div className="space-y-3">
+              <div className="section-label">Finding your best replies...</div>
+              <div className="skeleton skeleton-card" />
+              <div className="skeleton skeleton-card" />
             </div>
-          )
-        })}
-      </div>
+          )}
+
+          {!loadingReplies && repurposeReplies.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-state-icon">{'\u{1F4AC}'}</div>
+              <div className="empty-state-title">No replies to repurpose yet</div>
+              <div className="empty-state-desc">Connect your X handle in Settings, then reply to posts from the Reply tab. Replies with 3+ engagement will appear here.</div>
+            </div>
+          )}
+
+          {!loadingReplies && repurposeReplies.length > 0 && (
+            <div className="space-y-3">
+              <div className="text-xs text-ink-4 mb-2">Your replies that got engagement — expand them into full posts.</div>
+              {repurposeReplies.map(reply => {
+                const expanded = expandedContent[reply.url]
+                const isExpanding = expandingReply === reply.url
+                const format = expandFormat[reply.url] ?? 'thread'
+                const isCopied = copiedReply === reply.url
+
+                return (
+                  <div key={reply.url} className="card p-4">
+                    {/* Reply preview */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[10px] text-ink-4">replied to @{reply.replyTo}</span>
+                      <span className="text-[10px] text-ink-4">&middot;</span>
+                      <span className="text-[10px] text-ink-4">{reply.likes} likes, {reply.retweets} RTs</span>
+                    </div>
+                    <div className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded-lg px-3 py-2.5 mb-3">
+                      {reply.text}
+                    </div>
+
+                    {/* Expand controls */}
+                    {!expanded && (
+                      <div className="flex gap-2">
+                        <button
+                          className="btn-primary text-xs"
+                          disabled={isExpanding}
+                          onClick={() => expandReply(reply, 'thread')}
+                        >
+                          {isExpanding && format === 'thread' ? 'Expanding...' : 'X Thread'}
+                        </button>
+                        <button
+                          className="btn-outline text-xs"
+                          disabled={isExpanding}
+                          onClick={() => expandReply(reply, 'post')}
+                        >
+                          {isExpanding && format === 'post' ? 'Expanding...' : 'LinkedIn Post'}
+                        </button>
+                        <button
+                          className="btn-outline text-xs"
+                          disabled={isExpanding}
+                          onClick={() => expandReply(reply, 'quote')}
+                        >
+                          {isExpanding && format === 'quote' ? 'Expanding...' : 'Standalone tweet'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Expanded content */}
+                    {expanded && (
+                      <div className="mt-2">
+                        <div className="text-[10px] text-ink-4 mb-1 uppercase tracking-wider">
+                          {FORMAT_LABELS[format] ?? format}
+                        </div>
+                        {format === 'thread' ? (
+                          <div className="flex flex-col gap-1.5 mb-2">
+                            {expanded.split(/\n---\n/).map((tweet, ti) => (
+                              <div key={ti} className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded px-2.5 py-2">
+                                <span className="text-ink-4 text-[10px] mr-1">{ti + 1}.</span>{tweet.trim()}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded-lg px-3 py-2.5 mb-2 whitespace-pre-wrap">
+                            {expanded}
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <button className="btn-primary text-xs" onClick={() => handleCopyReply(reply.url, expanded)}>
+                            {isCopied ? 'Copied!' : 'Copy & post'}
+                          </button>
+                          <button className="btn-outline text-xs" onClick={() => setExpandedContent(prev => {
+                            const next = { ...prev }
+                            delete next[reply.url]
+                            return next
+                          })}>
+                            Try different format
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ═══ TAB: Hot topics ═══ */}
+      {activeTab === 'topics' && (
+        <>
+          {loadingTopics && (
+            <div className="space-y-3">
+              <div className="section-label">Finding trending topics...</div>
+              <div className="skeleton skeleton-card" />
+              <div className="skeleton skeleton-card" />
+            </div>
+          )}
+
+          {!loadingTopics && hotTopics.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-state-icon">{'\u{1F525}'}</div>
+              <div className="empty-state-title">No trending topics yet</div>
+              <div className="empty-state-desc">Add tracked keywords in Settings and watch more people to discover trending topics.</div>
+            </div>
+          )}
+
+          {!loadingTopics && hotTopics.length > 0 && (
+            <div className="space-y-3">
+              <div className="text-xs text-ink-4 mb-2">Topics trending in your feed right now — ranked by engagement velocity.</div>
+              {hotTopics.map((topic, i) => (
+                <div key={i} className="card p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-base">{ANGLE_ICONS[topic.suggestedAngle] ?? '\u{1F525}'}</span>
+                    <span className="font-head text-sm font-semibold text-ink">{topic.topic}</span>
+                    <span className="badge badge-sent text-[10px]">{topic.suggestedAngle.replace('_', ' ')}</span>
+                  </div>
+                  <div className="text-[11px] text-ink-4 mb-2">
+                    {topic.postCount} posts &middot; {topic.totalEngagement.toLocaleString()} total engagement
+                    {topic.authors.length > 0 && (
+                      <span className="ml-1">&middot; {topic.authors.slice(0, 3).map(a => `@${a}`).join(', ')}</span>
+                    )}
+                  </div>
+                  <a
+                    href={`https://x.com/search?q=${encodeURIComponent(topic.topic)}&src=typed_query&f=live`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-accent hover:underline"
+                  >
+                    View on X &rarr;
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

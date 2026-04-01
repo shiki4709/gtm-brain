@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
+import { buildUserProfile } from '@/lib/user-profile'
 
 interface FeedPost {
   text: string
@@ -115,7 +116,7 @@ export async function GET() {
 
   // Group posts by topic using tracked keywords
   const topicMap = new Map<string, {
-    posts: FeedPost[]; engagement: number; authors: Set<string>; userEngaged: boolean
+    posts: FeedPost[]; engagement: number; authors: Set<string>; userEngaged: boolean; suggestedAngle?: string
   }>()
 
   for (const post of feedPosts) {
@@ -135,19 +136,35 @@ export async function GET() {
     }
   }
 
-  // If fewer than 3 keyword-matched topics, use Claude Haiku for topic extraction
+  // If fewer than 3 keyword-matched topics, use Claude Haiku for profile-aware topic extraction
   if (topicMap.size < 3 && feedPosts.length >= 5) {
     const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
     if (apiKey) {
       try {
-        const sampleTexts = feedPosts.slice(0, 10).map(p => p.text.substring(0, 200)).join('\n---\n')
+        // Build user profile for context-aware topic extraction
+        const profile = await buildUserProfile(
+          auth.sb, user.id,
+          user.icp_config ?? { titles: [], exclude: [] },
+          user.mode ?? 'personal_brand',
+        )
+
+        const sampleTexts = feedPosts.slice(0, 15).map(p => p.text.substring(0, 200)).join('\n---\n')
         const resp = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
-            max_tokens: 300,
-            messages: [{ role: 'user', content: `Extract 3-5 trending topics from these social media posts. Return ONLY a JSON array of short topic strings (2-4 words each), no explanation.\n\n${sampleTexts}` }],
+            max_tokens: 400,
+            messages: [{ role: 'user', content: `Extract 5-7 trending topics from these social media posts that are relevant to this user's profile.
+
+USER PROFILE:
+${profile.text.substring(0, 1000)}
+
+POSTS:
+${sampleTexts}
+
+Return ONLY a JSON array of objects: [{"topic": "short topic 2-4 words", "angle": "trending|data_point|framework|key_insight|contrarian_take|how_to"}]
+Focus on topics the user would want to create content about based on their profile.` }],
           }),
         })
         if (resp.ok) {
@@ -155,8 +172,10 @@ export async function GET() {
           const raw = result.content?.[0]?.text ?? ''
           const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
           try {
-            const extracted = JSON.parse(cleaned) as string[]
-            for (const topic of extracted) {
+            const extracted = JSON.parse(cleaned) as Array<string | { topic: string; angle?: string }>
+            for (const item of extracted) {
+              const topic = typeof item === 'string' ? item : item.topic
+              const angle = typeof item === 'string' ? undefined : item.angle
               const key = topic.toLowerCase()
               if (topicMap.has(key)) continue
               const matching = feedPosts.filter(p => p.text.toLowerCase().includes(key))
@@ -166,6 +185,7 @@ export async function GET() {
                   engagement: matching.reduce((s, p) => s + p.likes + p.replies + p.retweets, 0),
                   authors: new Set(matching.map(p => p.author)),
                   userEngaged: matching.some(p => repliedUrls.has(p.url)),
+                  suggestedAngle: angle,
                 })
               }
             }
@@ -181,7 +201,7 @@ export async function GET() {
       const signal = (data.posts.length * 10) + (data.engagement * 0.1) + (data.userEngaged ? 50 : 0)
       const hasData = data.posts.some(p => /\d+%|\$\d|x\d|\d+x/i.test(p.text))
       const hasFramework = data.posts.some(p => /step|framework|system|playbook|process|how to/i.test(p.text))
-      const angle = hasFramework ? 'framework' : hasData ? 'data_point' : data.posts.length >= 4 ? 'trending' : 'key_insight'
+      const angle = data.suggestedAngle ?? (hasFramework ? 'framework' : hasData ? 'data_point' : data.posts.length >= 4 ? 'trending' : 'key_insight')
 
       return {
         topic,
