@@ -1032,9 +1032,17 @@ export default function WatchlistFeed() {
             }
 
             // Word-boundary match — "ai" matches "ai" but not "raise" or "Oakland"
+            // Negative signals — if post contains these, it's NOT about tech/AI
+            const SPAM_SIGNALS = /fan\s?meet|fan\s?ival|fancam|fanart|idol|k-?pop|bias|comeback|fancall|photocard|lightstick|aegyo|oppa|noona|ship\s?name|otp|stan|manga|anime|cosplay|horoscope|zodiac|♈|♉|♊|♋|♌|♍|♎|♏|♐|♑|♒|♓/i
+
             function matchesWord(text: string, word: string): boolean {
               const re = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
               return re.test(text)
+            }
+
+            // Check if a post is spam/irrelevant (fan content, horoscopes, etc.)
+            function isSpamContent(text: string): boolean {
+              return SPAM_SIGNALS.test(text)
             }
 
             // Expand keywords with common related terms
@@ -1063,10 +1071,26 @@ export default function WatchlistFeed() {
             const expandedKeywords = getExpandedKeywords()
 
             function getIcpRelevance(text: string): { score: number; matchedTopic: string | null } {
+              // Filter out spam/fan content that false-matches keywords like "gemini"
+              if (isSpamContent(text)) return { score: 0, matchedTopic: null }
+
+              // Context clues that confirm tech relevance (disambiguates "gemini", "claude", "model")
+              const TECH_CONTEXT = /\bapi\b|startup|saas|b2b|founder|shipped|deploy|code|developer|engineer|benchmark|token|context window|fine.?tun|inference|parameter|prompt|llm|ml\b|neural|training|dataset|vc\b|series [a-c]|ipo|revenue|arr\b|pipeline|funnel|conversion/i
+              const hasTechContext = TECH_CONTEXT.test(text)
+
+              // Ambiguous keywords that need tech context to confirm relevance
+              const AMBIGUOUS_KEYWORDS = new Set(['gemini', 'claude', 'model', 'agents', 'agent'])
+
               // 1. User-defined track keywords — exact match (strongest)
               const exactMatches = trackKeywords.filter(kw => matchesWord(text, kw))
               if (exactMatches.length >= 2) return { score: 0.6, matchedTopic: exactMatches.slice(0, 2).join(', ') }
-              if (exactMatches.length === 1) return { score: 0.4, matchedTopic: exactMatches[0] }
+              if (exactMatches.length === 1) {
+                // If the only match is an ambiguous keyword, require tech context
+                if (AMBIGUOUS_KEYWORDS.has(exactMatches[0].toLowerCase()) && !hasTechContext) {
+                  return { score: 0, matchedTopic: null } // ambiguous without tech context = not relevant
+                }
+                return { score: 0.4, matchedTopic: exactMatches[0] }
+              }
 
               // 1b. Expanded/related keywords (strong — auto-inferred from user keywords)
               const relatedMatches = expandedKeywords.filter(kw => matchesWord(text, kw))

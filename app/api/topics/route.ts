@@ -59,7 +59,7 @@ export async function GET() {
             const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
             return !text.startsWith('RT @') && !text.startsWith('@')
           })
-          .slice(0, 5)
+          .slice(0, 15)
 
         for (const tw of tweets) {
           const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
