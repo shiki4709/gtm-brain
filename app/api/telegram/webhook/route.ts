@@ -142,48 +142,59 @@ export async function POST(request: Request) {
     // Acknowledge the button press immediately
     await answerCallbackQuery(callbackId)
 
-    // Parse action: "act:URL_PREFIX" or "skip:URL_PREFIX"
-    const [action, urlPrefix] = data.split(':')
+    // Parse action: "act:URL_PREFIX", "skip:URL_PREFIX", or "edit:URL_PREFIX"
+    const colonIdx = data.indexOf(':')
+    const action = colonIdx >= 0 ? data.substring(0, colonIdx) : data
+    const urlPrefix = colonIdx >= 0 ? data.substring(colonIdx + 1) : ''
 
     if (urlPrefix && chatId) {
-      // Find the notification by URL prefix match
       const { data: user } = await findUserByChatId(sb, String(chatId))
       if (user) {
-        const status = action === 'act' ? 'acted' : 'skipped'
-
-        // Update notification status
+        // Find the notification
         const { data: notif } = await sb
           .from('sb_notifications')
           .select('id, post_url, action_type, draft_text')
           .eq('user_id', user.id)
           .like('post_url', `%${urlPrefix}%`)
-          .eq('status', 'pushed')
           .order('pushed_at', { ascending: false })
           .limit(1)
           .single()
 
         if (notif) {
-          await sb
-            .from('sb_notifications')
-            .update({ status, acted_at: new Date().toISOString() })
-            .eq('id', notif.id)
-
-          // Log the action for the learning model
-          await sb.from('action_log').insert({
-            user_id: user.id,
-            action_type: status === 'acted' ? notif.action_type : 'notification_skip',
-            post_id: notif.post_url,
-            platform: notif.post_url.includes('linkedin') ? 'linkedin' : 'x',
-            metadata: { source: 'telegram', notification_id: notif.id },
-          })
-
-          if (status === 'acted' && notif.draft_text) {
-            // Send the draft reply as a copyable message
-            await sendTelegramMessage(chatId, `Copy this reply:\n\n${notif.draft_text}`)
-          } else if (status === 'acted') {
-            await sendTelegramMessage(chatId, 'Marked as done!')
+          if (action === 'edit') {
+            // Generate a new draft reply
+            await sendTelegramMessage(chatId, 'Generating new draft...')
+            const newDraft = await generateNewDraft(notif.post_url)
+            if (newDraft) {
+              // Update the stored draft
+              await sb.from('sb_notifications').update({ draft_text: newDraft }).eq('id', notif.id)
+              await sendTelegramMessage(chatId, `New draft:\n\n"${newDraft}"`)
+            } else {
+              await sendTelegramMessage(chatId, 'Could not generate a new draft. Try again.')
+            }
           } else {
-            await sendTelegramMessage(chatId, 'Skipped.')
+            const status = action === 'act' ? 'acted' : 'skipped'
+
+            await sb
+              .from('sb_notifications')
+              .update({ status, acted_at: new Date().toISOString() })
+              .eq('id', notif.id)
+
+            await sb.from('action_log').insert({
+              user_id: user.id,
+              action_type: status === 'acted' ? notif.action_type : 'notification_skip',
+              post_id: notif.post_url,
+              platform: notif.post_url.includes('linkedin') ? 'linkedin' : 'x',
+              metadata: { source: 'telegram', notification_id: notif.id },
+            })
+
+            if (status === 'acted' && notif.draft_text) {
+              await sendTelegramMessage(chatId, `Copy this reply:\n\n${notif.draft_text}`)
+            } else if (status === 'acted') {
+              await sendTelegramMessage(chatId, 'Marked as done!')
+            } else {
+              await sendTelegramMessage(chatId, 'Skipped.')
+            }
           }
         }
       }
@@ -216,10 +227,75 @@ async function answerCallbackQuery(callbackId: string) {
 }
 
 async function findUserByChatId(sb: ReturnType<typeof createServiceClient>, chatId: string) {
-  // Search users whose notification_channels contains a telegram entry with this chat_id
   return sb
     .from('sb_users')
     .select('id, name, notification_channels')
     .filter('notification_channels', 'cs', JSON.stringify([{ type: 'telegram', chat_id: chatId }]))
     .single()
+}
+
+async function generateNewDraft(postUrl: string): Promise<string | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
+  if (!apiKey) return null
+
+  // Fetch the post text from SocialData if it's an X post
+  const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
+  let postText = ''
+
+  if (socialDataKey && postUrl.includes('x.com')) {
+    const tweetId = postUrl.split('/status/')[1]?.split('?')[0]
+    if (tweetId) {
+      try {
+        const resp = await fetch(
+          `https://api.socialdata.tools/twitter/tweets/${tweetId}`,
+          {
+            headers: { Authorization: `Bearer ${socialDataKey}`, Accept: 'application/json' },
+            signal: AbortSignal.timeout(5000),
+          }
+        )
+        if (resp.ok) {
+          const tweet = await resp.json()
+          postText = tweet.full_text ?? tweet.text ?? ''
+        }
+      } catch { /* */ }
+    }
+  }
+
+  if (!postText) return null
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 150,
+        messages: [{
+          role: 'user',
+          content: `Write a DIFFERENT reply to this tweet. Take a completely different angle from any previous reply.
+
+"${postText.substring(0, 300)}"
+
+Rules:
+- 1-2 sentences, under 200 characters
+- Use contractions, short sentences
+- Reference something specific from the post
+- Add value: data point, experience, or question
+- NEVER start with "Great insight!", "So true!", "Love this!"
+- Sound human, not like a bot
+- Output ONLY the reply text`,
+        }],
+      }),
+    })
+
+    if (!resp.ok) return null
+    const result = await resp.json()
+    return (result.content?.[0]?.text ?? '').trim() || null
+  } catch {
+    return null
+  }
 }

@@ -171,11 +171,8 @@ async function handleScan(request: Request) {
     // Push to all connected channels
     let pushed = 0
     for (const { post, haikuRelevance, rec } of topPosts) {
-      // Draft a reply if the primary action is reply
-      let draftReply: string | null = null
-      if (rec.actions[0]?.type === 'reply') {
-        draftReply = await generateDraftReply(post)
-      }
+      // Always draft a reply — this is a reply-focused bot
+      const draftReply = await generateDraftReply(post)
 
       // Save to sb_notifications
       await sb.from('sb_notifications').insert({
@@ -387,22 +384,18 @@ async function pushToTelegram(
     text += `\n💬 Draft reply:\n"${draftReply}"`
   }
 
-  // Inline keyboard buttons
+  // Inline keyboard buttons — reply-focused
+  const urlKey = post.url.substring(0, 50)
   const buttons: Array<Array<{ text: string; callback_data?: string; url?: string }>> = []
 
-  if (draftReply) {
-    buttons.push([
-      { text: '✅ Copy & Reply', callback_data: `act:${post.url.substring(0, 50)}` },
-      { text: '⏭ Skip', callback_data: `skip:${post.url.substring(0, 50)}` },
-    ])
-  } else if (action?.type === 'scrape') {
-    buttons.push([
-      { text: '🔍 Scrape engagers', callback_data: `act:${post.url.substring(0, 50)}` },
-      { text: '⏭ Skip', callback_data: `skip:${post.url.substring(0, 50)}` },
-    ])
-  }
-
-  buttons.push([{ text: '🔗 Open post', url: post.url }])
+  buttons.push([
+    { text: '✅ Copy & Reply', callback_data: `act:${urlKey}` },
+    { text: '✏️ New draft', callback_data: `edit:${urlKey}` },
+  ])
+  buttons.push([
+    { text: '⏭ Skip', callback_data: `skip:${urlKey}` },
+    { text: '🔗 Open post', url: post.url },
+  ])
 
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
