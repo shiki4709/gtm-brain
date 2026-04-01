@@ -269,7 +269,7 @@ export default function Inbound() {
         <div className="section-label mb-2">Accounts to watch</div>
         <div className="flex flex-wrap gap-2 mb-2">
           {(user?.x_accounts ?? []).map(a => (
-            <span key={a} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: '#fff3e0', color: 'var(--accent-orange-deep)' }}>
+            <span key={a} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: 'var(--orange-tint)', color: 'var(--accent-orange)' }}>
               @{a}
               <button onClick={() => removeAccount(a)} className="hover:text-ink ml-0.5">×</button>
             </span>
@@ -295,7 +295,7 @@ export default function Inbound() {
         <div className="section-label mb-2">Topics to watch</div>
         <div className="flex flex-wrap gap-2 mb-2">
           {(user?.x_topics ?? []).map(t => (
-            <span key={t} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: '#fff3e0', color: 'var(--accent-orange-deep)' }}>
+            <span key={t} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: 'var(--orange-tint)', color: 'var(--accent-orange)' }}>
               {t}
               <button onClick={() => removeTopic(t)} className="hover:text-ink ml-0.5">×</button>
             </span>

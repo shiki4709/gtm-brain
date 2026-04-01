@@ -637,7 +637,7 @@ export default function Settings() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="btn-primary px-8 py-3"
+          className="btn-primary"
         >
           {saving ? 'Saving...' : 'Save all settings'}
         </button>

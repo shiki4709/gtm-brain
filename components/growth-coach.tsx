@@ -79,7 +79,7 @@ export default function GrowthCoach() {
           <div className="text-xs text-ink-2 leading-relaxed mb-4">{plan.topTip}</div>
 
           {/* High priority targets */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
             {highPriority.map(s => (
               <div key={s.metric} className="card-flat py-2.5 px-3">
                 <div className="flex items-center gap-1.5 mb-1">

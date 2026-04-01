@@ -61,7 +61,7 @@ export default function ProgressWidget({ mode: propMode }: ProgressWidgetProps) 
   return (
     <div className="mb-6">
       {/* Metric cards row */}
-      <div className="grid grid-cols-2 gap-3 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         {/* Inbound metrics */}
         {showInbound && inboundProgress.map(p => (
           <MetricCard key={p.metric} progress={p} />

@@ -468,7 +468,7 @@ export default function Outbound() {
                             {l.name}
                           </a>
                           {l.icp_match && <span className="badge badge-icp">ICP</span>}
-                          {l.comment_text && <span className="badge" style={{ background: '#e8f5e9', color: 'var(--green)', fontSize: 9 }}>commented</span>}
+                          {l.comment_text && <span className="badge badge-sent">commented</span>}
                           {l.status === 'dm_sent' && <span className="badge badge-sent">sent</span>}
                           {l.status === 'replied' && <span className="badge badge-replied">replied</span>}
                           {l.status === 'dm_drafted' && <span className="badge badge-drafted">drafted</span>}

@@ -562,9 +562,7 @@ export default function WatchlistFeed() {
       <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-              !isX ? 'bg-accent/10 text-accent' : 'bg-[var(--accent-orange)]/10'
-            }`} style={isX ? { color: 'var(--accent-orange)' } : undefined}>
+            <span className={`badge ${!isX ? 'badge-icp' : 'badge-replied'}`}>
               {isX ? 'X' : 'LinkedIn'}
             </span>
             {isX ? (
@@ -1440,7 +1438,7 @@ export default function WatchlistFeed() {
                                       <div key={platform}>
                                         <div className="flex items-center justify-between mb-2">
                                           <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-[var(--accent-orange)]/10" style={{ color: 'var(--accent-orange)' }}>
+                                            <span className="badge badge-replied">
                                               {formatLabel} · {tweets.length} tweets
                                             </span>
                                             {isPosted && <span className="text-[9px] text-green font-semibold">Posted</span>}
