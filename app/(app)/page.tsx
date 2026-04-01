@@ -4,6 +4,7 @@ import Link from 'next/link'
 import ProgressWidget from '@/components/progress-widget'
 import ModeSelector from '@/components/mode-selector'
 import GrowthCoach from '@/components/growth-coach'
+import ContentCalendar from '@/components/content-calendar'
 import type { UserMode } from '@/lib/types'
 
 interface FeedItem {
@@ -1216,52 +1217,50 @@ export default function WatchlistFeed() {
                   </div>
                 )}
 
-                {/* ═══ WRITE FROM SCRATCH — Create tab only ═══ */}
+                {/* ═══ CONTENT CALENDAR — Create tab only ═══ */}
                 {currentSection?.key === 'create' && (
-                  <div className="card-flat p-4 mb-4">
-                    <div className="font-head text-sm font-semibold text-ink mb-1">Write something new</div>
-                    <div className="text-xs text-ink-4 mb-3">Paste a link or text. We&apos;ll find content angles and generate platform-native posts.</div>
+                  <div className="mb-4">
+                    <ContentCalendar />
 
-                    {/* Input */}
+                    {/* Secondary: paste a link */}
+                    <div className="flex items-center gap-3 my-4">
+                      <div className="flex-1 h-px bg-rule" />
+                      <span className="text-[10px] text-ink-4 uppercase tracking-wider">Or paste a link</span>
+                      <div className="flex-1 h-px bg-rule" />
+                    </div>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         className="input flex-1 py-2.5 px-3 text-sm"
-                        placeholder="x.com/status/..., substack link, or paste text directly"
+                        placeholder="Paste any URL or text to find content angles..."
                         value={createInput}
-                        onChange={e => { setCreateInput(e.target.value); setCreateError(''); setCreateAngles([]); setCreateShowText(false) }}
+                        onChange={e => { setCreateInput(e.target.value); setCreateError(''); setCreateAngles([]) }}
                         onKeyDown={e => { if (e.key === 'Enter' && createInput.trim()) handleAnalyzeAngles() }}
                       />
-                      <button className="btn-primary" disabled={createAnalyzing || !createInput.trim()} onClick={() => handleAnalyzeAngles()}>
-                        {createAnalyzing ? 'Analyzing...' : 'Find angles'}
+                      <button className="btn-accent" disabled={createAnalyzing || !createInput.trim()} onClick={() => handleAnalyzeAngles()}>
+                        {createAnalyzing ? '...' : 'Find angles'}
                       </button>
                     </div>
-
-                    {/* Text fallback */}
                     {createShowText && (
                       <div className="mt-3">
-                        <div className="text-xs text-ink-3 mb-1.5">Couldn&apos;t fetch that URL. Paste the content below:</div>
-                        <textarea className="input w-full min-h-[80px] text-xs leading-relaxed mb-2" placeholder="Paste the article or post text here..." id="create-fallback" />
-                        <button className="btn-primary" disabled={createAnalyzing} onClick={() => {
+                        <div className="text-xs text-ink-3 mb-1.5">Couldn&apos;t fetch that URL. Paste the content:</div>
+                        <textarea className="input w-full min-h-[80px] text-xs leading-relaxed mb-2" placeholder="Paste text here..." id="create-fallback" />
+                        <button className="btn-accent" disabled={createAnalyzing} onClick={() => {
                           const el = document.getElementById('create-fallback') as HTMLTextAreaElement
                           if (el?.value.trim()) handleAnalyzeAngles(el.value.trim())
-                        }}>{createAnalyzing ? 'Analyzing...' : 'Find angles'}</button>
+                        }}>{createAnalyzing ? '...' : 'Find angles'}</button>
                       </div>
                     )}
-
                     {createError && <div className="text-xs text-orange mt-2">{createError}</div>}
-
-                    {/* Angle cards */}
                     {createAngles.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        <div className="text-[10px] text-ink-4 uppercase tracking-wider font-semibold">{createAngles.length} angles found</div>
+                      <div className="mt-3 space-y-2">
                         {createAngles.map(angle => {
-                          const icons: Record<string, string> = { key_insight: '💡', story: '📖', data_point: '📊', framework: '🧩', contrarian_take: '🔥', how_to: '📋', quote: '💬' }
+                          const icons: Record<string, string> = { key_insight: '\u{1F4A1}', story: '\u{1F4D6}', data_point: '\u{1F4CA}', framework: '\u{1F9E9}', contrarian_take: '\u{1F525}', how_to: '\u{1F4CB}', quote: '\u{1F4AC}' }
                           const generated = createResults[angle.id]
                           return (
                             <div key={angle.id} className="card p-3">
                               <div className="flex items-start gap-2 mb-2">
-                                <span className="text-base">{icons[angle.type] ?? '📝'}</span>
+                                <span className="text-base">{icons[angle.type] ?? '\u{1F4DD}'}</span>
                                 <div className="flex-1">
                                   <div className="font-head text-sm font-semibold text-ink">{angle.title}</div>
                                   <div className="text-xs text-ink-3 mt-0.5">{angle.summary}</div>
@@ -1273,17 +1272,9 @@ export default function WatchlistFeed() {
                                         {createGenerating === angle.id ? '...' : p === 'linkedin' ? 'LinkedIn' : 'X thread'}
                                       </button>
                                     ))}
-                                    {!angle.platforms.includes('x') && (
-                                      <button className="badge badge-replied cursor-pointer hover:opacity-80"
-                                        disabled={createGenerating === angle.id}
-                                        onClick={() => handleGenerateFromAngle(angle.id, 'x')}>
-                                        {createGenerating === angle.id ? '...' : 'X thread'}
-                                      </button>
-                                    )}
                                   </div>
                                 </div>
                               </div>
-                              {/* Generated content for this angle */}
                               {generated && Object.entries(generated).filter(([,v]) => v).map(([fmt, text]) => (
                                 <div key={fmt} className="mt-2 pt-2 border-t border-rule-light">
                                   <div className="flex items-center justify-between mb-1.5">
@@ -1303,8 +1294,8 @@ export default function WatchlistFeed() {
                   </div>
                 )}
 
-                {/* Section divider between self-input and feed */}
-                {currentSection?.key === 'create' && allTodo.length > 0 && createAngles.length > 0 && (
+                {/* Feed posts for repurposing */}
+                {currentSection?.key === 'create' && allTodo.length > 0 && (
                   <div className="flex items-center gap-3 my-4">
                     <div className="flex-1 h-px bg-rule" />
                     <span className="text-[10px] text-ink-4 uppercase tracking-wider">From your feed</span>
