@@ -2,13 +2,22 @@ import { SupabaseClient } from '@supabase/supabase-js'
 import type { UserMode, GoalMetric, WeeklyProgress, FollowerDelta, UserGoal } from './types'
 
 // Default goal presets per mode
-const DEFAULT_GOALS: Record<'personal_brand' | 'b2b_outbound', Array<{ metric: GoalMetric; target: number }>> = {
+// Full goal set matching growth advisor recommendations
+// period: 'daily' goals are stored as daily targets, 'weekly' as weekly
+const DEFAULT_GOALS: Record<'personal_brand' | 'b2b_outbound', Array<{ metric: GoalMetric; target: number; period: string }>> = {
   personal_brand: [
-    { metric: 'reply', target: 10 },
+    { metric: 'reply', target: 10, period: 'daily' },        // X replies to big accounts
+    { metric: 'x_thread', target: 2, period: 'weekly' },     // X threads
+    { metric: 'x_quote', target: 3, period: 'weekly' },      // Quote tweets
+    { metric: 'li_comment', target: 10, period: 'daily' },   // LinkedIn comments
+    { metric: 'li_post', target: 3, period: 'weekly' },      // LinkedIn posts
+    { metric: 'li_carousel', target: 1, period: 'weekly' },  // LinkedIn carousels
   ],
   b2b_outbound: [
-    { metric: 'dm_send', target: 5 },
-    { metric: 'scrape', target: 3 },
+    { metric: 'dm_send', target: 5, period: 'weekly' },
+    { metric: 'scrape', target: 3, period: 'weekly' },
+    { metric: 'reply', target: 5, period: 'daily' },         // Replies for visibility
+    { metric: 'li_comment', target: 10, period: 'daily' },   // LinkedIn comments for reach
   ],
 }
 
@@ -46,7 +55,7 @@ export async function createDefaultGoals(
       mode: m,
       metric: g.metric,
       target_value: g.target,
-      period: 'weekly',
+      period: g.period,
     }))
   )
 
@@ -93,25 +102,38 @@ export async function getWeeklyProgress(
   const goals = await getUserGoals(sb, userId)
   if (goals.length === 0) return []
 
-  const start = weekStart(tz)
+  const weekStartDate = weekStart(tz)
 
-  // Get action counts for this week
+  // Get today's start for daily goals
+  const now = new Date()
+  const todayParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(now)
+  const todayStr = `${todayParts.find(p => p.type === 'year')!.value}-${todayParts.find(p => p.type === 'month')!.value}-${todayParts.find(p => p.type === 'day')!.value}T00:00:00Z`
+
+  // Get action counts for this week (covers both daily and weekly)
   const { data: actions } = await sb
     .from('action_log')
-    .select('action_type')
+    .select('action_type, created_at')
     .eq('user_id', userId)
-    .gte('created_at', start)
+    .gte('created_at', weekStartDate)
 
-  const counts: Record<string, number> = {}
+  // Count weekly and daily separately
+  const weeklyCounts: Record<string, number> = {}
+  const dailyCounts: Record<string, number> = {}
   for (const a of actions ?? []) {
-    counts[a.action_type] = (counts[a.action_type] ?? 0) + 1
+    weeklyCounts[a.action_type] = (weeklyCounts[a.action_type] ?? 0) + 1
+    if (a.created_at >= todayStr) {
+      dailyCounts[a.action_type] = (dailyCounts[a.action_type] ?? 0) + 1
+    }
   }
 
   return goals.map(g => ({
     metric: g.metric,
     target: g.target_value,
-    current: counts[g.metric] ?? 0,
+    current: g.period === 'daily' ? (dailyCounts[g.metric] ?? 0) : (weeklyCounts[g.metric] ?? 0),
     mode: g.mode as 'personal_brand' | 'b2b_outbound',
+    period: g.period as 'daily' | 'weekly',
   }))
 }
 

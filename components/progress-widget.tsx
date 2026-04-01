@@ -1,15 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { WeeklyProgress, FollowerDelta, UserMode } from '@/lib/types'
-
-function isOnPace(current: number, target: number): boolean {
-  const now = new Date()
-  const day = now.getDay()
-  const daysElapsed = day === 0 ? 7 : day
-  const expectedPace = (daysElapsed / 7) * 0.8
-  return target === 0 || (current / target) >= expectedPace
-}
 
 interface GoalsData {
   progress: WeeklyProgress[]
@@ -18,10 +10,17 @@ interface GoalsData {
   mode: string
 }
 
-const METRIC_CONFIG: Record<string, { label: string; verb: string; category: 'inbound' | 'outbound' }> = {
-  reply: { label: 'Replies', verb: 'replied', category: 'inbound' },
-  dm_send: { label: 'DMs sent', verb: 'sent', category: 'outbound' },
-  scrape: { label: 'Scrapes', verb: 'scraped', category: 'outbound' },
+const METRIC_CONFIG: Record<string, { label: string; icon: string; category: 'inbound' | 'outbound' }> = {
+  reply: { label: 'X Replies', icon: '\u{1F4AC}', category: 'inbound' },
+  x_thread: { label: 'Threads', icon: '\u{1F9F5}', category: 'inbound' },
+  x_quote: { label: 'Quotes', icon: '\u{1F501}', category: 'inbound' },
+  x_post: { label: 'X Posts', icon: '\u270F\uFE0F', category: 'inbound' },
+  li_comment: { label: 'LI Comments', icon: '\u{1F4AC}', category: 'inbound' },
+  li_post: { label: 'LI Posts', icon: '\u{1F4DD}', category: 'inbound' },
+  li_carousel: { label: 'Carousels', icon: '\u{1F3A0}', category: 'inbound' },
+  li_connection: { label: 'Connections', icon: '\u{1F91D}', category: 'outbound' },
+  dm_send: { label: 'DMs Sent', icon: '\u2709\uFE0F', category: 'outbound' },
+  scrape: { label: 'Scrapes', icon: '\u{1F50D}', category: 'outbound' },
 }
 
 interface ProgressWidgetProps {
@@ -31,34 +30,45 @@ interface ProgressWidgetProps {
 export default function ProgressWidget({ mode: propMode }: ProgressWidgetProps) {
   const [data, setData] = useState<GoalsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [logging, setLogging] = useState<string | null>(null)
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     fetch('/api/goals')
       .then(r => r.json())
-      .then(json => {
-        if (json.success) setData(json.data)
-      })
+      .then(json => { if (json.success) setData(json.data) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => { fetchData() }, [fetchData])
+
+  async function quickLog(metric: string) {
+    setLogging(metric)
+    await fetch('/api/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_type: metric }),
+    }).catch(() => {})
+    setLogging(null)
+    fetchData() // refresh counts
+  }
+
   if (loading) return (
     <div className="mb-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+        <div className="skeleton skeleton-stat" />
         <div className="skeleton skeleton-stat" />
         <div className="skeleton skeleton-stat" />
       </div>
-      <div className="skeleton skeleton-text" style={{ width: '100%', height: '6px' }} />
     </div>
   )
   if (!data || data.progress.length === 0) return null
 
   const mode = propMode ?? data.mode ?? 'personal_brand'
-  const showInbound = mode === 'personal_brand' || mode === 'both'
-  const showOutbound = mode === 'b2b_outbound' || mode === 'both'
 
-  const inboundProgress = data.progress.filter(p => METRIC_CONFIG[p.metric]?.category === 'inbound')
-  const outboundProgress = data.progress.filter(p => METRIC_CONFIG[p.metric]?.category === 'outbound')
+  // Split daily and weekly goals
+  const dailyGoals = data.progress.filter(p => p.period === 'daily')
+  const weeklyGoals = data.progress.filter(p => p.period === 'weekly')
 
   // Overall completion
   const allProgress = data.progress
@@ -68,45 +78,56 @@ export default function ProgressWidget({ mode: propMode }: ProgressWidgetProps) 
 
   return (
     <div className="mb-6">
-      {/* Metric cards row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-        {/* Inbound metrics */}
-        {showInbound && inboundProgress.map(p => (
-          <MetricCard key={p.metric} progress={p} />
-        ))}
+      {/* Daily goals — today's actions */}
+      {dailyGoals.length > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="section-label !mb-0">Today</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {dailyGoals.map(p => (
+              <MetricTile key={p.metric} progress={p} onLog={quickLog} logging={logging} />
+            ))}
+          </div>
+        </div>
+      )}
 
-        {/* Follower card */}
-        {showInbound && data.followerDelta.current !== null && (
-          <div className="stat-card">
-            <div className="stat-num stat-num-blue">{data.followerDelta.current.toLocaleString()}</div>
-            <div className="stat-label">
-              Followers
+      {/* Weekly goals */}
+      {weeklyGoals.length > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="section-label !mb-0">This week</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {weeklyGoals.map(p => (
+              <MetricTile key={p.metric} progress={p} onLog={quickLog} logging={logging} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Follower + pipeline row */}
+      {(data.followerDelta.current !== null || (data.pipeline.leads > 0 || data.pipeline.dmsSent > 0)) && (
+        <div className="flex flex-wrap gap-3 text-xs text-ink-3 mb-3">
+          {data.followerDelta.current !== null && (
+            <span>
+              {data.followerDelta.current.toLocaleString()} followers
               {data.followerDelta.delta7d !== null && (
                 <span className={data.followerDelta.delta7d >= 0 ? ' text-green' : ' text-orange'}>
-                  {' '}{data.followerDelta.delta7d >= 0 ? '+' : ''}{data.followerDelta.delta7d} this week
+                  {' '}{data.followerDelta.delta7d >= 0 ? '+' : ''}{data.followerDelta.delta7d}
                 </span>
               )}
-            </div>
-          </div>
-        )}
+            </span>
+          )}
+          {(mode === 'b2b_outbound' || mode === 'both') && (data.pipeline.leads > 0 || data.pipeline.dmsSent > 0) && (
+            <span>
+              Pipeline: {data.pipeline.leads} leads {'\u2192'} {data.pipeline.dmsSent} DMs {'\u2192'} {data.pipeline.replies} replies
+            </span>
+          )}
+        </div>
+      )}
 
-        {/* Outbound metrics */}
-        {showOutbound && outboundProgress.map(p => (
-          <MetricCard key={p.metric} progress={p} />
-        ))}
-
-        {/* Pipeline card */}
-        {showOutbound && (data.pipeline.leads > 0 || data.pipeline.dmsSent > 0) && (
-          <div className="stat-card">
-            <div className="stat-num stat-num-orange">{data.pipeline.leads}</div>
-            <div className="stat-label">
-              ICP leads {'\u2192'} {data.pipeline.dmsSent} DMs {'\u2192'} {data.pipeline.replies} replies
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Overall progress bar */}
+      {/* Overall bar */}
       <div className="flex items-center gap-3">
         <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-rule-light">
           <div
@@ -123,28 +144,48 @@ export default function ProgressWidget({ mode: propMode }: ProgressWidgetProps) 
   )
 }
 
-function MetricCard({ progress }: { progress: WeeklyProgress }) {
+function MetricTile({ progress, onLog, logging }: {
+  progress: WeeklyProgress
+  onLog: (metric: string) => void
+  logging: string | null
+}) {
   const config = METRIC_CONFIG[progress.metric]
-  const onPace = isOnPace(progress.current, progress.target)
   const done = progress.current >= progress.target
   const pct = progress.target > 0 ? Math.min((progress.current / progress.target) * 100, 100) : 0
+  const isLogging = logging === progress.metric
 
   return (
-    <div className="stat-card relative overflow-hidden">
+    <button
+      onClick={() => onLog(progress.metric)}
+      disabled={isLogging}
+      className="stat-card relative overflow-hidden text-left hover:border-accent transition-colors cursor-pointer"
+      title={`Tap to log a ${config?.label ?? progress.metric}. ${progress.period === 'daily' ? 'Resets daily.' : 'Resets weekly.'}`}
+    >
       {/* Background fill */}
       <div
         className="absolute bottom-0 left-0 right-0 transition-all duration-500 opacity-[0.06]"
         style={{
           height: `${pct}%`,
-          backgroundColor: done ? 'var(--green)' : onPace ? 'var(--blue-bright)' : 'var(--accent-orange)',
+          backgroundColor: done ? 'var(--green)' : 'var(--blue-bright)',
         }}
       />
       <div className="relative">
-        <div className={`stat-num ${done ? 'stat-num-green' : 'stat-num-blue'}`}>
-          {progress.current}<span className="text-ink-4 text-base font-normal">/{progress.target}</span>
+        <div className="flex items-center justify-between mb-0.5">
+          <span className={`font-head text-lg font-bold ${done ? 'text-green' : 'text-ink'}`}>
+            {progress.current}<span className="text-ink-4 text-sm font-normal">/{progress.target}</span>
+          </span>
+          <span className="text-sm">{config?.icon ?? '\u{1F4CB}'}</span>
         </div>
-        <div className="stat-label">{config?.label ?? progress.metric}</div>
+        <div className="text-[11px] text-ink-4">
+          {config?.label ?? progress.metric}
+          <span className="ml-1 opacity-60">/{progress.period === 'daily' ? 'day' : 'wk'}</span>
+        </div>
       </div>
-    </div>
+      {isLogging && (
+        <div className="absolute inset-0 flex items-center justify-center bg-surface/80">
+          <span className="text-xs text-accent font-semibold">+1</span>
+        </div>
+      )}
+    </button>
   )
 }

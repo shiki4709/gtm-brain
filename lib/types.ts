@@ -182,8 +182,8 @@ export type InsightType =
   | 'outcome'
 
 // Feedback loop types
-export type ActionType = 'reply' | 'reply_copy' | 'dm_draft' | 'dm_send' | 'scrape' | 'dm_reply_received'
-export type GoalMetric = 'reply' | 'dm_send' | 'scrape'
+export type ActionType = 'reply' | 'reply_copy' | 'dm_draft' | 'dm_send' | 'scrape' | 'dm_reply_received' | 'x_thread' | 'x_quote' | 'x_post' | 'li_comment' | 'li_post' | 'li_carousel' | 'li_connection'
+export type GoalMetric = 'reply' | 'dm_send' | 'scrape' | 'x_thread' | 'x_quote' | 'x_post' | 'li_comment' | 'li_post' | 'li_carousel' | 'li_connection'
 
 export interface UserGoal {
   id: string
@@ -220,6 +220,7 @@ export interface WeeklyProgress {
   target: number
   current: number
   mode: 'personal_brand' | 'b2b_outbound'
+  period: 'daily' | 'weekly'
 }
 
 export interface FollowerDelta {

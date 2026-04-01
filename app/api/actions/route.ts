@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     metadata?: Record<string, unknown>
   }
 
-  const validTypes = ['reply', 'reply_copy', 'dm_draft', 'dm_send', 'scrape', 'dm_reply_received']
+  const validTypes = ['reply', 'reply_copy', 'dm_draft', 'dm_send', 'scrape', 'dm_reply_received', 'x_thread', 'x_quote', 'x_post', 'li_comment', 'li_post', 'li_carousel', 'li_connection']
   if (!action_type || !validTypes.includes(action_type)) {
     return NextResponse.json({ success: false, error: `Invalid action_type. Must be one of: ${validTypes.join(', ')}` }, { status: 400 })
   }
