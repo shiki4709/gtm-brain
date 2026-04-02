@@ -84,7 +84,7 @@ export default function WatchlistFeed() {
   const [userMode, setUserMode] = useState<UserMode>('personal_brand')
   const [progressKey, setProgressKey] = useState(0)
   const [activeSection, setActiveSection] = useState<string>('engage')
-  const [activeView, setActiveView] = useState<'dashboard' | 'feed'>('dashboard')
+  const [activeView, setActiveView] = useState<'dashboard' | 'feed' | 'create'>('dashboard')
   const [feedLoaded, setFeedLoaded] = useState(false)
 
   // Create flow — angle detection + generation
@@ -972,7 +972,6 @@ export default function WatchlistFeed() {
       sections.push({ key: 'engage', label: 'Engage', filterType: 'reply', count: 0 })
     } else {
       sections.push({ key: 'engage', label: 'Reply', filterType: 'reply', count: 0 })
-      sections.push({ key: 'create', label: 'Create', filterType: 'content', count: 0 })
     }
     return sections
   })()
@@ -985,23 +984,24 @@ export default function WatchlistFeed() {
     <div className="max-w-2xl mx-auto">
       {/* ═══ TOP-LEVEL VIEW TABS ═══ */}
       <div className="flex items-center gap-1 mb-6">
-        <button
-          onClick={() => setActiveView('dashboard')}
-          className={`font-head text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-            activeView === 'dashboard' ? 'bg-[var(--blue-tint)] text-ink' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
-          }`}
-        >
-          Dashboard
-        </button>
-        <button
-          onClick={() => setActiveView('feed')}
-          className={`font-head text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-            activeView === 'feed' ? 'bg-[var(--blue-tint)] text-ink' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
-          }`}
-        >
-          Feed
-          {feed.length > 0 && <span className="ml-1.5 text-[10px] bg-[var(--rule-light)] rounded-full px-1.5 py-0.5">{feed.length}</span>}
-        </button>
+        {([
+          { key: 'dashboard' as const, label: 'Dashboard' },
+          { key: 'feed' as const, label: 'Feed', count: feed.length },
+          ...(userMode === 'personal_brand' ? [{ key: 'create' as const, label: 'Create' }] : []),
+        ]).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveView(tab.key)}
+            className={`font-head text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
+              activeView === tab.key ? 'bg-[var(--blue-tint)] text-ink' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
+            }`}
+          >
+            {tab.label}
+            {'count' in tab && (tab.count ?? 0) > 0 && (
+              <span className="ml-1.5 text-[10px] bg-[var(--rule-light)] rounded-full px-1.5 py-0.5">{tab.count}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* ═══ DASHBOARD VIEW ═══ */}
@@ -1025,12 +1025,17 @@ export default function WatchlistFeed() {
           {/* Growth Coach */}
           <GrowthCoach />
 
-          {/* Content Calendar (personal brand) */}
-          {userMode === 'personal_brand' && (
-            <div className="mb-6">
-              <ContentCalendar />
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* ═══ CREATE VIEW ═══ */}
+      {activeView === 'create' && (
+        <div>
+          <div className="mb-5">
+            <h1 className="font-head text-lg font-bold text-ink">Create content</h1>
+            <p className="text-xs text-ink-4 mt-0.5">AI-generated posts based on trending topics in your feed.</p>
+          </div>
+          <ContentCalendar />
         </div>
       )}
 
