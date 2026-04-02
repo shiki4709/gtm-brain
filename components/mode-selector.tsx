@@ -11,20 +11,14 @@ const MODES: Array<{ value: UserMode; label: string; description: string; icon: 
   {
     value: 'personal_brand',
     label: 'Grow my audience',
-    description: 'Reply to trending posts, build visibility, track follower growth',
+    description: 'Reply to trending posts, create content, track follower growth. Pipeline tools still available.',
     icon: '\u{1F4E3}',
   },
   {
     value: 'b2b_outbound',
     label: 'Book meetings',
-    description: 'Scrape engagers, draft DMs, track pipeline from lead to meeting',
+    description: 'Scrape engagers, draft DMs, track pipeline. Content and reply tools still available.',
     icon: '\u{1F3AF}',
-  },
-  {
-    value: 'both',
-    label: 'Both',
-    description: 'Build your brand and generate leads simultaneously',
-    icon: '\u26A1',
   },
 ]
 

@@ -283,7 +283,7 @@ export default function Settings() {
     <div className="max-w-2xl mx-auto">
       <h1 className="font-head text-2xl font-bold text-ink mb-2">Settings</h1>
       <p className="text-sm text-ink-3 mb-8">
-        {mode === 'personal_brand' ? 'Configure your brand, voice, and who you watch.' : mode === 'b2b_outbound' ? 'Configure your ICP, pipeline, and outreach.' : 'Configure your brand, ICP, and preferences.'}
+        {mode === 'personal_brand' ? 'Configure your brand, voice, and who you watch.' : 'Configure your ICP, pipeline, and outreach.'}
       </p>
 
       {/* Account */}
@@ -300,7 +300,6 @@ export default function Settings() {
           {([
             ['personal_brand', '\u{1F4E3} Grow my audience'],
             ['b2b_outbound', '\u{1F3AF} Book meetings'],
-            ['both', '\u26A1 Both'],
           ] as const).map(([value, label]) => (
             <button
               key={value}
@@ -371,8 +370,8 @@ export default function Settings() {
       )}
 
       {/* X Handle for follower tracking */}
-      {(mode === 'personal_brand' || mode === 'both') && (
-        <Section title="Your X account">
+      {/* X account — always visible, emphasized for personal brand */}
+      <Section title="Your X account">
           <p className="text-xs text-ink-4 mb-3">Connect your X handle to track follower growth automatically.</p>
           <div className="flex gap-2 items-center">
             <span className="text-sm text-ink-3">@</span>
@@ -411,7 +410,6 @@ export default function Settings() {
             </div>
           )}
         </Section>
-      )}
 
       {/* Voice & Tone */}
       <Section title="Your voice &amp; tone">
@@ -584,12 +582,15 @@ export default function Settings() {
         <p className="text-[11px] text-ink-4 mt-2">Paste a handle to add directly, or describe who you&apos;re looking for to search.</p>
       </Section>
 
-      {/* ICP Config — B2B and Both only */}
-      {(mode === 'b2b_outbound' || mode === 'both') && (<>
+      {/* ICP Config — always visible, emphasized for B2B */}
       <hr className="border-rule-light my-10" />
 
-      <Section title="ICP — Target titles">
-        <p className="text-xs text-ink-4 mb-3">Job titles you want to reach. Used to filter leads from every scrape.</p>
+      <Section title="ICP — Target titles" defaultOpen={mode === 'b2b_outbound'}>
+        <p className="text-xs text-ink-4 mb-3">
+          {mode === 'b2b_outbound'
+            ? 'Job titles you want to reach. Used to filter leads from every scrape.'
+            : 'Job titles of your ideal audience. Helps the brain find relevant posts and people.'}
+        </p>
 
         {titles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
@@ -640,7 +641,6 @@ export default function Settings() {
           <button className="btn-outline" onClick={() => addToList(excludeInput, excludes, setExcludes, setExcludeInput)} disabled={!excludeInput.trim()}>Add</button>
         </div>
       </Section>
-      </>)}
 
       {/* Notifications */}
       <hr className="border-rule-light my-6" />

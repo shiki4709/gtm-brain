@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   const body = await request.json()
   const { mode } = body as { mode: UserMode }
 
-  const validModes: UserMode[] = ['personal_brand', 'b2b_outbound', 'both']
+  const validModes: UserMode[] = ['personal_brand', 'b2b_outbound']
   if (!mode || !validModes.includes(mode)) {
     return NextResponse.json({ success: false, error: `Invalid mode. Must be one of: ${validModes.join(', ')}` }, { status: 400 })
   }

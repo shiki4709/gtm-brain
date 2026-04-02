@@ -46,8 +46,8 @@ export async function createDefaultGoals(
   userId: string,
   mode: UserMode
 ): Promise<void> {
-  const modes: Array<'personal_brand' | 'b2b_outbound'> =
-    mode === 'both' ? ['personal_brand', 'b2b_outbound'] : [mode as 'personal_brand' | 'b2b_outbound']
+  // Always create goals for both modes — mode just determines which is primary
+  const modes: Array<'personal_brand' | 'b2b_outbound'> = ['personal_brand', 'b2b_outbound']
 
   const rows = modes.flatMap(m =>
     DEFAULT_GOALS[m].map(g => ({

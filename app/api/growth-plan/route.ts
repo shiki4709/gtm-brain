@@ -17,7 +17,9 @@ export async function GET() {
   // LinkedIn connections not tracked yet — use null
   const liConnections = null
 
-  const plan = generateGrowthPlan(xFollowers, liConnections, mode as 'personal_brand' | 'b2b_outbound' | 'both')
+  // Treat legacy 'both' mode as 'personal_brand'
+  const effectiveMode = (mode === 'both' ? 'personal_brand' : mode) as 'personal_brand' | 'b2b_outbound'
+  const plan = generateGrowthPlan(xFollowers, liConnections, effectiveMode)
 
   return NextResponse.json({ success: true, data: plan })
 }

@@ -528,8 +528,8 @@ export default function WatchlistFeed() {
     const isSubstantive = item.text.length >= 80
 
     // Mode-aware: suppress actions that don't match the user's goal
-    const showScrape = userMode === 'b2b_outbound' || userMode === 'both'
-    const showRepurpose = userMode === 'personal_brand' || userMode === 'both'
+    const showScrape = true // always available
+    const showRepurpose = true // always available
 
     type Action = { label: string; type: 'scrape' | 'reply' | 'content' | 'skip'; priority: 'high' | 'medium' | 'low' }
     const actions: Action[] = []
@@ -815,21 +815,13 @@ export default function WatchlistFeed() {
               <div className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[9px] font-bold shrink-0">1</div>
               <div><strong className="text-ink">They post</strong> → brain tells you what to do with it</div>
             </div>
-            {(userMode === 'b2b_outbound' || userMode === 'both') && (
-              <div className="flex gap-3">
-                <div className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[9px] font-bold shrink-0">2</div>
-                <div><strong className="text-ink">Scrape engagers</strong> → find ICP matches → draft DMs → book meetings</div>
-              </div>
-            )}
-            {(userMode === 'personal_brand' || userMode === 'both') && (
-              <div className="flex gap-3">
-                <div className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: 'var(--accent-orange)' }}>{userMode === 'both' ? '3' : '2'}</div>
-                <div><strong className="text-ink">Reply to trending posts</strong> → build visibility → grow your audience</div>
-              </div>
-            )}
+            <div className="flex gap-3">
+              <div className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[9px] font-bold shrink-0">2</div>
+              <div><strong className="text-ink">{userMode === 'b2b_outbound' ? 'Scrape engagers' : 'Reply to trending posts'}</strong> → {userMode === 'b2b_outbound' ? 'find ICP matches → draft DMs → book meetings' : 'build visibility → grow your audience'}</div>
+            </div>
             <div className="flex gap-3">
               <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: 'var(--gradient-main)', color: '#fff' }}>B</div>
-              <div><strong className="text-ink">Brain learns</strong> → what actually works for {userMode === 'b2b_outbound' ? 'booking meetings' : userMode === 'both' ? 'your goals' : 'growing your audience'}</div>
+              <div><strong className="text-ink">Brain learns</strong> → what actually works for {userMode === 'b2b_outbound' ? 'booking meetings' : 'growing your audience'}</div>
             </div>
           </div>
         </div>
@@ -955,16 +947,16 @@ export default function WatchlistFeed() {
     )
   }
 
-  // Goal-oriented sections — different tabs per mode
+  // Goal-oriented sections — all tabs for both modes, different order/emphasis
   const goalSections = (() => {
     const sections: Array<{ key: string; label: string; filterType: 'all' | 'reply' | 'scrape' | 'content'; count: number }> = []
-    if (userMode === 'personal_brand') {
-      sections.push({ key: 'engage', label: 'Reply', filterType: 'reply', count: 0 })
-      sections.push({ key: 'create', label: 'Create', filterType: 'content', count: 0 })
-    } else if (userMode === 'b2b_outbound') {
+    if (userMode === 'b2b_outbound') {
+      // B2B: leads first, then engage, then create
       sections.push({ key: 'prospect', label: 'Find leads', filterType: 'scrape', count: 0 })
       sections.push({ key: 'engage', label: 'Engage', filterType: 'reply', count: 0 })
+      sections.push({ key: 'create', label: 'Create', filterType: 'content', count: 0 })
     } else {
+      // Personal brand: reply first, then create, then leads
       sections.push({ key: 'engage', label: 'Reply', filterType: 'reply', count: 0 })
       sections.push({ key: 'create', label: 'Create', filterType: 'content', count: 0 })
       sections.push({ key: 'prospect', label: 'Find leads', filterType: 'scrape', count: 0 })
@@ -1428,9 +1420,9 @@ export default function WatchlistFeed() {
 
                         {/* ROI for the relevant action (mode-aware) */}
                         <div className="text-[11px] text-ink-4 mb-2">
-                          {(userMode === 'b2b_outbound' || userMode === 'both') && (effectiveFilter === 'scrape' || (actionFilter === 'all' && primaryAction?.type === 'scrape')) && <span>{p}{est.scrape.icpLeads} est. ICP leads → {p}{est.scrape.meetings} meetings</span>}
+                          {(effectiveFilter === 'scrape' || (actionFilter === 'all' && primaryAction?.type === 'scrape')) && <span>{p}{est.scrape.icpLeads} est. ICP leads → {p}{est.scrape.meetings} meetings</span>}
                           {(effectiveFilter === 'reply' || (actionFilter === 'all' && primaryAction?.type === 'reply')) && <span>{p}{est.reply.impressions} est. impressions → {p}{est.reply.followers} followers</span>}
-                          {(userMode === 'personal_brand' || userMode === 'both') && (effectiveFilter === 'content' || (actionFilter === 'all' && primaryAction?.type === 'content')) && <span>{est.content.icpRate}% ICP topic match</span>}
+                          {(effectiveFilter === 'content' || (actionFilter === 'all' && primaryAction?.type === 'content')) && <span>{est.content.icpRate}% ICP topic match</span>}
                         </div>
 
                         <div className="flex flex-wrap gap-2">

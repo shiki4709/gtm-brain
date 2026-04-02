@@ -146,7 +146,7 @@ function linkedinSuggestions(stage: GrowthStage['stage']): GrowthSuggestion[] {
 export function generateGrowthPlan(
   xFollowers: number | null,
   liConnections: number | null,
-  mode: 'personal_brand' | 'b2b_outbound' | 'both'
+  mode: 'personal_brand' | 'b2b_outbound'
 ): GrowthPlan {
   // Use X followers as primary metric for personal brand, LinkedIn for B2B
   const primaryFollowers = mode === 'b2b_outbound'
@@ -156,15 +156,13 @@ export function generateGrowthPlan(
   const stage = getStage(primaryFollowers)
   const suggestions: GrowthSuggestion[] = []
 
-  if (mode === 'personal_brand' || mode === 'both') {
-    suggestions.push(...xSuggestions(stage.stage))
-  }
-  if (mode === 'b2b_outbound' || mode === 'both') {
-    suggestions.push(...linkedinSuggestions(stage.stage))
-  }
-  // Personal brand also benefits from LinkedIn
+  // Both modes get all suggestions — mode determines priority order
+  suggestions.push(...xSuggestions(stage.stage))
+  suggestions.push(...linkedinSuggestions(stage.stage))
+
+  // Personal brand: X suggestions first (already pushed above)
   if (mode === 'personal_brand') {
-    suggestions.push(...linkedinSuggestions(stage.stage).filter(s => s.priority === 'high'))
+    // Already have LinkedIn suggestions, just keep high-priority ones prominent
   }
 
   // Weekly playbook — ordered action items
