@@ -58,7 +58,7 @@ export default function GrowthCoach() {
 
   if (loading) return (
     <div className="brain-card mb-5">
-      <div className="skeleton skeleton-text" style={{ width: '40%' }} />
+      <div className="skeleton skeleton-text w-2/5" />
       <div className="skeleton skeleton-text" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
         <div className="skeleton skeleton-stat" />

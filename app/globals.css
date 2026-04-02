@@ -52,6 +52,14 @@
   --separator: rgba(33,150,243,0.08);
 
   --surface: #ffffff;
+
+  /* Status colors */
+  --status-pending: #e65100;
+  --status-error: #c62828;
+
+  /* Brand colors (third-party) */
+  --brand-telegram: #229ED9;
+  --brand-slack: #4A154B;
 }
 
 @theme inline {
@@ -204,6 +212,17 @@ body {
   border: 1.5px solid var(--rule); background: transparent; color: var(--ink-3);
 }
 .btn-outline:hover:not(:disabled) { border-color: var(--ink-4); color: var(--ink); }
+
+.btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 7px 15px; border-radius: 6px;
+  font-family: var(--font-head); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.15s;
+  background: transparent; border: none; color: var(--ink-3);
+  white-space: nowrap;
+}
+.btn-ghost:hover:not(:disabled) { color: var(--ink); background: var(--rule-light); }
+.btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ═══ Badges ═══ */
 .badge { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 100px; display: inline-flex; align-items: center; }

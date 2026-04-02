@@ -406,7 +406,7 @@ export default function Settings() {
             </button>
           </div>
           {xConnected && xFollowers !== null && (
-            <div className="mt-2 text-sm text-green">
+            <div className="mt-2 text-sm text-[var(--green)]">
               Connected — {xFollowers.toLocaleString()} followers
             </div>
           )}
@@ -478,7 +478,7 @@ export default function Settings() {
             >
               {voiceExtracting ? 'Saving...' : voiceProfile ? 'Update voice' : 'Save voice'}
             </button>
-            {voiceProfile && <span className="text-[11px] text-green">Voice profile active</span>}
+            {voiceProfile && <span className="text-[11px] text-[var(--green)]">Voice profile active</span>}
           </div>
           {voiceError && <div className="text-xs text-orange mt-2">{voiceError}</div>}
         </div>
@@ -540,7 +540,7 @@ export default function Settings() {
                                   {s.headline && <div className="text-[10px] text-ink-3 truncate">{s.headline}</div>}
                                 </div>
                                 {alreadyWatched ? (
-                                  <span className="text-[10px] text-green shrink-0 ml-2">Watching</span>
+                                  <span className="text-[10px] text-[var(--green)] shrink-0 ml-2">Watching</span>
                                 ) : (
                                   <button
                                     className="text-[11px] text-accent font-semibold hover:underline shrink-0 ml-2"
@@ -651,7 +651,7 @@ export default function Settings() {
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-semibold text-ink flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-[#229ED9]"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--brand-telegram)]"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
               Telegram
             </div>
             {telegramConnected && (
@@ -678,7 +678,7 @@ export default function Settings() {
                 {notifTesting === 'telegram' ? 'Sending...' : 'Test'}
               </button>
               <button
-                className="btn-ghost text-xs text-red-500"
+                className="btn-ghost text-xs text-[var(--status-error)]"
                 onClick={async () => {
                   const res = await fetch('/api/notifications', {
                     method: 'POST',
@@ -718,7 +718,7 @@ export default function Settings() {
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-semibold text-ink flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-[#4A154B]"><path d="M5.042 15.165a2.528 2.528 0 01-2.52 2.523A2.528 2.528 0 010 15.165a2.527 2.527 0 012.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 012.521-2.52 2.527 2.527 0 012.521 2.52v6.313A2.528 2.528 0 018.834 24a2.528 2.528 0 01-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 01-2.521-2.52A2.528 2.528 0 018.834 0a2.528 2.528 0 012.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 012.521 2.521 2.528 2.528 0 01-2.521 2.521H2.522A2.528 2.528 0 010 8.834a2.528 2.528 0 012.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 012.522-2.521A2.528 2.528 0 0124 8.834a2.528 2.528 0 01-2.52 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 01-2.521 2.521 2.528 2.528 0 01-2.521-2.521V2.522A2.528 2.528 0 0115.165 0a2.528 2.528 0 012.522 2.522v6.312zm-2.522 10.124a2.528 2.528 0 012.522 2.522A2.528 2.528 0 0115.165 24a2.528 2.528 0 01-2.521-2.52v-2.522h2.521zm0-1.271a2.528 2.528 0 01-2.521-2.521 2.528 2.528 0 012.521-2.521h6.313A2.528 2.528 0 0124 15.165a2.528 2.528 0 01-2.52 2.522h-6.315z"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-[var(--brand-slack)]"><path d="M5.042 15.165a2.528 2.528 0 01-2.52 2.523A2.528 2.528 0 010 15.165a2.527 2.527 0 012.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 012.521-2.52 2.527 2.527 0 012.521 2.52v6.313A2.528 2.528 0 018.834 24a2.528 2.528 0 01-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 01-2.521-2.52A2.528 2.528 0 018.834 0a2.528 2.528 0 012.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 012.521 2.521 2.528 2.528 0 01-2.521 2.521H2.522A2.528 2.528 0 010 8.834a2.528 2.528 0 012.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 012.522-2.521A2.528 2.528 0 0124 8.834a2.528 2.528 0 01-2.52 2.521h-2.522V8.834zm-1.271 0a2.528 2.528 0 01-2.521 2.521 2.528 2.528 0 01-2.521-2.521V2.522A2.528 2.528 0 0115.165 0a2.528 2.528 0 012.522 2.522v6.312zm-2.522 10.124a2.528 2.528 0 012.522 2.522A2.528 2.528 0 0115.165 24a2.528 2.528 0 01-2.521-2.52v-2.522h2.521zm0-1.271a2.528 2.528 0 01-2.521-2.521 2.528 2.528 0 012.521-2.521h6.313A2.528 2.528 0 0124 15.165a2.528 2.528 0 01-2.52 2.522h-6.315z"/></svg>
               Slack
             </div>
             {notifChannels.some(c => c.type === 'slack') && (
@@ -745,7 +745,7 @@ export default function Settings() {
                 {notifTesting === 'slack' ? 'Sending...' : 'Test'}
               </button>
               <button
-                className="btn-ghost text-xs text-red-500"
+                className="btn-ghost text-xs text-[var(--status-error)]"
                 onClick={async () => {
                   const res = await fetch('/api/notifications', {
                     method: 'POST',
@@ -827,7 +827,7 @@ export default function Settings() {
             <div className="space-y-1 max-h-40 overflow-y-auto">
               {recentNotifications.slice(0, 10).map(n => (
                 <div key={n.id} className="flex items-center gap-2 text-[11px]">
-                  <span className={n.status === 'acted' ? 'text-green' : n.status === 'skipped' ? 'text-ink-4' : 'text-amber-500'}>
+                  <span className={n.status === 'acted' ? 'text-[var(--green)]' : n.status === 'skipped' ? 'text-ink-4' : 'text-[var(--status-pending)]'}>
                     {n.status === 'acted' ? '✓' : n.status === 'skipped' ? '—' : '•'}
                   </span>
                   <span className="text-ink-3 truncate max-w-[200px]">{n.action_type}</span>
@@ -877,7 +877,7 @@ export default function Settings() {
         >
           {saving ? 'Saving...' : 'Save all settings'}
         </button>
-        {saved && <span className="text-xs text-green">Settings saved</span>}
+        {saved && <span className="text-xs text-[var(--green)]">Settings saved</span>}
       </div>
     </div>
   )

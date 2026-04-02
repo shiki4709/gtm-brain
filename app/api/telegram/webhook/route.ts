@@ -198,9 +198,9 @@ export async function POST(request: Request) {
             })
 
             if (status === 'acted' && notif.draft_text) {
-              await sendTelegramMessage(chatId, `Copy this reply:\n\n${notif.draft_text}`)
+              await sendTelegramMessage(chatId, `Copy this reply:\n\n${notif.draft_text}\n\nPost: ${notif.post_url}`)
             } else if (status === 'acted') {
-              await sendTelegramMessage(chatId, 'Marked as done!')
+              await sendTelegramMessage(chatId, `Marked as done!\n\nPost: ${notif.post_url}`)
             } else {
               await sendTelegramMessage(chatId, 'Skipped.')
             }

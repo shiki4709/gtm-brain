@@ -887,7 +887,7 @@ export default function WatchlistFeed() {
                 <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${isDone ? 'border-rule opacity-60' : rec.actions[0]?.priority === 'high' ? 'border-accent' : 'border-rule'}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[11px] text-ink-4">{timeAgo(item.time)}</span>
-                    {isDone && <span className="text-[10px] text-green-600 font-semibold">{tasks[item.url] === 'done' ? 'Done' : 'Skipped'}</span>}
+                    {isDone && <span className="text-[10px] text-[var(--green)] font-semibold">{tasks[item.url] === 'done' ? 'Done' : 'Skipped'}</span>}
                     {!isDone && rec.actions[0]?.priority === 'high' && (
                       <span className="text-[10px] text-accent font-bold uppercase tracking-wider">High priority</span>
                     )}
@@ -1400,7 +1400,7 @@ export default function WatchlistFeed() {
                           {icpRelevance.score > 0 && (
                             <span
                               className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                                icpRelevance.score >= 0.1 ? 'bg-green-100 text-green-700' : 'bg-[var(--rule-light)] text-ink-4'
+                                icpRelevance.score >= 0.1 ? 'bg-[var(--green-tint)] text-[var(--green)]' : 'bg-[var(--rule-light)] text-ink-4'
                               }`}
                               title={profileScores[item.url]?.reason || undefined}
                             >
@@ -1529,7 +1529,7 @@ export default function WatchlistFeed() {
                                             <span className="badge badge-replied">
                                               {formatLabel} · {tweets.length} tweets
                                             </span>
-                                            {isPosted && <span className="text-[9px] text-green font-semibold">Posted</span>}
+                                            {isPosted && <span className="text-[9px] text-[var(--green)] font-semibold">Posted</span>}
                                           </div>
                                           <button className={`text-xs font-semibold ${isPosted ? 'btn-outline' : 'btn-primary'}`} onClick={markPosted}>
                                             {isCopied ? 'Copied!' : isPosted ? 'Copy again' : 'Copy & mark posted'}
@@ -1542,7 +1542,7 @@ export default function WatchlistFeed() {
                                                 <span className="text-[10px] text-ink-4 font-semibold shrink-0 mt-0.5">{ti + 1}/{tweets.length}</span>
                                                 <div className="flex-1">
                                                   <div className="text-xs text-ink leading-relaxed whitespace-pre-wrap">{tweet}</div>
-                                                  <div className={`text-[10px] mt-1 ${tweet.length > 270 ? 'text-red-500 font-semibold' : 'text-ink-4'}`}>
+                                                  <div className={`text-[10px] mt-1 ${tweet.length > 270 ? 'text-[var(--status-error)] font-semibold' : 'text-ink-4'}`}>
                                                     {tweet.length}/280
                                                   </div>
                                                 </div>
@@ -1564,7 +1564,7 @@ export default function WatchlistFeed() {
                                             style={isQuote ? { color: 'var(--accent-orange)' } : undefined}>
                                             {formatLabel}
                                           </span>
-                                          {isPosted && <span className="text-[9px] text-green font-semibold">Posted</span>}
+                                          {isPosted && <span className="text-[9px] text-[var(--green)] font-semibold">Posted</span>}
                                         </div>
                                         <button className={`text-xs font-semibold ${isPosted ? 'btn-outline' : 'btn-primary'}`} onClick={markPosted}>
                                           {isCopied ? 'Copied!' : isPosted ? 'Copy again' : 'Copy & mark posted'}
