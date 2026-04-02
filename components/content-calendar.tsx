@@ -58,7 +58,15 @@ const FORMAT_LABELS: Record<string, string> = {
   carousel: 'LinkedIn Carousel',
 }
 
-type TabKey = 'calendar' | 'replies' | 'topics'
+interface PublishedItem {
+  id: string
+  action_type: string
+  platform: string | null
+  metadata: { content?: string; topic?: string; source?: string; format?: string; [key: string]: unknown }
+  created_at: string
+}
+
+type TabKey = 'calendar' | 'replies' | 'topics' | 'published'
 
 export default function ContentCalendar() {
   const [activeTab, setActiveTab] = useState<TabKey>('calendar')
@@ -71,6 +79,13 @@ export default function ContentCalendar() {
   const [copied, setCopied] = useState<number | null>(null)
   const [editing, setEditing] = useState<number | null>(null)
   const [editDrafts, setEditDrafts] = useState<Record<number, string>>({})
+
+  // Published content state
+  const [published, setPublished] = useState<PublishedItem[]>([])
+  const [loadingPublished, setLoadingPublished] = useState(false)
+  const [repurposing, setRepurposing] = useState<string | null>(null) // id being repurposed
+  const [repurposeResults, setRepurposeResults] = useState<Record<string, { format: string; content: string }>>({})
+  const [copiedPublished, setCopiedPublished] = useState<string | null>(null)
 
   // Repurpose replies state
   const [repurposeReplies, setRepurposeReplies] = useState<ReplyToRepurpose[]>([])
@@ -97,6 +112,9 @@ export default function ContentCalendar() {
     }
     if (activeTab === 'topics' && hotTopics.length === 0 && !loadingTopics) {
       loadTopics()
+    }
+    if (activeTab === 'published' && published.length === 0 && !loadingPublished) {
+      loadPublished()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
@@ -152,6 +170,51 @@ export default function ContentCalendar() {
     finally { setLoadingTopics(false) }
   }
 
+  async function loadPublished() {
+    setLoadingPublished(true)
+    try {
+      const res = await fetch('/api/actions')
+      const json = await res.json()
+      if (json.success) setPublished(json.items ?? [])
+    } catch { /* show empty state */ }
+    finally { setLoadingPublished(false) }
+  }
+
+  async function repurposeTo(item: PublishedItem, targetFormat: string) {
+    const content = item.metadata?.content
+    if (!content) return
+
+    setRepurposing(`${item.id}-${targetFormat}`)
+    try {
+      const res = await fetch('/api/repurpose-cross', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          sourceFormat: item.action_type,
+          targetFormat,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setRepurposeResults(prev => ({ ...prev, [item.id]: { format: targetFormat, content: json.content } }))
+      }
+    } catch { /* */ }
+    finally { setRepurposing(null) }
+  }
+
+  function handleCopyPublished(id: string, text: string, format: string) {
+    navigator.clipboard.writeText(text)
+    setCopiedPublished(id)
+    setTimeout(() => setCopiedPublished(null), 2000)
+
+    fetch('/api/actions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_type: format, metadata: { content: text, source: 'repurpose_cross' } }),
+    }).catch(() => {})
+  }
+
   async function expandReply(reply: ReplyToRepurpose, format: 'thread' | 'post' | 'quote') {
     setExpandingReply(reply.url)
     setExpandFormat(prev => ({ ...prev, [reply.url]: format }))
@@ -182,7 +245,11 @@ export default function ContentCalendar() {
         fetch('/api/actions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action_type: actionType }),
+          body: JSON.stringify({
+            action_type: actionType,
+            platform: slot.platform,
+            metadata: { content: text, topic: slot.topic, source: 'calendar', format: slot.format },
+          }),
         }).catch(() => {})
       }
     }
@@ -193,10 +260,17 @@ export default function ContentCalendar() {
     setCopiedReply(url)
     setTimeout(() => setCopiedReply(null), 2000)
 
+    const format = expandFormat[url] ?? 'thread'
+    const actionMap: Record<string, string> = { thread: 'x_thread', quote: 'x_quote', post: 'li_post' }
+
     fetch('/api/actions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action_type: 'x_post', metadata: { source: 'repurpose_reply' } }),
+      body: JSON.stringify({
+        action_type: actionMap[format] ?? 'x_post',
+        platform: format === 'post' ? 'linkedin' : 'x',
+        metadata: { content: text, source: 'repurpose_reply', format },
+      }),
     }).catch(() => {})
   }
 
@@ -204,6 +278,7 @@ export default function ContentCalendar() {
     { key: 'calendar', label: 'Post today', count: calendar?.slots ? calendar.slots.length - skipped.size : 0 },
     { key: 'replies', label: 'From your replies', count: repurposeReplies.length },
     { key: 'topics', label: 'Hot topics', count: hotTopics.length },
+    { key: 'published', label: 'Published', count: published.length },
   ]
 
   return (
@@ -540,6 +615,129 @@ export default function ContentCalendar() {
                   </a>
                 </div>
               ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ═══ TAB: Published ═══ */}
+      {activeTab === 'published' && (
+        <>
+          {loadingPublished && (
+            <div className="space-y-3">
+              <div className="section-label">Loading your content...</div>
+              <div className="skeleton skeleton-card" />
+              <div className="skeleton skeleton-card" />
+            </div>
+          )}
+
+          {!loadingPublished && published.length === 0 && (
+            <div className="empty-state">
+              <div className="empty-state-icon">{'\u{1F4CB}'}</div>
+              <div className="empty-state-title">No published content yet</div>
+              <div className="empty-state-desc">Content you create and copy from the Post today or From your replies tabs will appear here for cross-platform repurposing.</div>
+            </div>
+          )}
+
+          {!loadingPublished && published.length > 0 && (
+            <div className="space-y-3">
+              <div className="text-xs text-ink-4 mb-2">Your created content — repurpose to any platform.</div>
+              {published.map(item => {
+                const content = item.metadata?.content ?? ''
+                const repurposed = repurposeResults[item.id]
+                const isRepurposing = repurposing?.startsWith(item.id)
+                const isCopied = copiedPublished === item.id
+
+                // Determine available target formats (exclude current format)
+                const currentFormat = item.action_type
+                const allFormats = [
+                  { key: 'x_thread', label: 'X Thread', icon: '\u{1F9F5}' },
+                  { key: 'x_post', label: 'X Post', icon: '\u270F\uFE0F' },
+                  { key: 'li_post', label: 'LinkedIn Post', icon: '\u{1F4DD}' },
+                  { key: 'li_carousel', label: 'Carousel Outline', icon: '\u{1F3A0}' },
+                ]
+                const targetFormats = allFormats.filter(f => f.key !== currentFormat)
+
+                return (
+                  <div key={item.id} className="card p-4">
+                    {/* Header */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`badge text-[10px] ${
+                        item.action_type.startsWith('x_') || item.action_type === 'reply' ? 'badge-replied' : 'badge-icp'
+                      }`}>
+                        {FORMAT_LABELS[item.action_type] ?? item.action_type}
+                      </span>
+                      {item.metadata?.topic && (
+                        <span className="text-[11px] text-ink-4">{item.metadata.topic as string}</span>
+                      )}
+                      <span className="text-[10px] text-ink-4 ml-auto">
+                        {new Date(item.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    {/* Content preview */}
+                    <div className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded-lg px-3 py-2.5 mb-3 whitespace-pre-wrap">
+                      {content.length > 300 ? content.substring(0, 300) + '...' : content}
+                    </div>
+
+                    {/* Repurpose buttons */}
+                    {!repurposed && (
+                      <div className="flex flex-wrap gap-2">
+                        {targetFormats.map(fmt => (
+                          <button
+                            key={fmt.key}
+                            className="btn-outline text-xs"
+                            disabled={isRepurposing}
+                            onClick={() => repurposeTo(item, fmt.key)}
+                          >
+                            {repurposing === `${item.id}-${fmt.key}` ? '...' : `${fmt.icon} ${fmt.label}`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Repurposed result */}
+                    {repurposed && (
+                      <div className="mt-2">
+                        <div className="text-[10px] text-ink-4 mb-1 uppercase tracking-wider">
+                          {FORMAT_LABELS[repurposed.format] ?? repurposed.format}
+                        </div>
+                        {repurposed.format === 'x_thread' ? (
+                          <div className="flex flex-col gap-1.5 mb-2">
+                            {repurposed.content.split(/\n---\n/).map((tweet, ti) => (
+                              <div key={ti} className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded px-2.5 py-2">
+                                <span className="text-ink-4 text-[10px] mr-1">{ti + 1}.</span>{tweet.trim()}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-ink leading-relaxed bg-[var(--bg-warm)] rounded-lg px-3 py-2.5 mb-2 whitespace-pre-wrap">
+                            {repurposed.content}
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            className="btn-primary text-xs"
+                            onClick={() => handleCopyPublished(item.id, repurposed.content, repurposed.format)}
+                          >
+                            {isCopied ? 'Copied!' : 'Copy & post'}
+                          </button>
+                          <button
+                            className="btn-outline text-xs"
+                            onClick={() => setRepurposeResults(prev => {
+                              const next = { ...prev }
+                              delete next[item.id]
+                              return next
+                            })}
+                          >
+                            Try different format
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </>

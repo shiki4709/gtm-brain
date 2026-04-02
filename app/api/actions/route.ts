@@ -2,6 +2,24 @@ import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 import { logAction } from '@/lib/goals'
 
+// GET — retrieve published content for the "Published" tab
+export async function GET() {
+  const auth = await getAuthUser()
+  if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+
+  const contentTypes = ['x_thread', 'x_quote', 'x_post', 'li_post', 'li_carousel', 'li_comment', 'reply']
+  const { data } = await auth.sb
+    .from('action_log')
+    .select('id, action_type, platform, metadata, created_at')
+    .eq('user_id', auth.dbUser.id)
+    .in('action_type', contentTypes)
+    .not('metadata->content', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  return NextResponse.json({ success: true, items: data ?? [] })
+}
+
 export async function POST(request: Request) {
   const auth = await getAuthUser()
   if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
