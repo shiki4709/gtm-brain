@@ -332,42 +332,7 @@ export default function Settings() {
         </div>
       </Section>
 
-      {/* Weekly Goals */}
-      {goals.length > 0 && (
-        <Section title="Weekly targets">
-          <div className="space-y-2">
-            {goals.map(g => (
-              <div key={g.id} className="card-flat flex items-center gap-4 py-2.5 px-4">
-                <span className="text-sm font-medium text-ink w-20 font-head">
-                  {g.metric === 'reply' ? 'Replies' : g.metric === 'dm_send' ? 'DMs sent' : g.metric === 'scrape' ? 'Scrapes' : g.metric}
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  className="input w-16 py-1.5 px-2 text-center font-head font-bold text-[15px]"
-                  value={g.target_value}
-                  onChange={e => {
-                    const val = parseInt(e.target.value) || 0
-                    setGoals(prev => prev.map(pg => pg.id === g.id ? { ...pg, target_value: val } : pg))
-                  }}
-                  onBlur={e => {
-                    const val = parseInt(e.target.value) || 0
-                    fetch('/api/goals', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ goal_id: g.id, target_value: val }),
-                    }).catch(() => {})
-                  }}
-                />
-                <span className="text-xs text-ink-4">/ week</span>
-                <span className={`badge ml-auto ${g.mode === 'personal_brand' ? 'badge-icp' : 'badge-replied'}`}>
-                  {g.mode === 'personal_brand' ? 'Brand' : 'B2B'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
+      {/* Weekly targets auto-set by growth coach based on your stage */}
 
       {/* X Handle for follower tracking */}
       {/* X account — personal brand only */}
