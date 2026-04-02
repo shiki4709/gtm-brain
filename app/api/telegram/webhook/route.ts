@@ -6,6 +6,7 @@ import { createServiceClient } from '@/lib/supabase'
 //   body: { url: "https://gtm-brain-roan.vercel.app/api/telegram/webhook" }
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? ''
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? ''
 
 interface TelegramUpdate {
   update_id: number
@@ -25,6 +26,14 @@ interface TelegramUpdate {
 export async function POST(request: Request) {
   if (!BOT_TOKEN) {
     return NextResponse.json({ ok: false, error: 'Bot not configured' })
+  }
+
+  // Verify request is from Telegram using secret token header
+  if (WEBHOOK_SECRET) {
+    const token = request.headers.get('x-telegram-bot-api-secret-token') ?? ''
+    if (token !== WEBHOOK_SECRET) {
+      return NextResponse.json({ ok: false }, { status: 403 })
+    }
   }
 
   const update: TelegramUpdate = await request.json()
