@@ -75,6 +75,15 @@ export default function Outbound() {
   const [searching, setSearching] = useState(false)
   const [foundPosts, setFoundPosts] = useState<Post[]>([])
   const [searchNote, setSearchNote] = useState('')
+
+  // Similar posts
+  const [similarUrl, setSimilarUrl] = useState('')
+  const [searchingSimilar, setSearchingSimilar] = useState(false)
+  const [similarPosts, setSimilarPosts] = useState<Array<{
+    author: string; authorHandle: string; text: string; url: string
+    likes: number; replies: number; retweets: number; query: string
+  }>>([])
+  const [similarQueries, setSimilarQueries] = useState<string[]>([])
   const [showScrapeInput, setShowScrapeInput] = useState(!!searchParams.get('scrape'))
 
   const fetchScrapes = useCallback(async (autoExpand = false) => {
@@ -311,6 +320,13 @@ export default function Outbound() {
         >
           Scrape a post
         </button>
+        <a
+          href="/api/export-leads"
+          className="btn-outline text-xs px-3 py-1.5"
+          download
+        >
+          Export CSV
+        </a>
       </div>
 
       {/* Collapsible scrape input */}
@@ -358,6 +374,89 @@ export default function Outbound() {
           )}
         </div>
       )}
+
+      {/* ═══ FIND SIMILAR POSTS ═══ */}
+      <div className="mb-6">
+        <div className="text-xs font-semibold text-ink-3 uppercase tracking-wider mb-2">Find similar posts to scrape</div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={similarUrl}
+            onChange={e => setSimilarUrl(e.target.value)}
+            placeholder="Paste a post URL or describe the type of post..."
+            className="input flex-1 py-2 px-3 text-sm"
+            onKeyDown={e => {
+              if (e.key === 'Enter' && similarUrl.trim()) {
+                setSearchingSimilar(true)
+                fetch('/api/similar-posts', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(
+                    similarUrl.startsWith('http') ? { url: similarUrl } : { text: similarUrl }
+                  ),
+                }).then(r => r.json()).then(json => {
+                  if (json.success) {
+                    setSimilarPosts(json.posts ?? [])
+                    setSimilarQueries(json.queries ?? [])
+                  }
+                }).catch(() => {}).finally(() => setSearchingSimilar(false))
+              }
+            }}
+          />
+          <button
+            className="btn-accent text-xs"
+            disabled={searchingSimilar || !similarUrl.trim()}
+            onClick={() => {
+              setSearchingSimilar(true)
+              fetch('/api/similar-posts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(
+                  similarUrl.startsWith('http') ? { url: similarUrl } : { text: similarUrl }
+                ),
+              }).then(r => r.json()).then(json => {
+                if (json.success) {
+                  setSimilarPosts(json.posts ?? [])
+                  setSimilarQueries(json.queries ?? [])
+                }
+              }).catch(() => {}).finally(() => setSearchingSimilar(false))
+            }}
+          >
+            {searchingSimilar ? '...' : 'Find'}
+          </button>
+        </div>
+
+        {similarPosts.length > 0 && (
+          <div className="mt-3 space-y-2">
+            <div className="text-[11px] text-ink-4">
+              Found {similarPosts.length} similar posts
+              {similarQueries.length > 0 && <span> &middot; Searched: {similarQueries.join(', ')}</span>}
+            </div>
+            {similarPosts.slice(0, 8).map((post, i) => (
+              <div key={i} className="card p-3 flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-head text-xs font-semibold text-ink">@{post.authorHandle}</span>
+                    <span className="text-[10px] text-ink-4">{post.likes} likes &middot; {post.replies} replies</span>
+                  </div>
+                  <div className="text-xs text-ink-3 truncate">{post.text}</div>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <button
+                    className="btn-primary text-[10px] py-1 px-2"
+                    onClick={() => { setScrapeUrl(post.url); setShowScrapeInput(true) }}
+                  >
+                    Scrape
+                  </button>
+                  <a href={post.url} target="_blank" rel="noopener noreferrer" className="btn-outline text-[10px] py-1 px-2">
+                    Open
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ═══ PIPELINE ═══ */}
       {scrapes.length === 0 && (

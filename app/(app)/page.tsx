@@ -87,6 +87,13 @@ export default function WatchlistFeed() {
   const [activeView, setActiveView] = useState<'dashboard' | 'feed' | 'create'>('dashboard')
   const [feedLoaded, setFeedLoaded] = useState(false)
 
+  // Community posts (Reddit/HN)
+  const [communityPosts, setCommunityPosts] = useState<Array<{
+    platform: 'reddit' | 'hackernews'; title: string; text: string; url: string
+    commentsUrl: string; score: number; comments: number; author: string; subreddit?: string
+  }>>([])
+  const [loadingCommunity, setLoadingCommunity] = useState(false)
+
   // Create flow — angle detection + generation
   const [createInput, setCreateInput] = useState('')
   const [createShowText, setCreateShowText] = useState(false)
@@ -248,6 +255,19 @@ export default function WatchlistFeed() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView, watchlist.length])
+
+  // Load community posts when tab selected
+  useEffect(() => {
+    if (activeSection === 'community' && communityPosts.length === 0 && !loadingCommunity) {
+      setLoadingCommunity(true)
+      fetch('/api/community-posts')
+        .then(r => r.json())
+        .then(json => { if (json.success) setCommunityPosts(json.posts ?? []) })
+        .catch(() => {})
+        .finally(() => setLoadingCommunity(false))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection])
 
   async function fetchFeed(forceRefresh = false) {
     setLoadingFeed(true)
@@ -973,6 +993,7 @@ export default function WatchlistFeed() {
     } else {
       sections.push({ key: 'engage', label: 'Reply', filterType: 'reply', count: 0 })
     }
+    sections.push({ key: 'community', label: 'Reddit & HN', filterType: 'all', count: communityPosts.length })
     return sections
   })()
 
@@ -1329,6 +1350,54 @@ export default function WatchlistFeed() {
                       <div className="font-head text-sm font-semibold text-ink">{descs[currentSection.key] ?? 'Posts for you'}</div>
                       <div className="text-[11px] text-ink-4 mt-0.5">{allTodo.length} {allTodo.length === 1 ? 'post' : 'posts'} to act on</div>
                     </div>
+                  </div>
+                )}
+
+                {/* ═══ COMMUNITY — Reddit & HN ═══ */}
+                {currentSection?.key === 'community' && (
+                  <div className="mb-4">
+                    {loadingCommunity && (
+                      <div className="space-y-3">
+                        <div className="skeleton skeleton-card" />
+                        <div className="skeleton skeleton-card" />
+                        <div className="skeleton skeleton-card" />
+                      </div>
+                    )}
+                    {!loadingCommunity && communityPosts.length === 0 && (
+                      <div className="empty-state">
+                        <div className="empty-state-icon">{'\u{1F30D}'}</div>
+                        <div className="empty-state-title">No community posts found</div>
+                        <div className="empty-state-desc">Add tracked keywords in Settings to discover relevant Reddit and Hacker News posts.</div>
+                      </div>
+                    )}
+                    {!loadingCommunity && communityPosts.length > 0 && (
+                      <div className="space-y-3">
+                        {communityPosts.map((post, i) => (
+                          <div key={i} className="card p-4">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className={`badge text-[10px] ${post.platform === 'reddit' ? 'badge-replied' : 'badge-icp'}`}>
+                                {post.platform === 'reddit' ? `r/${post.subreddit}` : 'Hacker News'}
+                              </span>
+                              <span className="text-[10px] text-ink-4">{post.score} pts &middot; {post.comments} comments</span>
+                            </div>
+                            <div className="font-head text-sm font-semibold text-ink mb-1">{post.title}</div>
+                            {post.text && (
+                              <div className="text-xs text-ink-3 mb-2 line-clamp-2">{post.text}</div>
+                            )}
+                            <div className="flex gap-2">
+                              <a href={post.commentsUrl} target="_blank" rel="noopener noreferrer" className="btn-primary text-xs">
+                                Reply in thread
+                              </a>
+                              {post.url !== post.commentsUrl && (
+                                <a href={post.url} target="_blank" rel="noopener noreferrer" className="btn-outline text-xs">
+                                  Open link
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -56,6 +56,16 @@ const FORMAT_LABELS: Record<string, string> = {
   quote: 'Quote Tweet',
   post: 'LinkedIn Post',
   carousel: 'LinkedIn Carousel',
+  x_thread: 'X Thread',
+  x_post: 'X Post',
+  x_quote: 'Quote Tweet',
+  li_post: 'LinkedIn Post',
+  li_carousel: 'LinkedIn Carousel',
+  li_comment: 'LinkedIn Comment',
+  reply: 'Reply',
+  reddit_post: 'Reddit Post',
+  hn_post: 'HN Comment',
+  quora_answer: 'Quora Answer',
 }
 
 interface PublishedItem {
@@ -653,8 +663,11 @@ export default function ContentCalendar() {
                 const allFormats = [
                   { key: 'x_thread', label: 'X Thread', icon: '\u{1F9F5}' },
                   { key: 'x_post', label: 'X Post', icon: '\u270F\uFE0F' },
-                  { key: 'li_post', label: 'LinkedIn Post', icon: '\u{1F4DD}' },
-                  { key: 'li_carousel', label: 'Carousel Outline', icon: '\u{1F3A0}' },
+                  { key: 'li_post', label: 'LinkedIn', icon: '\u{1F4DD}' },
+                  { key: 'li_carousel', label: 'Carousel', icon: '\u{1F3A0}' },
+                  { key: 'reddit_post', label: 'Reddit', icon: '\u{1F7E0}' },
+                  { key: 'hn_post', label: 'HN', icon: '\u{1F7E7}' },
+                  { key: 'quora_answer', label: 'Quora', icon: '\u{1F534}' },
                 ]
                 const targetFormats = allFormats.filter(f => f.key !== currentFormat)
 

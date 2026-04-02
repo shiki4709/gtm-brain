@@ -29,6 +29,26 @@ Slide 1: Bold hook (pattern interrupt + value promise).
 Slides 2-10: One actionable insight per slide. Specific, concrete.
 Last slide: CTA (follow, comment, repost).
 Format as numbered list, one line per slide.`,
+
+  reddit_post: `Convert this into a Reddit post for a relevant subreddit.
+TITLE: Descriptive, not clickbait. Include the core value proposition.
+BODY: 2-4 paragraphs. Start with context, then share the insight.
+Be genuine — Reddit hates self-promotion. Frame as sharing knowledge.
+End with "What's your experience with this?" or similar open question.
+No emojis, no hashtags, no corporate language.`,
+
+  hn_post: `Convert this into a Hacker News submission comment.
+Keep it technical and substantive. HN rewards depth over brevity.
+Lead with the insight, back it up with specifics (numbers, examples).
+No marketing language. Write like an engineer sharing what they built/learned.
+2-3 paragraphs max. End with a question that invites technical discussion.`,
+
+  quora_answer: `Convert this into a Quora answer format.
+Start by restating the implicit question this content answers.
+Give a direct answer in the first sentence.
+Then expand with 2-3 paragraphs of supporting detail, examples, data.
+Use "I" perspective. Be authoritative but conversational.
+End with a brief actionable takeaway.`,
 }
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -37,6 +57,9 @@ const FORMAT_LABELS: Record<string, string> = {
   x_quote: 'Quote Tweet',
   li_post: 'LinkedIn Post',
   li_carousel: 'LinkedIn Carousel',
+  reddit_post: 'Reddit Post',
+  hn_post: 'HN Comment',
+  quora_answer: 'Quora Answer',
 }
 
 export async function POST(request: Request) {
