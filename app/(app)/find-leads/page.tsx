@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 
 interface Lead {
   id: string
@@ -53,6 +53,7 @@ function timeAgo(date: string): string {
 }
 
 export default function Outbound() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const autoScrapeTriggered = useRef(false)
   const [scrapeUrl, setScrapeUrl] = useState('')
@@ -93,7 +94,14 @@ export default function Outbound() {
     Promise.all([
       fetchScrapes(true),
       fetch('/api/user').then(r => r.json()).then(json => {
-        if (json.success && json.data) setUser(json.data)
+        if (json.success && json.data) {
+          setUser(json.data)
+          // Redirect personal brand users away from pipeline
+          if (json.data.mode === 'personal_brand') {
+            router.replace('/')
+            return
+          }
+        }
       }).catch(() => {}),
     ]).finally(() => {
       setLoading(false)

@@ -16,8 +16,8 @@ const DEFAULT_GOALS: Record<'personal_brand' | 'b2b_outbound', Array<{ metric: G
   b2b_outbound: [
     { metric: 'dm_send', target: 5, period: 'weekly' },
     { metric: 'scrape', target: 3, period: 'weekly' },
-    { metric: 'reply', target: 5, period: 'daily' },         // Replies for visibility
-    { metric: 'li_comment', target: 10, period: 'daily' },   // LinkedIn comments for reach
+    { metric: 'reply', target: 5, period: 'daily' },         // Replies for warm outreach
+    { metric: 'li_post', target: 2, period: 'weekly' },      // Thought leadership posts
   ],
 }
 

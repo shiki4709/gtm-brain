@@ -156,39 +156,49 @@ export function generateGrowthPlan(
   const stage = getStage(primaryFollowers)
   const suggestions: GrowthSuggestion[] = []
 
-  // Both modes get all suggestions — mode determines priority order
-  suggestions.push(...xSuggestions(stage.stage))
-  suggestions.push(...linkedinSuggestions(stage.stage))
-
-  // Personal brand: X suggestions first (already pushed above)
   if (mode === 'personal_brand') {
-    // Already have LinkedIn suggestions, just keep high-priority ones prominent
+    suggestions.push(...xSuggestions(stage.stage))
+    suggestions.push(...linkedinSuggestions(stage.stage).filter(s => s.priority === 'high'))
+  } else {
+    suggestions.push(...linkedinSuggestions(stage.stage))
+    suggestions.push(...xSuggestions(stage.stage).filter(s => s.priority === 'high'))
   }
 
-  // Weekly playbook — ordered action items
+  // Weekly playbook — mode-specific action items
   const playbook: string[] = []
-  if (mode !== 'b2b_outbound') {
+  if (mode === 'personal_brand') {
     playbook.push(
       `Reply to ${stage.stage === 'starter' ? 5 : stage.stage === 'growing' ? 10 : 15} posts/day from accounts with 50K+ followers (within 15 min of their post)`,
       `Publish ${stage.stage === 'starter' ? 1 : stage.stage === 'growing' ? 2 : 3} threads/week (actionable, save-worthy content)`,
       'Reply to every comment on your own posts within 15 minutes',
       'Never put links in main tweet — self-reply with the link',
-    )
-  }
-  if (mode !== 'personal_brand' || mode === 'personal_brand') {
-    playbook.push(
       `Comment on ${stage.stage === 'starter' ? 10 : 15} LinkedIn posts/day from industry leaders`,
       `Publish ${stage.stage === 'starter' ? 3 : 5} LinkedIn posts/week with strong hooks in first 2 lines`,
       'Spend 15 min engaging before publishing your own post (warms algorithm)',
     )
+  } else {
+    playbook.push(
+      `Scrape ${stage.stage === 'starter' ? 3 : 5} high-engagement posts/week for ICP leads`,
+      `Send ${stage.stage === 'starter' ? 5 : stage.stage === 'growing' ? 10 : 20} personalized DMs/week (reference their comment)`,
+      'Comment on ICP prospects\' posts before sending DMs (warm outreach)',
+      `Publish ${stage.stage === 'starter' ? 2 : 3} thought leadership posts/week on LinkedIn`,
+      'Track which DM angles get replies — double down on what works',
+      'Follow up on non-replies after 3-5 days with a different angle',
+    )
   }
 
-  // Top tip based on stage
-  const tips: Record<string, string> = {
+  // Top tip based on stage + mode
+  const pbTips: Record<string, string> = {
     starter: 'Focus on replies. 70% of your time should be engaging with bigger accounts, 30% creating. This is the fastest path to your first 500 followers.',
     growing: 'Start threads and building in public. You have enough followers for your content to compound. 2-3 threads/week + daily replies = rapid growth.',
     scaling: 'Add video and collaborations. Your audience is big enough for cross-promotion. Quote tweet exchanges with other creators, co-threads, and 60-second video clips.',
   }
+  const b2bTips: Record<string, string> = {
+    starter: 'Focus on scraping high-engagement posts and sending personalized DMs. Reference their specific comment to stand out. 5 quality DMs beat 50 generic ones.',
+    growing: 'Double down on what converts. Track which post topics yield the most ICP leads and which DM angles get replies. Optimize your scrape-to-meeting funnel.',
+    scaling: 'Systematize your outreach. Build templates for top DM angles, automate follow-ups, and focus on the 20% of activities that drive 80% of meetings.',
+  }
+  const tips = mode === 'b2b_outbound' ? b2bTips : pbTips
 
   return {
     stage,
