@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET ?? 'syval-admin-2026'
+const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
 
 export async function POST(request: Request) {
   const body = await request.json()

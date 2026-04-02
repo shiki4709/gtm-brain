@@ -8,10 +8,18 @@ import { buildUserProfile, type UserProfile } from '@/lib/user-profile'
 // Cache user profiles for 30 minutes (expensive to rebuild)
 const profileCache = new Map<string, { profile: UserProfile; timestamp: number }>()
 const PROFILE_TTL = 30 * 60 * 1000
+const MAX_CACHE_SIZE = 100
 
 // Cache individual post scores for 10 minutes
 const scoreCache = new Map<string, { scores: Record<string, PostScore>; timestamp: number }>()
 const SCORE_TTL = 10 * 60 * 1000
+
+function evictOldest(cache: Map<string, unknown>) {
+  if (cache.size > MAX_CACHE_SIZE) {
+    const firstKey = cache.keys().next().value
+    if (firstKey !== undefined) cache.delete(firstKey)
+  }
+}
 
 interface PostScore {
   score: number       // 0-1 relevance
@@ -51,6 +59,7 @@ export async function POST(request: Request) {
       auth.dbUser.mode,
       (auth.dbUser as Record<string, unknown>).voice_profile as Record<string, unknown> | null,
     )
+    evictOldest(profileCache)
     profileCache.set(userId, { profile, timestamp: Date.now() })
   }
 
@@ -82,6 +91,7 @@ export async function POST(request: Request) {
     }
 
     // Update score cache
+    evictOldest(scoreCache)
     scoreCache.set(scoreCacheKey, { scores: existingScores, timestamp: Date.now() })
   }
 

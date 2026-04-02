@@ -22,16 +22,22 @@ export async function POST(request: Request) {
   const payloadStr = formData.get('payload') as string | null
   if (!payloadStr) return NextResponse.json({ ok: true })
 
-  const payload = JSON.parse(payloadStr)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let payload: any
+  try {
+    payload = JSON.parse(payloadStr)
+  } catch {
+    return NextResponse.json({ ok: true })
+  }
 
   // Handle block_actions (button clicks)
   if (payload.type === 'block_actions') {
     const action = payload.actions?.[0]
     if (!action) return NextResponse.json({ ok: true })
 
-    const actionId = action.action_id // 'act' | 'skip'
-    const userId = payload.user?.id // Slack user ID
-    const channelId = payload.channel?.id
+    const actionId = action.action_id as string // 'act' | 'skip'
+    const userId = payload.user?.id as string | undefined
+    const channelId = payload.channel?.id as string | undefined
 
     if (!actionId || !channelId) return NextResponse.json({ ok: true })
 

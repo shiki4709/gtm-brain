@@ -3,7 +3,8 @@ import { getAuthUser } from '@/lib/auth'
 
 // Cache feed results for 5 minutes per user
 const feedCache = new Map<string, { items: FeedItem[]; timestamp: number }>()
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000
+const MAX_FEED_CACHE = 100
 
 interface FeedItem {
   platform: 'linkedin' | 'x'
@@ -282,7 +283,11 @@ export async function GET(request: Request) {
     .update({ last_checked: now })
     .eq('user_id', auth.dbUser.id)
 
-  // Cache the results
+  // Cache the results (with size limit)
+  if (feedCache.size > MAX_FEED_CACHE) {
+    const firstKey = feedCache.keys().next().value
+    if (firstKey !== undefined) feedCache.delete(firstKey)
+  }
   feedCache.set(cacheKey, { items: filtered, timestamp: Date.now() })
 
   return NextResponse.json({ success: true, items: filtered, cached: false })

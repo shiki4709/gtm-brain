@@ -85,8 +85,11 @@ export async function POST(request: Request) {
   const body = await request.json() as { replyText: string; format: 'thread' | 'post' | 'quote' }
   const { replyText, format } = body
 
-  if (!replyText) {
-    return NextResponse.json({ success: false, error: 'Reply text required' }, { status: 400 })
+  if (!replyText || typeof replyText !== 'string' || replyText.length > 5000) {
+    return NextResponse.json({ success: false, error: 'Valid reply text required (max 5000 chars)' }, { status: 400 })
+  }
+  if (!['thread', 'post', 'quote'].includes(format)) {
+    return NextResponse.json({ success: false, error: 'Format must be thread, post, or quote' }, { status: 400 })
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
