@@ -71,8 +71,14 @@ export default function AppShell({ children }: AppShellProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-sm text-ink-4">Loading...</div>
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="skeleton skeleton-text w-1/3 mb-4" />
+          <div className="skeleton skeleton-text w-2/3 mb-3" />
+          <div className="skeleton skeleton-card" />
+          <div className="skeleton skeleton-card" />
+          <div className="skeleton skeleton-card" />
+        </div>
       </div>
     )
   }

@@ -743,7 +743,15 @@ export default function WatchlistFeed() {
     return `${days}d ago`
   }
 
-  if (loading) return <div className="text-sm text-ink-4 py-8 text-center">Loading...</div>
+  if (loading) return (
+    <div className="max-w-2xl mx-auto">
+      <div className="skeleton skeleton-text w-1/4 mb-3" />
+      <div className="skeleton skeleton-text w-1/2 mb-6" />
+      <div className="skeleton skeleton-card" />
+      <div className="skeleton skeleton-card" />
+      <div className="skeleton skeleton-card" />
+    </div>
+  )
 
   const linkedinWatchlist = watchlist.filter(w => w.platform === 'linkedin')
   const xWatchlist = watchlist.filter(w => w.platform === 'x')
