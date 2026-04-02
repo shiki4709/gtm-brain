@@ -32,7 +32,7 @@ export async function GET() {
   const redditPromises = trackKeywords.slice(0, 3).map(async (keyword) => {
     try {
       const resp = await fetch(
-        `https://www.reddit.com/search.json?q=${encodeURIComponent(keyword)}&sort=hot&t=week&limit=5`,
+        `https://www.reddit.com/search.json?q=${encodeURIComponent(keyword)}&sort=new&t=day&limit=10`,
         {
           headers: { 'User-Agent': 'GTMBrain/1.0' },
           signal: AbortSignal.timeout(5000),
@@ -42,9 +42,11 @@ export async function GET() {
       const data = await resp.json()
       const children = data?.data?.children ?? []
 
+      const oneDayAgo = Date.now() / 1000 - 24 * 60 * 60
       for (const child of children) {
         const post = child.data
         if (!post || post.over_18 || post.is_video) continue
+        if ((post.created_utc ?? 0) < oneDayAgo) continue
 
         posts.push({
           platform: 'reddit',
@@ -65,8 +67,9 @@ export async function GET() {
   // Fetch from Hacker News (Algolia API)
   const hnPromises = trackKeywords.slice(0, 3).map(async (keyword) => {
     try {
+      const oneDayAgoUnix = Math.floor(Date.now() / 1000) - 24 * 60 * 60
       const resp = await fetch(
-        `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(keyword)}&tags=story&hitsPerPage=5`,
+        `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(keyword)}&tags=story&hitsPerPage=10&numericFilters=created_at_i>${oneDayAgoUnix}`,
         { signal: AbortSignal.timeout(5000) }
       )
       if (!resp.ok) return
