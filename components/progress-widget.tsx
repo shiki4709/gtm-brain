@@ -119,7 +119,7 @@ export default function ProgressWidget({ mode: propMode }: ProgressWidgetProps) 
               )}
             </span>
           )}
-          {(data.pipeline.leads > 0 || data.pipeline.dmsSent > 0) && (
+          {mode === 'b2b_outbound' && (data.pipeline.leads > 0 || data.pipeline.dmsSent > 0) && (
             <span>
               Pipeline: {data.pipeline.leads} leads {'\u2192'} {data.pipeline.dmsSent} DMs {'\u2192'} {data.pipeline.replies} replies
             </span>

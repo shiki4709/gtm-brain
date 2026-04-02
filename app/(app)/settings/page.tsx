@@ -370,7 +370,8 @@ export default function Settings() {
       )}
 
       {/* X Handle for follower tracking */}
-      {/* X account — always visible, emphasized for personal brand */}
+      {/* X account — personal brand only */}
+      {mode === 'personal_brand' && (
       <Section title="Your X account">
           <p className="text-xs text-ink-4 mb-3">Connect your X handle to track follower growth automatically.</p>
           <div className="flex gap-2 items-center">
@@ -410,6 +411,7 @@ export default function Settings() {
             </div>
           )}
         </Section>
+      )}
 
       {/* Voice & Tone */}
       <Section title="Your voice &amp; tone">
@@ -582,15 +584,12 @@ export default function Settings() {
         <p className="text-[11px] text-ink-4 mt-2">Paste a handle to add directly, or describe who you&apos;re looking for to search.</p>
       </Section>
 
-      {/* ICP Config — always visible, emphasized for B2B */}
+      {/* ICP Config — B2B only */}
+      {mode === 'b2b_outbound' && (<>
       <hr className="border-rule-light my-10" />
 
-      <Section title="ICP — Target titles" defaultOpen={mode === 'b2b_outbound'}>
-        <p className="text-xs text-ink-4 mb-3">
-          {mode === 'b2b_outbound'
-            ? 'Job titles you want to reach. Used to filter leads from every scrape.'
-            : 'Job titles of your ideal audience. Helps the brain find relevant posts and people.'}
-        </p>
+      <Section title="ICP — Target titles">
+        <p className="text-xs text-ink-4 mb-3">Job titles you want to reach. Used to filter leads from every scrape.</p>
 
         {titles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-3">
@@ -641,6 +640,7 @@ export default function Settings() {
           <button className="btn-outline" onClick={() => addToList(excludeInput, excludes, setExcludes, setExcludeInput)} disabled={!excludeInput.trim()}>Add</button>
         </div>
       </Section>
+      </>)}
 
       {/* Notifications */}
       <hr className="border-rule-light my-6" />

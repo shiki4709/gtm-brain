@@ -16,10 +16,9 @@ interface NavProps {
 export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inboundBadge = 0, mode, onSignOut }: NavProps) {
   const path = usePathname()
 
-  // All tabs always visible — consistent experience across modes
   const tabs = [
     { href: '/', label: 'Feed', badge: 0, dot: true },
-    { href: '/find-leads', label: 'Pipeline', badge: outboundBadge, dot: false },
+    ...(mode === 'b2b_outbound' ? [{ href: '/find-leads', label: 'Pipeline', badge: outboundBadge, dot: false }] : []),
   ]
 
   return (
@@ -36,7 +35,7 @@ export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inb
             )}
           </div>
           <div className="flex items-center gap-3">
-            {icpTitles && icpTitles.length > 0 && (
+            {mode === 'b2b_outbound' && icpTitles && icpTitles.length > 0 && (
               <div className="text-xs text-ink-4">
                 ICP: {icpTitles.join(', ')}
               </div>

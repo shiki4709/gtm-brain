@@ -947,19 +947,15 @@ export default function WatchlistFeed() {
     )
   }
 
-  // Goal-oriented sections — all tabs for both modes, different order/emphasis
+  // Goal-oriented sections — tabs specific to each mode
   const goalSections = (() => {
     const sections: Array<{ key: string; label: string; filterType: 'all' | 'reply' | 'scrape' | 'content'; count: number }> = []
     if (userMode === 'b2b_outbound') {
-      // B2B: leads first, then engage, then create
       sections.push({ key: 'prospect', label: 'Find leads', filterType: 'scrape', count: 0 })
       sections.push({ key: 'engage', label: 'Engage', filterType: 'reply', count: 0 })
-      sections.push({ key: 'create', label: 'Create', filterType: 'content', count: 0 })
     } else {
-      // Personal brand: reply first, then create, then leads
       sections.push({ key: 'engage', label: 'Reply', filterType: 'reply', count: 0 })
       sections.push({ key: 'create', label: 'Create', filterType: 'content', count: 0 })
-      sections.push({ key: 'prospect', label: 'Find leads', filterType: 'scrape', count: 0 })
     }
     return sections
   })()
