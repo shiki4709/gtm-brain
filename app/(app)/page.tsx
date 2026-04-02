@@ -1087,13 +1087,13 @@ export default function WatchlistFeed() {
           </div>
 
       {/* ═══ POSTS ═══ */}
-      {loadingFeed && feed.length === 0 && (
+      {loadingFeed && feed.length === 0 && currentSection?.key !== 'community' && (
         <div className="text-sm text-ink-4 py-8 text-center">
           <div className="mb-1">Loading posts from your watchlist...</div>
           <div className="text-[11px]">This can take 10-30 seconds (fetching from LinkedIn & X)</div>
         </div>
       )}
-      {(feed.length > 0 || !loadingFeed) && (
+      {(feed.length > 0 || !loadingFeed || currentSection?.key === 'community') && (
         <>
           {/* Profile scoring status */}
           {profileScoring && feed.length > 0 && (
@@ -1307,7 +1307,7 @@ export default function WatchlistFeed() {
 
             const allDone = feed.filter(f => tasks[f.url] === 'done')
 
-            if (allTodo.length === 0 && allDone.length === 0) {
+            if (allTodo.length === 0 && allDone.length === 0 && currentSection?.key !== 'community') {
               return (
                 <div className="text-center py-12">
                   <div className="text-sm text-ink-3 mb-2">
