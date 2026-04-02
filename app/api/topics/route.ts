@@ -47,6 +47,7 @@ export async function GET() {
 
   if (socialDataKey && xAccounts.length > 0) {
     const TWITTER_EPOCH = 1288834974657
+    const twoDaysAgo = Date.now() - 48 * 60 * 60 * 1000
     const promises = xAccounts.slice(0, 10).map(async (account: { username: string }) => {
       try {
         const resp = await fetch(
@@ -68,6 +69,13 @@ export async function GET() {
         for (const tw of tweets) {
           const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
           const idStr = tw.id_str as string
+
+          // Only include posts from last 48 hours
+          if (idStr) {
+            const tweetMs = (Number(BigInt(idStr) >> BigInt(22))) + TWITTER_EPOCH
+            if (tweetMs < twoDaysAgo) continue
+          }
+
           feedPosts.push({
             text,
             author: account.username,
