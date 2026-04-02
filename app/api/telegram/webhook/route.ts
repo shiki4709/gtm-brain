@@ -223,7 +223,7 @@ async function sendTelegramMessage(chatId: number | string, text: string) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'Markdown' }),
-  }).catch(() => {})
+  }).catch(e => console.error('Telegram send failed:', e))
 }
 
 async function answerCallbackQuery(callbackId: string) {
@@ -232,7 +232,7 @@ async function answerCallbackQuery(callbackId: string) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ callback_query_id: callbackId }),
-  }).catch(() => {})
+  }).catch(e => console.error('Telegram callback ack failed:', e))
 }
 
 async function findUserByChatId(sb: ReturnType<typeof createServiceClient>, chatId: string) {

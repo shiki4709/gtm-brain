@@ -23,11 +23,11 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const forceRefresh = searchParams.get('refresh') === '1'
 
-  // Check cache (unless force refresh)
+  // Check cache (unless force refresh) — skip cache for empty results
   const cacheKey = auth.dbUser.id
   if (!forceRefresh) {
     const cached = feedCache.get(cacheKey)
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    if (cached && cached.items.length > 0 && Date.now() - cached.timestamp < CACHE_TTL) {
       return NextResponse.json({ success: true, items: cached.items, cached: true })
     }
   }

@@ -123,7 +123,9 @@ export default function ContentCalendar() {
         setCalendar(calJson.data)
         setGenerated(true)
       }
-    } catch { /* */ }
+    } catch {
+      setGenerated(true) // show empty state instead of infinite loading
+    }
     finally { setLoading(false) }
   }
 
@@ -133,7 +135,7 @@ export default function ContentCalendar() {
       const res = await fetch('/api/repurpose-replies')
       const json = await res.json()
       if (json.success) setRepurposeReplies(json.replies ?? [])
-    } catch { /* */ }
+    } catch { /* show empty state */ }
     finally { setLoadingReplies(false) }
   }
 
@@ -144,7 +146,7 @@ export default function ContentCalendar() {
       const res = await fetch('/api/topics')
       const json = await res.json()
       if (json.success) setHotTopics(json.data?.topics ?? [])
-    } catch { /* */ }
+    } catch { /* show empty state */ }
     finally { setLoadingTopics(false) }
   }
 
@@ -161,7 +163,7 @@ export default function ContentCalendar() {
       if (json.success) {
         setExpandedContent(prev => ({ ...prev, [reply.url]: json.content }))
       }
-    } catch { /* */ }
+    } catch { /* show unexpanded state */ }
     finally { setExpandingReply(null) }
   }
 

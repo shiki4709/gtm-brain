@@ -409,7 +409,7 @@ async function pushToTelegram(
         reply_markup: { inline_keyboard: buttons },
       }),
     })
-  } catch { /* skip */ }
+  } catch (e) { console.error('Telegram push failed:', e) }
 }
 
 // ═══ SLACK PUSH ═══
@@ -460,5 +460,5 @@ async function pushToSlack(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ blocks }),
     })
-  } catch { /* skip */ }
+  } catch (e) { console.error('Slack push failed:', e) }
 }
