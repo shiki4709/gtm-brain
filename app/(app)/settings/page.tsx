@@ -820,24 +820,6 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Recent notifications */}
-        {recentNotifications.length > 0 && (
-          <div>
-            <div className="text-sm font-semibold text-ink mb-2">Recent ({recentNotifications.length})</div>
-            <div className="space-y-1 max-h-40 overflow-y-auto">
-              {recentNotifications.slice(0, 10).map(n => (
-                <div key={n.id} className="flex items-center gap-2 text-[11px]">
-                  <span className={n.status === 'acted' ? 'text-[var(--green)]' : n.status === 'skipped' ? 'text-ink-4' : 'text-[var(--status-pending)]'}>
-                    {n.status === 'acted' ? '✓' : n.status === 'skipped' ? '—' : '•'}
-                  </span>
-                  <span className="text-ink-3 truncate max-w-[200px]">{n.action_type}</span>
-                  <span className="text-ink-4">{n.channel}</span>
-                  <span className="text-ink-4 ml-auto">{new Date(n.pushed_at).toLocaleDateString()}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </Section>
 
       {/* Topic keywords */}

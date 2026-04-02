@@ -16,9 +16,10 @@ interface NavProps {
 export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inboundBadge = 0, mode, onSignOut }: NavProps) {
   const path = usePathname()
 
+  const isOnPipeline = path === '/find-leads'
+
   const tabs = [
     { href: '/', label: 'Feed', badge: 0, dot: true },
-    ...(mode === 'b2b_outbound' ? [{ href: '/find-leads', label: 'Pipeline', badge: outboundBadge, dot: false }] : []),
   ]
 
   return (
@@ -35,6 +36,14 @@ export default function Nav({ icpTitles, userName, email, outboundBadge = 0, inb
             )}
           </div>
           <div className="flex items-center gap-3">
+            {mode === 'b2b_outbound' && (
+              <Link
+                href="/find-leads"
+                className={`text-xs font-semibold transition-colors ${isOnPipeline ? 'text-ink' : 'text-ink-4 hover:text-ink-3'}`}
+              >
+                Pipeline{outboundBadge > 0 ? ` (${outboundBadge})` : ''}
+              </Link>
+            )}
             {mode === 'b2b_outbound' && icpTitles && icpTitles.length > 0 && (
               <div className="text-xs text-ink-4">
                 ICP: {icpTitles.join(', ')}
