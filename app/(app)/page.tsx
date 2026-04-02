@@ -87,6 +87,13 @@ export default function WatchlistFeed() {
   const [activeView, setActiveView] = useState<'dashboard' | 'feed' | 'create'>('dashboard')
   const [feedLoaded, setFeedLoaded] = useState(false)
 
+  // Onboarding guide state
+  const [hasActions, setHasActions] = useState(true) // assume true to avoid flash
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
+    if (typeof window === 'undefined') return true
+    try { return localStorage.getItem('gtm-brain-onboarding-dismissed') === 'true' } catch { return false }
+  })
+
   // Community posts (Reddit/HN)
   const [communityPosts, setCommunityPosts] = useState<Array<{
     platform: 'reddit' | 'hackernews'; title: string; text: string; url: string
@@ -226,7 +233,12 @@ export default function WatchlistFeed() {
       fetch('/api/insights/linkedin').then(r => r.json()),
       fetch('/api/insights/roi').then(r => r.json()),
       fetch('/api/user').then(r => r.json()),
-    ]).then(async ([wlJson, liJson, roiJson, userJson]) => {
+      fetch('/api/actions').then(r => r.json()),
+    ]).then(async ([wlJson, liJson, roiJson, userJson, actionsJson]) => {
+      // Check if user has any action log entries
+      if (actionsJson.success) {
+        setHasActions((actionsJson.items ?? []).length > 0)
+      }
       if (userJson.success && userJson.data?.icp_config?.titles) {
         setIcpTitles(userJson.data.icp_config.titles)
         setTrackKeywords(userJson.data.icp_config.track_keywords ?? [])
@@ -791,15 +803,13 @@ export default function WatchlistFeed() {
   const xTodo = feed.filter(f => f.platform === 'x' && !tasks[f.url])
   const xDone = feed.filter(f => f.platform === 'x' && tasks[f.url])
 
-  // ═══ NEW USER ═══
-  if (watchlist.length === 0) {
+  // New user empty watchlist content — rendered inside feed view below
+  const isNewUser = watchlist.length === 0
+
+  function renderEmptyWatchlist() {
     return (
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-10 pt-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-3 h-3 rounded-full gradient-dot" />
-            <span className="font-head text-xl font-bold text-ink">Feed</span>
-          </div>
+      <>
+        <div className="text-center mb-10 pt-4">
           <h1 className="font-head text-2xl font-bold text-ink mb-3">Your GTM starts with people</h1>
           <p className="text-sm text-ink-3 max-w-md mx-auto leading-relaxed">
             Watch influencers your ICP follows. When they post, the brain tells you what to do and why.
@@ -862,7 +872,7 @@ export default function WatchlistFeed() {
             </div>
           </div>
         </div>
-      </div>
+      </>
     )
   }
 
@@ -1028,6 +1038,72 @@ export default function WatchlistFeed() {
       {/* ═══ DASHBOARD VIEW ═══ */}
       {activeView === 'dashboard' && (
         <div>
+          {/* Onboarding guide — only for new users with zero actions */}
+          {!hasActions && !onboardingDismissed && (
+            <div className="card p-4 mb-5 border-l-[3px] border-l-[var(--accent)] relative">
+              <button
+                className="absolute top-3 right-3 text-ink-4 hover:text-ink text-sm leading-none"
+                onClick={() => {
+                  setOnboardingDismissed(true)
+                  try { localStorage.setItem('gtm-brain-onboarding-dismissed', 'true') } catch { /* */ }
+                }}
+                aria-label="Dismiss getting started guide"
+              >
+                &times;
+              </button>
+              <div className="font-head text-sm font-bold text-ink mb-3">Getting started</div>
+              {userMode === 'personal_brand' || userMode === 'both' ? (
+                <ol className="space-y-2 text-xs text-ink-3 list-none pl-0">
+                  <li className="flex items-start gap-2">
+                    <span className="font-semibold text-ink shrink-0">1.</span>
+                    <span>
+                      <button onClick={() => setActiveView('dashboard')} className="text-accent hover:underline font-medium">Add 3-5 people to watch</button>
+                      {' '}&mdash; use the watchlist below to follow people in your niche
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-semibold text-ink shrink-0">2.</span>
+                    <span>
+                      <button onClick={() => setActiveView('feed')} className="text-accent hover:underline font-medium">Go to Feed and reply to a post</button>
+                      {' '}&mdash; engage with trending content to build visibility
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-semibold text-ink shrink-0">3.</span>
+                    <span>
+                      <button onClick={() => setActiveView('create')} className="text-accent hover:underline font-medium">Check Create tab for content ideas</button>
+                      {' '}&mdash; AI-generated drafts based on what is trending
+                    </span>
+                  </li>
+                </ol>
+              ) : (
+                <ol className="space-y-2 text-xs text-ink-3 list-none pl-0">
+                  <li className="flex items-start gap-2">
+                    <span className="font-semibold text-ink shrink-0">1.</span>
+                    <span>
+                      <button onClick={() => setActiveView('dashboard')} className="text-accent hover:underline font-medium">Add 3-5 people to watch</button>
+                      {' '}&mdash; follow thought leaders your ICP engages with
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-semibold text-ink shrink-0">2.</span>
+                    <span>
+                      <button onClick={() => setActiveView('feed')} className="text-accent hover:underline font-medium">Scrape a high-engagement post</button>
+                      {' '}&mdash; find ICP matches among post engagers
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-semibold text-ink shrink-0">3.</span>
+                    <span>
+                      <button onClick={() => setActiveView('feed')} className="text-accent hover:underline font-medium">Draft DMs to ICP matches</button>
+                      {' '}&mdash; personalized outreach based on their activity
+                    </span>
+                  </li>
+                </ol>
+              )}
+            </div>
+          )}
+
           {/* Mode header */}
           <div className="mb-5">
             <h1 className="font-head text-lg font-bold text-ink">
@@ -1063,8 +1139,11 @@ export default function WatchlistFeed() {
       {/* ═══ FEED VIEW ═══ */}
       {activeView === 'feed' && (
         <div>
-          {/* Feed section tabs */}
-          <div className="flex items-center gap-0 mb-4 border-b border-rule">
+          {/* Empty watchlist — new user experience */}
+          {isNewUser && renderEmptyWatchlist()}
+
+          {/* Feed section tabs — only show when user has watchlist entries */}
+          {!isNewUser && <div className="flex items-center gap-0 mb-4 border-b border-rule">
             {goalSections.map(section => {
               const isActive = activeSection === section.key
               return (
@@ -1084,9 +1163,10 @@ export default function WatchlistFeed() {
                 {loadingFeed ? '...' : '\u21BB'}
               </button>
             </div>
-          </div>
+          </div>}
 
       {/* ═══ POSTS ═══ */}
+      {!isNewUser && (<>
       {loadingFeed && feed.length === 0 && currentSection?.key !== 'community' && (
         <div className="text-sm text-ink-4 py-8 text-center">
           <div className="mb-1">Loading posts from your watchlist...</div>
@@ -1757,6 +1837,7 @@ export default function WatchlistFeed() {
           })()}
         </>
       )}
+      </>)}
         </div>
       )}
     </div>

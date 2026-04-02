@@ -78,17 +78,82 @@ interface PublishedItem {
 
 type TabKey = 'calendar' | 'replies' | 'topics' | 'published'
 
+// localStorage helpers for calendar persistence
+function getCalendarStorageKey(date: string): string {
+  return `gtm-brain-calendar-${date}`
+}
+
+function getSkippedStorageKey(date: string): string {
+  return `gtm-brain-calendar-skipped-${date}`
+}
+
+function getEditDraftsStorageKey(date: string): string {
+  return `gtm-brain-calendar-edits-${date}`
+}
+
+function getTodayDateString(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function cleanOldCalendars(): void {
+  if (typeof window === 'undefined') return
+  const now = Date.now()
+  const twoDaysMs = 2 * 24 * 60 * 60 * 1000
+  const keysToRemove: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key || !key.startsWith('gtm-brain-calendar-')) continue
+    // Extract date from key (format: gtm-brain-calendar-YYYY-MM-DD or gtm-brain-calendar-skipped-YYYY-MM-DD etc.)
+    const dateMatch = key.match(/(\d{4}-\d{2}-\d{2})$/)
+    if (!dateMatch) continue
+    const keyDate = new Date(dateMatch[1]).getTime()
+    if (now - keyDate > twoDaysMs) {
+      keysToRemove.push(key)
+    }
+  }
+  keysToRemove.forEach(k => localStorage.removeItem(k))
+}
+
+function loadCalendarFromStorage(date: string): CalendarData | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(getCalendarStorageKey(date))
+    if (!raw) return null
+    return JSON.parse(raw) as CalendarData
+  } catch { return null }
+}
+
+function loadSkippedFromStorage(date: string): Set<number> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const raw = localStorage.getItem(getSkippedStorageKey(date))
+    if (!raw) return new Set()
+    return new Set(JSON.parse(raw) as number[])
+  } catch { return new Set() }
+}
+
+function loadEditDraftsFromStorage(date: string): Record<number, string> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(getEditDraftsStorageKey(date))
+    if (!raw) return {}
+    return JSON.parse(raw) as Record<number, string>
+  } catch { return {} }
+}
+
 export default function ContentCalendar() {
   const [activeTab, setActiveTab] = useState<TabKey>('calendar')
 
-  // Calendar state
-  const [calendar, setCalendar] = useState<CalendarData | null>(null)
+  const today = getTodayDateString()
+
+  // Calendar state — initialize from localStorage
+  const [calendar, setCalendar] = useState<CalendarData | null>(() => loadCalendarFromStorage(today))
   const [loading, setLoading] = useState(false)
-  const [generated, setGenerated] = useState(false)
-  const [skipped, setSkipped] = useState<Set<number>>(new Set())
+  const [generated, setGenerated] = useState(() => loadCalendarFromStorage(today) !== null)
+  const [skipped, setSkipped] = useState<Set<number>>(() => loadSkippedFromStorage(today))
   const [copied, setCopied] = useState<number | null>(null)
   const [editing, setEditing] = useState<number | null>(null)
-  const [editDrafts, setEditDrafts] = useState<Record<number, string>>({})
+  const [editDrafts, setEditDrafts] = useState<Record<number, string>>(() => loadEditDraftsFromStorage(today))
 
   // Published content state
   const [published, setPublished] = useState<PublishedItem[]>([])
@@ -109,11 +174,28 @@ export default function ContentCalendar() {
   const [hotTopics, setHotTopics] = useState<TrendingTopic[]>([])
   const [loadingTopics, setLoadingTopics] = useState(false)
 
-  // Load calendar on mount
+  // Clean old calendars and load on mount
   useEffect(() => {
+    cleanOldCalendars()
     if (!generated) generateCalendar()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Persist calendar to localStorage when it changes
+  useEffect(() => {
+    if (!calendar) return
+    try { localStorage.setItem(getCalendarStorageKey(today), JSON.stringify(calendar)) } catch { /* quota exceeded */ }
+  }, [calendar, today])
+
+  // Persist skipped state to localStorage
+  useEffect(() => {
+    try { localStorage.setItem(getSkippedStorageKey(today), JSON.stringify([...skipped])) } catch { /* */ }
+  }, [skipped, today])
+
+  // Persist edit drafts to localStorage
+  useEffect(() => {
+    try { localStorage.setItem(getEditDraftsStorageKey(today), JSON.stringify(editDrafts)) } catch { /* */ }
+  }, [editDrafts, today])
 
   // Load replies when tab switches
   useEffect(() => {
@@ -152,6 +234,9 @@ export default function ContentCalendar() {
       if (calJson.success && calJson.data?.slots?.length) {
         setCalendar(calJson.data)
         setGenerated(true)
+        // Reset edits and skips on regenerate
+        setSkipped(new Set())
+        setEditDrafts({})
       }
     } catch {
       setGenerated(true) // show empty state instead of infinite loading
