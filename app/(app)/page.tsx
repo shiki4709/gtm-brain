@@ -966,11 +966,6 @@ export default function WatchlistFeed() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* ═══ MODE SELECTOR GATE ═══ */}
-      {showModeSelector && (
-        <ModeSelector onComplete={(mode) => { setUserMode(mode); setShowModeSelector(false); setProgressKey(k => k + 1) }} />
-      )}
-
       {/* ═══ MODE HEADER ═══ */}
       <div className="mb-4">
         <h1 className="font-head text-lg font-bold text-ink">

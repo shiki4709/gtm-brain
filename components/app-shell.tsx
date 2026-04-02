@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Onboarding from './onboarding'
+import ModeSelector from './mode-selector'
 import Nav from './nav'
 import { createAuthClientBrowser } from '@/lib/supabase/client'
-import type { SbUser } from '@/lib/types'
+import type { SbUser, UserMode } from '@/lib/types'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -62,9 +63,11 @@ export default function AppShell({ children }: AppShellProps) {
     if (user) fetchBadges()
   }, [user])
 
-  const isOnboarded = user
-    && Array.isArray(user.icp_config?.titles)
-    && user.icp_config.titles.length > 0
+  // Onboarding check: mode must be set first, then ICP for B2B only
+  const modeSet = user?.mode_set ?? false
+  const needsIcp = user?.mode === 'b2b_outbound'
+    && (!Array.isArray(user.icp_config?.titles) || user.icp_config.titles.length === 0)
+  const isOnboarded = user && modeSet && !needsIcp
 
   if (loading) {
     return (
@@ -74,8 +77,23 @@ export default function AppShell({ children }: AppShellProps) {
     )
   }
 
-  if (!isOnboarded) {
+  // Step 1: Choose mode first
+  if (user && !modeSet) {
+    return <ModeSelector onComplete={(mode: UserMode) => {
+      setUser(prev => prev ? { ...prev, mode, mode_set: true } : prev)
+    }} />
+  }
+
+  // Step 2: ICP onboarding for B2B only
+  if (user && needsIcp) {
     return <Onboarding onComplete={fetchUser} />
+  }
+
+  // Step 3: No user row yet (shouldn't happen, but handle gracefully)
+  if (!isOnboarded) {
+    return <ModeSelector onComplete={(mode: UserMode) => {
+      setUser(prev => prev ? { ...prev, mode, mode_set: true } : prev)
+    }} />
   }
 
   if (editingIcp) {
