@@ -38,6 +38,8 @@ interface TrendingTopic {
   totalEngagement: number
   authors: string[]
   suggestedAngle: string
+  source?: 'network' | 'trending' | 'both'
+  samplePosts?: Array<{ author: string; text: string; engagement: number; url: string }>
 }
 
 const ANGLE_ICONS: Record<string, string> = {
@@ -482,20 +484,52 @@ export default function ContentCalendar() {
 
           {!loadingTopics && hotTopics.length > 0 && (
             <div className="space-y-3">
-              <div className="text-xs text-ink-4 mb-2">Topics trending in your feed right now — ranked by engagement velocity.</div>
+              <div className="text-xs text-ink-4 mb-2">What people in your niche are talking about right now.</div>
               {hotTopics.map((topic, i) => (
                 <div key={i} className="card p-4">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1.5">
                     <span className="text-base">{ANGLE_ICONS[topic.suggestedAngle] ?? '\u{1F525}'}</span>
                     <span className="font-head text-sm font-semibold text-ink">{topic.topic}</span>
-                    <span className="badge badge-sent text-[10px]">{topic.suggestedAngle.replace('_', ' ')}</span>
+                    <span className={`badge text-[10px] ${
+                      topic.source === 'both' ? 'badge-icp' :
+                      topic.source === 'trending' ? 'badge-replied' :
+                      'badge-drafted'
+                    }`}>
+                      {topic.source === 'both' ? 'network + trending' :
+                       topic.source === 'trending' ? 'trending on X' :
+                       'your network'}
+                    </span>
                   </div>
                   <div className="text-[11px] text-ink-4 mb-2">
-                    {topic.postCount} posts &middot; {topic.totalEngagement.toLocaleString()} total engagement
+                    {topic.postCount} posts &middot; {topic.totalEngagement.toLocaleString()} engagement
                     {topic.authors.length > 0 && (
                       <span className="ml-1">&middot; {topic.authors.slice(0, 3).map(a => `@${a}`).join(', ')}</span>
                     )}
                   </div>
+
+                  {/* Sample posts */}
+                  {topic.samplePosts && topic.samplePosts.length > 0 && (
+                    <details className="mb-2">
+                      <summary className="text-[11px] text-accent cursor-pointer hover:underline">
+                        {topic.samplePosts.length} posts about this
+                      </summary>
+                      <div className="mt-1.5 space-y-1.5">
+                        {topic.samplePosts.map((sp, si) => (
+                          <div key={si} className="text-[11px] text-ink-3 bg-[var(--bg-warm)] rounded px-2.5 py-1.5 flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <span className="font-semibold text-ink-2">@{sp.author}</span>
+                              <span className="text-ink-4 ml-1">{sp.engagement.toLocaleString()} eng</span>
+                              <div className="mt-0.5 truncate">{sp.text}</div>
+                            </div>
+                            {sp.url && (
+                              <a href={sp.url} target="_blank" rel="noopener noreferrer" className="btn-outline text-[10px] py-0.5 px-2 shrink-0">Open</a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
                   <a
                     href={`https://x.com/search?q=${encodeURIComponent(topic.topic)}&src=typed_query&f=live`}
                     target="_blank"

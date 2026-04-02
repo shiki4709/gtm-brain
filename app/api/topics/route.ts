@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 import { buildUserProfile } from '@/lib/user-profile'
 
+// Trending topics engine — combines network signals with broader niche trends
+
 interface FeedPost {
   text: string
   author: string
@@ -20,6 +22,7 @@ interface TrendingTopic {
   userEngaged: boolean
   signalScore: number
   suggestedAngle: string
+  source: 'network' | 'trending' | 'both'  // where the signal came from
   samplePosts: Array<{ author: string; text: string; engagement: number; url: string }>
 }
 
@@ -29,8 +32,10 @@ export async function GET() {
 
   const user = auth.dbUser
   const trackKeywords: string[] = user.icp_config?.track_keywords ?? []
+  const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
 
-  // Fetch X posts directly from SocialData (same as watchlist/feed does)
+  // Fetch posts from watched accounts
   const feedPosts: FeedPost[] = []
 
   const { data: watchlist } = await auth.sb
@@ -39,15 +44,13 @@ export async function GET() {
     .eq('user_id', user.id)
 
   const xAccounts = (watchlist ?? []).filter((w: { platform: string }) => w.platform === 'x')
-  const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
 
   if (socialDataKey && xAccounts.length > 0) {
     const TWITTER_EPOCH = 1288834974657
     const promises = xAccounts.slice(0, 10).map(async (account: { username: string }) => {
       try {
-        const query = `from:${account.username}`
         const resp = await fetch(
-          `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(query)}&type=Latest`,
+          `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(`from:${account.username}`)}&type=Latest`,
           {
             headers: { Authorization: `Bearer ${socialDataKey}`, Accept: 'application/json' },
             signal: AbortSignal.timeout(8000),
@@ -58,18 +61,13 @@ export async function GET() {
         const tweets = (data.tweets ?? [])
           .filter((tw: Record<string, unknown>) => {
             const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
-            return !text.startsWith('RT @') && !text.startsWith('@')
+            return !text.startsWith('RT @') && !text.startsWith('@') && text.length >= 30
           })
-          .slice(0, 15)
+          .slice(0, 10)
 
         for (const tw of tweets) {
           const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
           const idStr = tw.id_str as string
-          let tweetTime = ''
-          if (idStr) {
-            const tweetMs = (Number(BigInt(idStr) >> BigInt(22))) + TWITTER_EPOCH
-            tweetTime = new Date(tweetMs).toISOString()
-          }
           feedPosts.push({
             text,
             author: account.username,
@@ -80,31 +78,240 @@ export async function GET() {
             url: `https://x.com/${account.username}/status/${idStr}`,
           })
         }
-      } catch { /* skip this account */ }
+      } catch { /* skip */ }
     })
     await Promise.all(promises)
   }
 
-  if (feedPosts.length === 0 && trackKeywords.length > 0) {
-    // Fallback: use tracked keywords as topics without feed data
-    const topics: TrendingTopic[] = trackKeywords.slice(0, 5).map((kw: string) => ({
-      topic: kw,
-      postCount: 0,
-      totalEngagement: 0,
-      authors: [],
-      userEngaged: false,
-      signalScore: 10,
-      suggestedAngle: 'key_insight',
-      samplePosts: [],
-    }))
-    return NextResponse.json({ success: true, data: { topics, source: 'keywords' } })
+  // Build user profile for AI analysis
+  const profile = await buildUserProfile(
+    auth.sb, user.id,
+    user.icp_config ?? { titles: [], exclude: [] },
+    user.mode ?? 'personal_brand',
+  )
+
+  // STEP 1: Extract real themes from network posts via Haiku
+  const networkTopics: TrendingTopic[] = []
+
+  if (apiKey && feedPosts.length >= 3) {
+    const postSamples = feedPosts
+      .sort((a, b) => (b.likes + b.replies + b.retweets) - (a.likes + a.replies + a.retweets))
+      .slice(0, 20)
+      .map((p, i) => `[${i}] @${p.author}: "${p.text.substring(0, 200)}" (${p.likes + p.replies + p.retweets} eng)`)
+      .join('\n')
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 600,
+          messages: [{ role: 'user', content: `Analyze these posts from accounts this user watches. Extract the 5-8 specific THEMES being discussed — not generic keywords like "ai" or "startup", but specific conversations like "Claude Code shipping daily", "AI agent frameworks", "founder burnout in year 2".
+
+USER FOCUS: ${profile.interests.slice(0, 10).join(', ') || trackKeywords.join(', ') || 'technology and business'}
+
+POSTS FROM THEIR NETWORK:
+${postSamples}
+
+Return ONLY a JSON array:
+[{"topic": "specific theme 3-6 words", "angle": "trending|data_point|framework|contrarian_take|how_to|breaking", "post_indices": [0, 3, 7], "why_relevant": "5 words why this matters to the user"}]
+
+Rules:
+- Extract ACTUAL themes from the posts, don't invent topics
+- Be specific: "AI coding assistants replacing junior devs" not just "AI"
+- Include post_indices that discuss this theme
+- Rank by engagement velocity (high engagement + multiple authors = trending)` }],
+        }),
+      })
+
+      if (resp.ok) {
+        const result = await resp.json()
+        const raw = result.content?.[0]?.text ?? ''
+        const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+        try {
+          const extracted = JSON.parse(cleaned) as Array<{
+            topic: string; angle: string; post_indices: number[]; why_relevant: string
+          }>
+
+          const sortedPosts = feedPosts
+            .sort((a, b) => (b.likes + b.replies + b.retweets) - (a.likes + a.replies + a.retweets))
+            .slice(0, 20)
+
+          for (const item of extracted) {
+            const matchedPosts = (item.post_indices ?? [])
+              .map(i => sortedPosts[i])
+              .filter(Boolean)
+
+            if (matchedPosts.length === 0) continue
+
+            const authors = [...new Set(matchedPosts.map(p => p.author))]
+            const totalEng = matchedPosts.reduce((s, p) => s + p.likes + p.replies + p.retweets, 0)
+
+            networkTopics.push({
+              topic: item.topic,
+              postCount: matchedPosts.length,
+              totalEngagement: totalEng,
+              authors: authors.slice(0, 5),
+              userEngaged: false,
+              signalScore: (matchedPosts.length * 20) + (totalEng * 0.1) + (authors.length * 15),
+              suggestedAngle: item.angle ?? 'trending',
+              source: 'network',
+              samplePosts: matchedPosts.slice(0, 3).map(p => ({
+                author: p.author,
+                text: p.text.substring(0, 200),
+                engagement: p.likes + p.replies + p.retweets,
+                url: p.url,
+              })),
+            })
+          }
+        } catch { /* parse error */ }
+      }
+    } catch { /* api error */ }
   }
 
-  if (feedPosts.length === 0) {
-    return NextResponse.json({ success: true, data: { topics: [], source: 'empty' } })
+  // STEP 2: Search X for broader trending posts in user's niche
+  const trendingTopics: TrendingTopic[] = []
+
+  if (socialDataKey && apiKey && profile.interests.length > 0) {
+    // Pick 2-3 interest areas to search for trending content
+    const searchTerms = profile.interests.slice(0, 3)
+
+    const trendingPosts: FeedPost[] = []
+    const TWITTER_EPOCH = 1288834974657
+
+    const trendPromises = searchTerms.map(async (term) => {
+      try {
+        const query = `${term} min_faves:50 lang:en`
+        const resp = await fetch(
+          `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(query)}&type=Top`,
+          {
+            headers: { Authorization: `Bearer ${socialDataKey}`, Accept: 'application/json' },
+            signal: AbortSignal.timeout(8000),
+          }
+        )
+        if (!resp.ok) return
+        const data = await resp.json()
+        const tweets = (data.tweets ?? [])
+          .filter((tw: Record<string, unknown>) => {
+            const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
+            return !text.startsWith('RT @') && text.length >= 40
+          })
+          .slice(0, 5)
+
+        for (const tw of tweets) {
+          const text = (tw.full_text as string) ?? (tw.text as string) ?? ''
+          const idStr = tw.id_str as string
+          trendingPosts.push({
+            text,
+            author: tw.user?.screen_name ?? '',
+            platform: 'x',
+            likes: (tw.favorite_count as number) ?? 0,
+            replies: (tw.reply_count as number) ?? 0,
+            retweets: (tw.retweet_count as number) ?? 0,
+            url: `https://x.com/${tw.user?.screen_name ?? 'x'}/status/${idStr}`,
+          })
+        }
+      } catch { /* skip */ }
+    })
+
+    await Promise.all(trendPromises)
+
+    // Use Haiku to extract themes from trending posts
+    if (trendingPosts.length >= 3) {
+      const trendSamples = trendingPosts
+        .sort((a, b) => (b.likes + b.replies + b.retweets) - (a.likes + a.replies + a.retweets))
+        .slice(0, 15)
+        .map((p, i) => `[${i}] @${p.author}: "${p.text.substring(0, 200)}" (${p.likes + p.replies + p.retweets} eng)`)
+        .join('\n')
+
+      try {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 400,
+            messages: [{ role: 'user', content: `What are the hottest conversations happening on X right now that overlap with "${profile.interests.slice(0, 5).join(', ')}"?
+
+TRENDING POSTS:
+${trendSamples}
+
+Return ONLY a JSON array of 3-5 themes:
+[{"topic": "specific trending theme 3-6 words", "angle": "trending|breaking|contrarian_take|data_point", "post_indices": [0, 2], "why_hot": "why this is blowing up right now in 5 words"}]
+
+Be specific. "OpenAI board drama fallout" not "AI news". These should be CONVERSATIONS people are having right now.` }],
+          }),
+        })
+
+        if (resp.ok) {
+          const result = await resp.json()
+          const raw = result.content?.[0]?.text ?? ''
+          const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+          try {
+            const extracted = JSON.parse(cleaned) as Array<{
+              topic: string; angle: string; post_indices: number[]; why_hot: string
+            }>
+
+            const sortedTrending = trendingPosts
+              .sort((a, b) => (b.likes + b.replies + b.retweets) - (a.likes + a.replies + a.retweets))
+              .slice(0, 15)
+
+            for (const item of extracted) {
+              const matchedPosts = (item.post_indices ?? [])
+                .map(i => sortedTrending[i])
+                .filter(Boolean)
+
+              if (matchedPosts.length === 0) continue
+
+              // Check if this topic already exists in network topics
+              const existingIdx = networkTopics.findIndex(nt =>
+                nt.topic.toLowerCase().includes(item.topic.toLowerCase().split(' ')[0]) ||
+                item.topic.toLowerCase().includes(nt.topic.toLowerCase().split(' ')[0])
+              )
+
+              if (existingIdx >= 0) {
+                // Merge: topic exists in both network and trending
+                networkTopics[existingIdx] = {
+                  ...networkTopics[existingIdx],
+                  source: 'both',
+                  signalScore: networkTopics[existingIdx].signalScore * 1.5, // boost merged topics
+                }
+                continue
+              }
+
+              const authors = [...new Set(matchedPosts.map(p => p.author))]
+              const totalEng = matchedPosts.reduce((s, p) => s + p.likes + p.replies + p.retweets, 0)
+
+              trendingTopics.push({
+                topic: item.topic,
+                postCount: matchedPosts.length,
+                totalEngagement: totalEng,
+                authors: authors.slice(0, 5),
+                userEngaged: false,
+                signalScore: (totalEng * 0.05) + (matchedPosts.length * 10),
+                suggestedAngle: item.angle ?? 'trending',
+                source: 'trending',
+                samplePosts: matchedPosts.slice(0, 3).map(p => ({
+                  author: p.author,
+                  text: p.text.substring(0, 200),
+                  engagement: p.likes + p.replies + p.retweets,
+                  url: p.url,
+                })),
+              })
+            }
+          } catch { /* parse error */ }
+        }
+      } catch { /* api error */ }
+    }
   }
 
-  // Get user's reply history
+  // Combine and rank all topics
+  const allTopics = [...networkTopics, ...trendingTopics]
+    .sort((a, b) => b.signalScore - a.signalScore)
+    .slice(0, 10)
+
+  // Mark user engagement
   const { data: userReplies } = await auth.sb
     .from('action_log')
     .select('post_id')
@@ -114,113 +321,17 @@ export async function GET() {
     .limit(50)
   const repliedUrls = new Set((userReplies ?? []).map((r: { post_id: string }) => r.post_id).filter(Boolean))
 
-  // Group posts by topic using tracked keywords
-  const topicMap = new Map<string, {
-    posts: FeedPost[]; engagement: number; authors: Set<string>; userEngaged: boolean; suggestedAngle?: string
-  }>()
-
-  for (const post of feedPosts) {
-    const textLower = post.text.toLowerCase()
-    const eng = post.likes + post.replies + post.retweets
-    const userReplied = repliedUrls.has(post.url)
-
-    for (const kw of trackKeywords) {
-      if (textLower.includes(kw.toLowerCase())) {
-        const existing = topicMap.get(kw) ?? { posts: [], engagement: 0, authors: new Set<string>(), userEngaged: false }
-        existing.posts.push(post)
-        existing.engagement += eng
-        existing.authors.add(post.author)
-        if (userReplied) existing.userEngaged = true
-        topicMap.set(kw, existing)
-      }
-    }
+  for (const topic of allTopics) {
+    topic.userEngaged = topic.samplePosts.some(p => repliedUrls.has(p.url))
   }
 
-  // If fewer than 3 keyword-matched topics, use Claude Haiku for profile-aware topic extraction
-  if (topicMap.size < 3 && feedPosts.length >= 5) {
-    const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
-    if (apiKey) {
-      try {
-        // Build user profile for context-aware topic extraction
-        const profile = await buildUserProfile(
-          auth.sb, user.id,
-          user.icp_config ?? { titles: [], exclude: [] },
-          user.mode ?? 'personal_brand',
-        )
-
-        const sampleTexts = feedPosts.slice(0, 15).map(p => p.text.substring(0, 200)).join('\n---\n')
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 400,
-            messages: [{ role: 'user', content: `Extract 5-7 trending topics from these social media posts that are relevant to this user's profile.
-
-USER PROFILE:
-${profile.text.substring(0, 1000)}
-
-POSTS:
-${sampleTexts}
-
-Return ONLY a JSON array of objects: [{"topic": "short topic 2-4 words", "angle": "trending|data_point|framework|key_insight|contrarian_take|how_to"}]
-Focus on topics the user would want to create content about based on their profile.` }],
-          }),
-        })
-        if (resp.ok) {
-          const result = await resp.json()
-          const raw = result.content?.[0]?.text ?? ''
-          const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
-          try {
-            const extracted = JSON.parse(cleaned) as Array<string | { topic: string; angle?: string }>
-            for (const item of extracted) {
-              const topic = typeof item === 'string' ? item : item.topic
-              const angle = typeof item === 'string' ? undefined : item.angle
-              const key = topic.toLowerCase()
-              if (topicMap.has(key)) continue
-              const matching = feedPosts.filter(p => p.text.toLowerCase().includes(key))
-              if (matching.length >= 2) {
-                topicMap.set(key, {
-                  posts: matching,
-                  engagement: matching.reduce((s, p) => s + p.likes + p.replies + p.retweets, 0),
-                  authors: new Set(matching.map(p => p.author)),
-                  userEngaged: matching.some(p => repliedUrls.has(p.url)),
-                  suggestedAngle: angle,
-                })
-              }
-            }
-          } catch { /* */ }
-        }
-      } catch { /* */ }
-    }
-  }
-
-  // Score and rank
-  const topics: TrendingTopic[] = [...topicMap.entries()]
-    .map(([topic, data]) => {
-      const signal = (data.posts.length * 10) + (data.engagement * 0.1) + (data.userEngaged ? 50 : 0)
-      const hasData = data.posts.some(p => /\d+%|\$\d|x\d|\d+x/i.test(p.text))
-      const hasFramework = data.posts.some(p => /step|framework|system|playbook|process|how to/i.test(p.text))
-      const angle = data.suggestedAngle ?? (hasFramework ? 'framework' : hasData ? 'data_point' : data.posts.length >= 4 ? 'trending' : 'key_insight')
-
-      return {
-        topic,
-        postCount: data.posts.length,
-        totalEngagement: data.engagement,
-        authors: [...data.authors].slice(0, 5),
-        userEngaged: data.userEngaged,
-        signalScore: signal,
-        suggestedAngle: angle,
-        samplePosts: data.posts.slice(0, 3).map(p => ({
-          author: p.author,
-          text: p.text.substring(0, 200),
-          engagement: p.likes + p.replies + p.retweets,
-          url: p.url,
-        })),
-      }
-    })
-    .sort((a, b) => b.signalScore - a.signalScore)
-    .slice(0, 5)
-
-  return NextResponse.json({ success: true, data: { topics, source: 'feed' } })
+  return NextResponse.json({
+    success: true,
+    data: {
+      topics: allTopics,
+      source: allTopics.length > 0 ? 'ai' : 'empty',
+      networkCount: networkTopics.length,
+      trendingCount: trendingTopics.length,
+    },
+  })
 }
