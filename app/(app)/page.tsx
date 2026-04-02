@@ -84,6 +84,8 @@ export default function WatchlistFeed() {
   const [userMode, setUserMode] = useState<UserMode>('personal_brand')
   const [progressKey, setProgressKey] = useState(0)
   const [activeSection, setActiveSection] = useState<string>('engage')
+  const [activeView, setActiveView] = useState<'dashboard' | 'feed'>('dashboard')
+  const [feedLoaded, setFeedLoaded] = useState(false)
 
   // Create flow — angle detection + generation
   const [createInput, setCreateInput] = useState('')
@@ -230,8 +232,6 @@ export default function WatchlistFeed() {
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
       if (liJson.success) setInsights(liJson.data)
       if (wlJson.data?.length > 0) {
-        await fetchFeed()
-        // If feed is empty after fetching, show suggestions to help user add better profiles
         fetchSuggestions()
       } else {
         fetchSuggestions()
@@ -239,6 +239,15 @@ export default function WatchlistFeed() {
     }).catch(() => {}).finally(() => setLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Load feed lazily when user switches to feed view
+  useEffect(() => {
+    if (activeView === 'feed' && !feedLoaded && watchlist.length > 0 && !loadingFeed) {
+      fetchFeed()
+      setFeedLoaded(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, watchlist.length])
 
   async function fetchFeed(forceRefresh = false) {
     setLoadingFeed(true)
@@ -974,48 +983,82 @@ export default function WatchlistFeed() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* ═══ MODE HEADER ═══ */}
-      <div className="mb-4">
-        <h1 className="font-head text-lg font-bold text-ink">
-          {userMode === 'personal_brand' ? 'Build your audience' : userMode === 'b2b_outbound' ? 'Find and close leads' : 'Grow & prospect'}
-        </h1>
-        <p className="text-xs text-ink-4 mt-0.5">
-          {userMode === 'personal_brand'
-            ? 'Reply to trending posts and create content to grow your visibility.'
-            : userMode === 'b2b_outbound'
-              ? 'Scrape high-engagement posts for ICP leads and draft outreach DMs.'
-              : 'Build presence and generate pipeline from the same feed.'}
-        </p>
+      {/* ═══ TOP-LEVEL VIEW TABS ═══ */}
+      <div className="flex items-center gap-1 mb-6">
+        <button
+          onClick={() => setActiveView('dashboard')}
+          className={`font-head text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
+            activeView === 'dashboard' ? 'bg-[var(--blue-tint)] text-ink' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
+          }`}
+        >
+          Dashboard
+        </button>
+        <button
+          onClick={() => setActiveView('feed')}
+          className={`font-head text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
+            activeView === 'feed' ? 'bg-[var(--blue-tint)] text-ink' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
+          }`}
+        >
+          Feed
+          {feed.length > 0 && <span className="ml-1.5 text-[10px] bg-[var(--rule-light)] rounded-full px-1.5 py-0.5">{feed.length}</span>}
+        </button>
       </div>
 
-      {/* ═══ METRICS DASHBOARD ═══ */}
-      <ProgressWidget key={progressKey} mode={userMode} />
+      {/* ═══ DASHBOARD VIEW ═══ */}
+      {activeView === 'dashboard' && (
+        <div>
+          {/* Mode header */}
+          <div className="mb-5">
+            <h1 className="font-head text-lg font-bold text-ink">
+              {userMode === 'personal_brand' ? 'Build your audience' : 'Find and close leads'}
+            </h1>
+            <p className="text-xs text-ink-4 mt-0.5">
+              {userMode === 'personal_brand'
+                ? 'Reply to trending posts and create content to grow your visibility.'
+                : 'Scrape high-engagement posts for ICP leads and draft outreach DMs.'}
+            </p>
+          </div>
 
-      {/* ═══ GROWTH COACH ═══ */}
-      <GrowthCoach />
+          {/* Metrics */}
+          <ProgressWidget key={progressKey} mode={userMode} />
 
-      {/* ═══ SECTION TABS (goal-oriented) ═══ */}
-      <div className="flex items-center gap-0 mb-4 border-b border-rule">
-        {goalSections.map(section => {
-          const isActive = activeSection === section.key
-          return (
-            <button
-              key={section.key}
-              onClick={() => setActiveSection(section.key)}
-              className={`font-head text-sm font-semibold px-4 py-2.5 border-b-[2px] transition-colors ${
-                isActive ? 'text-ink border-accent' : 'text-ink-4 border-transparent hover:text-ink-3'
-              }`}
-            >
-              {section.label}
-            </button>
-          )
-        })}
-        <div className="ml-auto pb-1.5">
-          <button onClick={() => fetchFeed(true)} disabled={loadingFeed} className="btn-outline text-xs">
-            {loadingFeed ? '...' : '\u21BB'}
-          </button>
+          {/* Growth Coach */}
+          <GrowthCoach />
+
+          {/* Content Calendar (personal brand) */}
+          {userMode === 'personal_brand' && (
+            <div className="mb-6">
+              <ContentCalendar />
+            </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* ═══ FEED VIEW ═══ */}
+      {activeView === 'feed' && (
+        <div>
+          {/* Feed section tabs */}
+          <div className="flex items-center gap-0 mb-4 border-b border-rule">
+            {goalSections.map(section => {
+              const isActive = activeSection === section.key
+              return (
+                <button
+                  key={section.key}
+                  onClick={() => setActiveSection(section.key)}
+                  className={`font-head text-sm font-semibold px-4 py-2.5 border-b-[2px] transition-colors ${
+                    isActive ? 'text-ink border-accent' : 'text-ink-4 border-transparent hover:text-ink-3'
+                  }`}
+                >
+                  {section.label}
+                </button>
+              )
+            })}
+            <div className="ml-auto pb-1.5">
+              <button onClick={() => fetchFeed(true)} disabled={loadingFeed} className="btn-outline text-xs">
+                {loadingFeed ? '...' : '\u21BB'}
+              </button>
+            </div>
+          </div>
 
       {/* ═══ POSTS ═══ */}
       {loadingFeed && feed.length === 0 && (
@@ -1236,7 +1279,7 @@ export default function WatchlistFeed() {
                   return icpRelevance.score > 0
                 })
 
-            const allDone = feed.filter(f => tasks[f.url])
+            const allDone = feed.filter(f => tasks[f.url] === 'done')
 
             if (allTodo.length === 0 && allDone.length === 0) {
               return (
@@ -1628,7 +1671,7 @@ export default function WatchlistFeed() {
                     <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-2">Done today</div>
                     {allDone.map((item, i) => (
                       <div key={i} className="flex items-center gap-2 py-1.5 text-xs text-ink-4">
-                        <span>{tasks[item.url] === 'done' ? '✓' : '—'}</span>
+                        <span>✓</span>
                         <span className="line-through">{item.author}: {item.text.slice(0, 60)}...</span>
                         <button onClick={() => undoTask(item.url)} className="text-[10px] hover:text-ink ml-auto">Undo</button>
                       </div>
@@ -1639,6 +1682,8 @@ export default function WatchlistFeed() {
             )
           })()}
         </>
+      )}
+        </div>
       )}
     </div>
   )
