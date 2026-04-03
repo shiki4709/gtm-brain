@@ -180,6 +180,7 @@ export type InsightType =
   | 'weekly_summary'
   | 'pipeline_run'
   | 'outcome'
+  | 'weekly_brief'
 
 // Feedback loop types
 export type ActionType = 'reply' | 'reply_copy' | 'dm_draft' | 'dm_send' | 'scrape' | 'dm_reply_received' | 'x_thread' | 'x_quote' | 'x_post' | 'li_comment' | 'li_post' | 'li_carousel' | 'li_connection'

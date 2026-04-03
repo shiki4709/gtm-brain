@@ -1251,6 +1251,103 @@ export default function WatchlistFeed() {
             </div>
           )}
 
+          {/* Section 2.5: Weekly GTM Brief */}
+          {(() => {
+            interface BriefPatterns {
+              mostActiveDay: string
+              avgActionsPerDay: number
+              notificationActRate: number
+              topAction: string
+              trend: string
+            }
+            interface BriefData {
+              brief: string
+              patterns: BriefPatterns
+              generatedAt: string
+            }
+
+            const [weeklyBrief, setWeeklyBrief] = useState<BriefData | null>(null)
+            const [briefLoading, setBriefLoading] = useState(false)
+            const [briefMessage, setBriefMessage] = useState<string | null>(null)
+
+            useEffect(() => {
+              fetch('/api/learning')
+                .then(r => r.json())
+                .then(json => {
+                  if (json.success && json.data) {
+                    setWeeklyBrief(json.data)
+                  } else if (json.message) {
+                    setBriefMessage(json.message)
+                  }
+                })
+                .catch(() => {})
+            }, [])
+
+            const handleRefresh = () => {
+              setBriefLoading(true)
+              fetch('/api/learning', { method: 'POST' })
+                .then(r => r.json())
+                .then(json => {
+                  if (json.success && json.data) {
+                    setWeeklyBrief(json.data)
+                    setBriefMessage(null)
+                  }
+                })
+                .catch(() => {})
+                .finally(() => setBriefLoading(false))
+            }
+
+            return (
+              <div className="card p-4 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-head text-sm font-bold text-ink">Weekly GTM Brief</div>
+                  {weeklyBrief && (
+                    <button
+                      className="text-[11px] text-accent hover:underline disabled:opacity-50"
+                      onClick={handleRefresh}
+                      disabled={briefLoading}
+                    >
+                      {briefLoading ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                  )}
+                </div>
+                {weeklyBrief ? (
+                  <>
+                    <p className="text-xs text-ink-3 leading-relaxed mb-3">{weeklyBrief.brief}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="badge text-[10px] px-2 py-0.5 rounded">
+                        Most active: {weeklyBrief.patterns.mostActiveDay}
+                      </span>
+                      <span className="badge text-[10px] px-2 py-0.5 rounded">
+                        Avg {weeklyBrief.patterns.avgActionsPerDay} actions/day
+                      </span>
+                      {weeklyBrief.patterns.notificationActRate > 0 && (
+                        <span className="badge text-[10px] px-2 py-0.5 rounded">
+                          {weeklyBrief.patterns.notificationActRate}% notification act rate
+                        </span>
+                      )}
+                      <span className="badge text-[10px] px-2 py-0.5 rounded">
+                        Top: {weeklyBrief.patterns.topAction}
+                      </span>
+                      <span className="badge text-[10px] px-2 py-0.5 rounded">
+                        Trend: {weeklyBrief.patterns.trend}
+                      </span>
+                    </div>
+                    {weeklyBrief.generatedAt && (
+                      <div className="text-[10px] text-ink-4 mt-2">
+                        Generated {new Date(weeklyBrief.generatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs text-ink-4">
+                    {briefMessage ?? 'Keep using the app for a few more days \u2014 the brain is learning your patterns.'}
+                  </p>
+                )}
+              </div>
+            )
+          })()}
+
           {/* Section 3: This week's progress */}
           {growthActions.length > 0 && (() => {
             const weekStart = new Date()

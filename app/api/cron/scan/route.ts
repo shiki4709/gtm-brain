@@ -139,6 +139,21 @@ async function handleScan(request: Request) {
       user.mode ?? 'personal_brand',
     )
 
+    // Fetch learned topic preferences for score boosting
+    const { data: learnedInsight } = await sb
+      .from('sb_insights')
+      .select('insight_data')
+      .eq('user_id', user.id)
+      .eq('insight_type', 'weekly_brief')
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    const insightData = learnedInsight?.insight_data as Record<string, Record<string, unknown>> | null
+    const learnedTopics: string[] = insightData?.patterns?.bestTopics
+      ? (insightData.patterns.bestTopics as string[])
+      : []
+
     const scored = await Promise.all(freshPosts.map(async (post) => {
       // Use profile-based scoring (semantic, uses full user context)
       const haikuRelevance = userProfile.text.length > 50
@@ -156,9 +171,15 @@ async function handleScan(request: Request) {
       const existingReplies = post.engagement?.replies ?? 0
       const opportunityScore = (Math.log(authorFollowers + 1) * recencyDecay) / (existingReplies + 1)
 
-      const finalScore = (haikuRelevance.score > 0 ? 200 * haikuRelevance.score : 0) +
+      // Boost score if post text matches learned high-performing topics
+      const topicBoost = learnedTopics.length > 0 &&
+        learnedTopics.some(t => post.text.toLowerCase().includes(t.toLowerCase()))
+        ? 1.15
+        : 1.0
+
+      const finalScore = ((haikuRelevance.score > 0 ? 200 * haikuRelevance.score : 0) +
         (rec.actions[0]?.priority === 'high' ? 100 : rec.actions[0]?.priority === 'medium' ? 30 : 1) +
-        opportunityScore * 10
+        opportunityScore * 10) * topicBoost
 
       return { post, haikuRelevance, rec, finalScore }
     }))
