@@ -1162,33 +1162,59 @@ export default function WatchlistFeed() {
             const maxAction = Math.max(1, ...growthActions.map(a => a.count))
             return (
               <div className="card p-4 mb-4">
-                <div className="font-head text-sm font-bold text-ink mb-1">Growth</div>
-                <div className="text-xs text-ink-4 mb-3">
-                  <span className="text-ink font-semibold">{latest.toLocaleString()} followers</span>
-                  {weekDelta !== 0 && (
-                    <span className={weekDelta > 0 ? 'text-green-600 ml-1' : 'text-red-500 ml-1'}>
-                      ({weekDelta > 0 ? '+' : ''}{weekDelta} this week)
-                    </span>
-                  )}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="font-head text-sm font-bold text-ink">Growth</div>
+                    <div className="text-xs text-ink-4">
+                      <span className="text-ink font-semibold">{latest.toLocaleString()} followers</span>
+                      {weekDelta !== 0 && (
+                        <span className={`ml-1 ${weekDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
+                          {weekDelta > 0 ? '+' : ''}{weekDelta} this week
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right text-[10px] text-ink-4">
+                    <div>{minV.toLocaleString()} — {maxV.toLocaleString()}</div>
+                    <div>{growthFollowers.length} days</div>
+                  </div>
                 </div>
-                <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: 120 }}>
-                  <path d={pathD} stroke="var(--blue-bright)" fill="none" strokeWidth="2" strokeLinejoin="round" />
-                  {/* Min/max labels */}
-                  <text x={svgW - 2} y={padY + 4} textAnchor="end" fontSize="9" fill="var(--ink-4)">{maxV}</text>
-                  <text x={svgW - 2} y={svgH - padY + 2} textAnchor="end" fontSize="9" fill="var(--ink-4)">{minV}</text>
+                <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: 100 }} preserveAspectRatio="none">
+                  {/* Grid lines */}
+                  {[0.25, 0.5, 0.75].map(pct => (
+                    <line key={pct} x1={0} x2={svgW} y1={padY + pct * (svgH - 2 * padY)} y2={padY + pct * (svgH - 2 * padY)} stroke="var(--rule-light)" strokeWidth="0.5" />
+                  ))}
+                  {/* Area fill */}
+                  <path
+                    d={`${pathD} L ${points[points.length - 1].x.toFixed(1)},${svgH} L ${points[0].x.toFixed(1)},${svgH} Z`}
+                    fill="var(--blue-tint)"
+                  />
+                  {/* Line */}
+                  <path d={pathD} stroke="var(--blue-bright)" fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                  {/* Data points */}
+                  {points.map((p, i) => (
+                    <circle key={i} cx={p.x} cy={p.y} r={points.length <= 10 ? 3 : 1.5} fill="var(--blue-bright)" />
+                  ))}
                 </svg>
+                {/* Date labels */}
+                <div className="flex justify-between mt-1 text-[9px] text-ink-4">
+                  {growthFollowers.length > 0 && <span>{new Date(growthFollowers[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                  {growthFollowers.length > 2 && <span>{new Date(growthFollowers[Math.floor(growthFollowers.length / 2)].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                  {growthFollowers.length > 1 && <span>{new Date(growthFollowers[growthFollowers.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                </div>
+                {/* Daily actions */}
                 {growthActions.length > 0 && (
-                  <div className="mt-2">
-                    <div className="text-[11px] text-ink-4 mb-1">Daily actions</div>
-                    <div className="flex items-end gap-[2px]" style={{ height: 28 }}>
+                  <div className="mt-3 pt-3 border-t border-[var(--rule-light)]">
+                    <div className="text-[10px] text-ink-4 mb-1.5">Daily actions</div>
+                    <div className="flex items-end gap-px" style={{ height: 20 }}>
                       {growthActions.map((a) => (
                         <div
                           key={a.date}
-                          className="flex-1 rounded-sm"
+                          className="flex-1 rounded-t-sm"
                           style={{
-                            backgroundColor: 'var(--blue-bright)',
-                            opacity: 0.6,
-                            height: `${Math.max(2, (a.count / maxAction) * 28)}px`,
+                            backgroundColor: a.count > 0 ? 'var(--blue-bright)' : 'var(--rule-light)',
+                            opacity: a.count > 0 ? 0.4 + (a.count / maxAction) * 0.6 : 0.3,
+                            height: `${Math.max(2, (a.count / maxAction) * 20)}px`,
                           }}
                           title={`${a.date}: ${a.count} actions`}
                         />
