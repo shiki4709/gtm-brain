@@ -113,6 +113,17 @@ export default function WatchlistFeed() {
   const [createGenerating, setCreateGenerating] = useState<string | null>(null) // angle id being generated
   const [createResults, setCreateResults] = useState<Record<string, Record<string, string>>>({}) // angleId → { platform: content }
 
+  // Activity timeline state
+  const [activityData, setActivityData] = useState<Record<string, Array<{
+    id: string; action_type: string; platform: string | null; label: string
+    content_preview: string | null; created_at: string
+  }>>>({})
+  const [activityOpen, setActivityOpen] = useState(true)
+
+  // Growth chart state
+  const [growthFollowers, setGrowthFollowers] = useState<Array<{ date: string; value: number }>>([])
+  const [growthActions, setGrowthActions] = useState<Array<{ date: string; count: number }>>([])
+
   // Profile-based scoring state
   const [profileScores, setProfileScores] = useState<Record<string, { score: number; topic: string | null; reason: string }>>({})
   const [profileInterests, setProfileInterests] = useState<string[]>([])
@@ -234,7 +245,9 @@ export default function WatchlistFeed() {
       fetch('/api/insights/roi').then(r => r.json()),
       fetch('/api/user').then(r => r.json()),
       fetch('/api/actions').then(r => r.json()),
-    ]).then(async ([wlJson, liJson, roiJson, userJson, actionsJson]) => {
+      fetch('/api/activity').then(r => r.json()),
+      fetch('/api/growth').then(r => r.json()),
+    ]).then(async ([wlJson, liJson, roiJson, userJson, actionsJson, activityJson, growthJson]) => {
       // Check if user has any action log entries
       if (actionsJson.success) {
         setHasActions((actionsJson.items ?? []).length > 0)
@@ -246,6 +259,11 @@ export default function WatchlistFeed() {
       if (userJson.success && userJson.data) {
         setUserMode(userJson.data.mode ?? 'personal_brand')
         if (!userJson.data.mode_set) setShowModeSelector(true)
+      }
+      if (activityJson.success && activityJson.data) setActivityData(activityJson.data)
+      if (growthJson.success && growthJson.data) {
+        setGrowthFollowers(growthJson.data.followers ?? [])
+        setGrowthActions(growthJson.data.actions ?? [])
       }
       if (roiJson.success) setRoi(roiJson.data)
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
@@ -1119,8 +1137,139 @@ export default function WatchlistFeed() {
           {/* Metrics */}
           <ProgressWidget key={progressKey} mode={userMode} />
 
+          {/* Growth Chart */}
+          {growthFollowers.length >= 2 ? (() => {
+            const svgW = 320
+            const svgH = 120
+            const padX = 0
+            const padY = 8
+            const values = growthFollowers.map(p => p.value)
+            const minV = Math.min(...values)
+            const maxV = Math.max(...values)
+            const rangeV = maxV - minV || 1
+            const latest = values[values.length - 1] ?? 0
+            // Week delta
+            const weekAgoIdx = Math.max(0, values.length - 7)
+            const weekDelta = latest - (values[weekAgoIdx] ?? latest)
+            const points = growthFollowers.map((p, i) => {
+              const x = padX + (i / (growthFollowers.length - 1)) * (svgW - 2 * padX)
+              const y = padY + (1 - (p.value - minV) / rangeV) * (svgH - 2 * padY)
+              return { x, y }
+            })
+            const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+            // Action bars
+            const maxAction = Math.max(1, ...growthActions.map(a => a.count))
+            return (
+              <div className="card p-4 mb-4">
+                <div className="font-head text-sm font-bold text-ink mb-1">Growth</div>
+                <div className="text-xs text-ink-4 mb-3">
+                  <span className="text-ink font-semibold">{latest.toLocaleString()} followers</span>
+                  {weekDelta !== 0 && (
+                    <span className={weekDelta > 0 ? 'text-green-600 ml-1' : 'text-red-500 ml-1'}>
+                      ({weekDelta > 0 ? '+' : ''}{weekDelta} this week)
+                    </span>
+                  )}
+                </div>
+                <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: 120 }}>
+                  <path d={pathD} stroke="var(--blue-bright)" fill="none" strokeWidth="2" strokeLinejoin="round" />
+                  {/* Min/max labels */}
+                  <text x={svgW - 2} y={padY + 4} textAnchor="end" fontSize="9" fill="var(--ink-4)">{maxV}</text>
+                  <text x={svgW - 2} y={svgH - padY + 2} textAnchor="end" fontSize="9" fill="var(--ink-4)">{minV}</text>
+                </svg>
+                {growthActions.length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-[11px] text-ink-4 mb-1">Daily actions</div>
+                    <div className="flex items-end gap-[2px]" style={{ height: 28 }}>
+                      {growthActions.map((a) => (
+                        <div
+                          key={a.date}
+                          className="flex-1 rounded-sm"
+                          style={{
+                            backgroundColor: 'var(--blue-bright)',
+                            opacity: 0.6,
+                            height: `${Math.max(2, (a.count / maxAction) * 28)}px`,
+                          }}
+                          title={`${a.date}: ${a.count} actions`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })() : (
+            <div className="card p-4 mb-4">
+              <div className="font-head text-sm font-bold text-ink mb-1">Growth</div>
+              <p className="text-xs text-ink-4">
+                Follower tracking starts after 2 days. Connect your X handle in Settings.
+              </p>
+            </div>
+          )}
+
           {/* Growth Coach */}
           <GrowthCoach />
+
+          {/* Recent Activity */}
+          <div className="card p-4 mt-4">
+            <button
+              className="flex items-center justify-between w-full text-left"
+              onClick={() => setActivityOpen(prev => !prev)}
+            >
+              <span className="font-head text-sm font-bold text-ink">Recent activity</span>
+              <span className="text-ink-4 text-xs">{activityOpen ? '▲' : '▼'}</span>
+            </button>
+            {activityOpen && (
+              <div className="mt-3">
+                {Object.keys(activityData).length === 0 ? (
+                  <p className="text-xs text-ink-4">
+                    No activity yet. Start by replying to posts in the Feed tab.
+                  </p>
+                ) : (
+                  Object.entries(activityData).slice(0, 4).map(([group, items]) => (
+                    <div key={group} className="mb-3">
+                      <div className="text-[11px] font-head font-semibold text-ink-4 mb-1.5 uppercase tracking-wide">{group}</div>
+                      <div className="space-y-1.5">
+                        {items.slice(0, 20).map((item) => {
+                          const icons: Record<string, string> = {
+                            reply: '💬', reply_copy: '📋', dm_draft: '📝', dm_send: '✉️',
+                            scrape: '🔍', x_thread: '🧵', x_quote: '🔁', x_post: '✏️',
+                            li_comment: '💬', li_post: '📝', li_carousel: '🎠',
+                            li_connection: '🤝', notification_skip: '⏭️',
+                          }
+                          const icon = icons[item.action_type] ?? '📌'
+                          const ago = (() => {
+                            const diff = Date.now() - new Date(item.created_at).getTime()
+                            const mins = Math.floor(diff / 60000)
+                            if (mins < 60) return `${mins}m ago`
+                            const hrs = Math.floor(mins / 60)
+                            if (hrs < 24) return `${hrs}h ago`
+                            return `${Math.floor(hrs / 24)}d ago`
+                          })()
+                          return (
+                            <div key={item.id} className="flex items-start gap-2 text-xs">
+                              <span className="shrink-0">{icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-ink">{item.label}</span>
+                                {item.platform && (
+                                  <span className="badge ml-1.5 text-[10px] px-1.5 py-0 rounded">{item.platform}</span>
+                                )}
+                                <span className="text-ink-4 ml-1.5">{ago}</span>
+                                {item.content_preview && (
+                                  <div className="text-[11px] text-ink-4 truncate mt-0.5">
+                                    {item.content_preview}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
 
         </div>
       )}
