@@ -1,9 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import ProgressWidget from '@/components/progress-widget'
 import ModeSelector from '@/components/mode-selector'
-import GrowthCoach from '@/components/growth-coach'
 import ContentCalendar from '@/components/content-calendar'
 import type { UserMode } from '@/lib/types'
 import { getIcpRelevance, getPlaybookBonus, type UserScoringConfig, type ProfileScoreOverride } from '@/lib/scoring'
@@ -83,7 +81,6 @@ export default function WatchlistFeed() {
   // Mode gate state
   const [showModeSelector, setShowModeSelector] = useState(false)
   const [userMode, setUserMode] = useState<UserMode>('personal_brand')
-  const [progressKey, setProgressKey] = useState(0)
   const [activeSection, setActiveSection] = useState<string>('engage')
   const [activeView, setActiveView] = useState<'dashboard' | 'feed' | 'create'>('dashboard')
   const [feedLoaded, setFeedLoaded] = useState(false)
@@ -123,6 +120,7 @@ export default function WatchlistFeed() {
 
   // Growth chart state
   const [growthFollowers, setGrowthFollowers] = useState<Array<{ date: string; value: number }>>([])
+  const [growthConnections, setGrowthConnections] = useState<Array<{ date: string; value: number }>>([])
   const [growthActions, setGrowthActions] = useState<Array<{ date: string; count: number }>>([])
 
   // Profile-based scoring state
@@ -264,6 +262,7 @@ export default function WatchlistFeed() {
       if (activityJson.success && activityJson.data) setActivityData(activityJson.data)
       if (growthJson.success && growthJson.data) {
         setGrowthFollowers(growthJson.data.followers ?? [])
+        setGrowthConnections(growthJson.data.connections ?? [])
         setGrowthActions(growthJson.data.actions ?? [])
       }
       if (roiJson.success) setRoi(roiJson.data)
@@ -1124,33 +1123,66 @@ export default function WatchlistFeed() {
             </div>
           )}
 
-          {/* Mode header */}
-          <div className="mb-5">
-            <h2 className="font-head text-lg font-bold text-ink">
-              {userMode === 'personal_brand' ? 'Build your audience' : 'Find and close leads'}
-            </h2>
-            <p className="text-xs text-ink-4 mt-0.5">
-              {userMode === 'personal_brand'
-                ? 'Reply to trending posts and create content to grow your visibility.'
-                : 'Scrape high-engagement posts for ICP leads and draft outreach DMs.'}
-            </p>
-          </div>
+          {/* Section 1: Quick stats bar */}
+          {(() => {
+            const latestFollowers = growthFollowers.length > 0 ? growthFollowers[growthFollowers.length - 1].value : 0
+            const weekAgoIdx = Math.max(0, growthFollowers.length - 7)
+            const followerDelta = growthFollowers.length > 1 ? latestFollowers - (growthFollowers[weekAgoIdx]?.value ?? latestFollowers) : 0
+            const latestConnections = growthConnections.length > 0 ? growthConnections[growthConnections.length - 1].value : 0
+            const liWeekIdx = Math.max(0, growthConnections.length - 7)
+            const connectionDelta = growthConnections.length > 1 ? latestConnections - (growthConnections[liWeekIdx]?.value ?? latestConnections) : 0
+            const todayStr = new Date().toISOString().slice(0, 10)
+            const actionsToday = growthActions.find(a => a.date === todayStr)?.count ?? 0
+            return (
+              <div className="card p-3 mb-4 flex items-center gap-6">
+                {growthFollowers.length > 0 && (
+                  <div>
+                    <div className="text-[11px] text-ink-4">X followers</div>
+                    <div className="font-head text-2xl font-bold text-ink leading-tight">
+                      {latestFollowers.toLocaleString()}
+                      {followerDelta !== 0 && (
+                        <span className={`text-sm ml-1 ${followerDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
+                          {followerDelta > 0 ? '+' : ''}{followerDelta}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {growthConnections.length > 0 && (
+                  <div className="border-l border-[var(--rule-light)] pl-6">
+                    <div className="text-[11px] text-ink-4">LinkedIn</div>
+                    <div className="font-head text-2xl font-bold text-ink leading-tight">
+                      {latestConnections.toLocaleString()}
+                      {connectionDelta !== 0 && (
+                        <span className={`text-sm ml-1 ${connectionDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
+                          {connectionDelta > 0 ? '+' : ''}{connectionDelta}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className={`${growthFollowers.length > 0 || growthConnections.length > 0 ? 'border-l border-[var(--rule-light)] pl-6' : ''}`}>
+                  <div className="text-[11px] text-ink-4">Actions today</div>
+                  <div className="font-head text-2xl font-bold text-ink leading-tight">
+                    {actionsToday}<span className="text-sm text-ink-4 font-normal">/10</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
-          {/* Metrics */}
-          <ProgressWidget key={progressKey} mode={userMode} />
-
-          {/* Growth Chart */}
+          {/* Section 2: Growth chart (simplified) */}
           {growthFollowers.length >= 2 ? (() => {
             const svgW = 320
-            const svgH = 120
+            const svgH = 96
             const padX = 0
             const padY = 8
             const values = growthFollowers.map(p => p.value)
-            const minV = Math.min(...values)
-            const maxV = Math.max(...values)
+            const allValues = [...values, ...growthConnections.map(c => c.value)]
+            const minV = Math.min(...allValues)
+            const maxV = Math.max(...allValues)
             const rangeV = maxV - minV || 1
             const latest = values[values.length - 1] ?? 0
-            // Week delta
             const weekAgoIdx = Math.max(0, values.length - 7)
             const weekDelta = latest - (values[weekAgoIdx] ?? latest)
             const points = growthFollowers.map((p, i) => {
@@ -1159,68 +1191,53 @@ export default function WatchlistFeed() {
               return { x, y }
             })
             const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-            // Action bars
-            const maxAction = Math.max(1, ...growthActions.map(a => a.count))
+            // LinkedIn line
+            const liPoints = growthConnections.length >= 2 ? growthConnections.map((p, i) => {
+              const x = padX + (i / (growthConnections.length - 1)) * (svgW - 2 * padX)
+              const y = padY + (1 - (p.value - minV) / rangeV) * (svgH - 2 * padY)
+              return { x, y }
+            }) : []
+            const liPathD = liPoints.length > 0 ? liPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') : ''
             return (
               <div className="card p-4 mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <div className="font-head text-sm font-bold text-ink">Growth</div>
-                    <div className="text-xs text-ink-4">
-                      <span className="text-ink font-semibold">{latest.toLocaleString()} followers</span>
-                      {weekDelta !== 0 && (
-                        <span className={`ml-1 ${weekDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
-                          {weekDelta > 0 ? '+' : ''}{weekDelta} this week
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right text-[10px] text-ink-4">
-                    <div>{minV.toLocaleString()} — {maxV.toLocaleString()}</div>
-                    <div>{growthFollowers.length} days</div>
-                  </div>
+                <div className="text-xs text-ink-4 mb-2">
+                  <span className="text-ink font-semibold">{latest.toLocaleString()} followers</span>
+                  {weekDelta !== 0 && (
+                    <span className={`ml-1 ${weekDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
+                      {weekDelta > 0 ? '+' : ''}{weekDelta} this week
+                    </span>
+                  )}
+                  {growthConnections.length > 0 && (
+                    <span className="ml-2 text-ink-4">
+                      · {growthConnections[growthConnections.length - 1].value.toLocaleString()} connections
+                    </span>
+                  )}
                 </div>
-                <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: 100 }} preserveAspectRatio="none">
-                  {/* Grid lines */}
+                <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: 80 }} preserveAspectRatio="none">
                   {[0.25, 0.5, 0.75].map(pct => (
                     <line key={pct} x1={0} x2={svgW} y1={padY + pct * (svgH - 2 * padY)} y2={padY + pct * (svgH - 2 * padY)} stroke="var(--rule-light)" strokeWidth="0.5" />
                   ))}
-                  {/* Area fill */}
                   <path
                     d={`${pathD} L ${points[points.length - 1].x.toFixed(1)},${svgH} L ${points[0].x.toFixed(1)},${svgH} Z`}
                     fill="var(--blue-tint)"
                   />
-                  {/* Line */}
                   <path d={pathD} stroke="var(--blue-bright)" fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-                  {/* Data points */}
+                  {liPathD && (
+                    <path d={liPathD} stroke="var(--accent)" fill="none" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" strokeDasharray="4 2" />
+                  )}
                   {points.map((p, i) => (
-                    <circle key={i} cx={p.x} cy={p.y} r={points.length <= 10 ? 3 : 1.5} fill="var(--blue-bright)" />
+                    <circle key={i} cx={p.x} cy={p.y} r={points.length <= 10 ? 2.5 : 1.5} fill="var(--blue-bright)" />
                   ))}
                 </svg>
-                {/* Date labels */}
                 <div className="flex justify-between mt-1 text-[9px] text-ink-4">
                   {growthFollowers.length > 0 && <span>{new Date(growthFollowers[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
                   {growthFollowers.length > 2 && <span>{new Date(growthFollowers[Math.floor(growthFollowers.length / 2)].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
                   {growthFollowers.length > 1 && <span>{new Date(growthFollowers[growthFollowers.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
                 </div>
-                {/* Daily actions */}
-                {growthActions.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-[var(--rule-light)]">
-                    <div className="text-[10px] text-ink-4 mb-1.5">Daily actions</div>
-                    <div className="flex items-end gap-px" style={{ height: 20 }}>
-                      {growthActions.map((a) => (
-                        <div
-                          key={a.date}
-                          className="flex-1 rounded-t-sm"
-                          style={{
-                            backgroundColor: a.count > 0 ? 'var(--blue-bright)' : 'var(--rule-light)',
-                            opacity: a.count > 0 ? 0.4 + (a.count / maxAction) * 0.6 : 0.3,
-                            height: `${Math.max(2, (a.count / maxAction) * 20)}px`,
-                          }}
-                          title={`${a.date}: ${a.count} actions`}
-                        />
-                      ))}
-                    </div>
+                {liPathD && (
+                  <div className="flex items-center gap-3 mt-2 text-[10px] text-ink-4">
+                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-[var(--blue-bright)] rounded" /> X followers</span>
+                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 border-t border-dashed border-[var(--accent)]" /> LinkedIn</span>
                   </div>
                 )}
               </div>
@@ -1234,8 +1251,42 @@ export default function WatchlistFeed() {
             </div>
           )}
 
-          {/* Growth Coach */}
-          <GrowthCoach />
+          {/* Section 3: This week's progress */}
+          {growthActions.length > 0 && (() => {
+            const weekStart = new Date()
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+            const weekStr = weekStart.toISOString().slice(0, 10)
+            const weekActions = growthActions.filter(a => a.date >= weekStr)
+            const totalActions = weekActions.reduce((sum, a) => sum + a.count, 0)
+            // Count action types from activity data
+            const allItems = Object.values(activityData).flat()
+            const weekItems = allItems.filter(item => item.created_at.slice(0, 10) >= weekStr)
+            const replies = weekItems.filter(i => i.action_type === 'reply' || i.action_type === 'reply_copy').length
+            const posts = weekItems.filter(i => ['x_post', 'x_thread', 'li_post', 'li_carousel'].includes(i.action_type)).length
+            const scrapes = weekItems.filter(i => i.action_type === 'scrape').length
+            return (
+              <div className="card p-3 mb-4">
+                <div className="text-[11px] text-ink-4 mb-1">This week</div>
+                <div className="flex items-center gap-3 text-xs text-ink">
+                  <button onClick={() => setActiveView('feed')} className="hover:text-accent">
+                    <span className="font-semibold">{replies}</span><span className="text-ink-4"> replies</span>
+                  </button>
+                  <span className="text-ink-4">·</span>
+                  <button onClick={() => setActiveView('create')} className="hover:text-accent">
+                    <span className="font-semibold">{posts}</span><span className="text-ink-4"> posts</span>
+                  </button>
+                  <span className="text-ink-4">·</span>
+                  <span>
+                    <span className="font-semibold">{scrapes}</span><span className="text-ink-4"> scrapes</span>
+                  </span>
+                  <span className="text-ink-4">·</span>
+                  <span>
+                    <span className="font-semibold">{totalActions}</span><span className="text-ink-4"> total actions</span>
+                  </span>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Recent Activity */}
           <div className="card p-4 mt-4">

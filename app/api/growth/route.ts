@@ -20,6 +20,15 @@ export async function GET() {
     .gte('snapshot_date', sinceDate)
     .order('snapshot_date', { ascending: true })
 
+  // Fetch LinkedIn connection snapshots (last 30 days)
+  const { data: liData } = await auth.sb
+    .from('metrics_snapshots')
+    .select('value, snapshot_date')
+    .eq('user_id', auth.dbUser.id)
+    .eq('metric', 'li_connections')
+    .gte('snapshot_date', sinceDate)
+    .order('snapshot_date', { ascending: true })
+
   // Fetch daily action counts (last 30 days)
   const { data: actions } = await auth.sb
     .from('action_log')
@@ -43,8 +52,13 @@ export async function GET() {
     value: s.value as number,
   }))
 
+  const connections = (liData ?? []).map((s) => ({
+    date: s.snapshot_date as string,
+    value: s.value as number,
+  }))
+
   return NextResponse.json({
     success: true,
-    data: { followers, actions: actionCounts },
+    data: { followers, connections, actions: actionCounts },
   })
 }
