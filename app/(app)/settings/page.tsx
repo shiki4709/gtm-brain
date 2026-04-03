@@ -76,6 +76,10 @@ export default function Settings() {
   const [xConnected, setXConnected] = useState(false)
   const [xFollowers, setXFollowers] = useState<number | null>(null)
 
+  // LinkedIn tracking
+  const [liConnections, setLiConnections] = useState('')
+  const [savingLi, setSavingLi] = useState(false)
+
   // Voice profile
   const [voiceProfile, setVoiceProfile] = useState<{
     tone?: string; formality?: string; sentenceStyle?: string
@@ -378,6 +382,40 @@ export default function Settings() {
           )}
         </Section>
       )}
+
+      {/* LinkedIn tracking */}
+      <Section title="LinkedIn" defaultOpen={false}>
+        <p className="text-xs text-ink-4 mb-3">Enter your LinkedIn connection count to track growth. Check your profile for the number.</p>
+        <div className="flex gap-2 items-center">
+          <input
+            type="number"
+            className="input w-32 py-2.5 px-3 text-sm"
+            placeholder="e.g. 500"
+            aria-label="LinkedIn connections"
+            value={liConnections}
+            onChange={e => setLiConnections(e.target.value)}
+          />
+          <span className="text-xs text-ink-4">connections</span>
+          <button
+            className="btn-accent"
+            disabled={savingLi || !liConnections.trim()}
+            onClick={async () => {
+              setSavingLi(true)
+              try {
+                const today = new Date().toISOString().slice(0, 10)
+                await fetch('/api/goals', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ metric_snapshot: { metric: 'li_connections', value: parseInt(liConnections), snapshot_date: today } }),
+                })
+              } catch { /* */ }
+              finally { setSavingLi(false) }
+            }}
+          >
+            {savingLi ? '...' : 'Save'}
+          </button>
+        </div>
+      </Section>
 
       {/* Voice & Tone */}
       <Section title="Your voice &amp; tone">

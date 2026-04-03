@@ -50,6 +50,20 @@ export async function POST(request: Request) {
   if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
+
+  // Handle metric snapshot (LinkedIn connections etc.)
+  if (body.metric_snapshot) {
+    const { metric, value, snapshot_date } = body.metric_snapshot as { metric: string; value: number; snapshot_date: string }
+    if (!metric || typeof value !== 'number') {
+      return NextResponse.json({ success: false, error: 'Invalid metric snapshot' }, { status: 400 })
+    }
+    await auth.sb.from('metrics_snapshots').upsert(
+      { user_id: auth.dbUser.id, metric, value, snapshot_date: snapshot_date || new Date().toISOString().slice(0, 10) },
+      { onConflict: 'user_id,metric,snapshot_date' }
+    )
+    return NextResponse.json({ success: true })
+  }
+
   const { goal_id, target_value } = body as { goal_id: string; target_value: number }
 
   if (!goal_id || typeof target_value !== 'number' || target_value < 0) {

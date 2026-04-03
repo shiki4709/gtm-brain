@@ -197,12 +197,13 @@ Data:
 - Best performing scrape topics: ${bestTopics.length > 0 ? bestTopics.join(', ') : 'no scrape data yet'}
 - Action breakdown: ${Object.entries(actionTypeMap).map(([k, v]) => `${k}: ${v}`).join(', ')}
 
-Write a "Weekly GTM Brief" in 2-4 sentences:
-1. What worked this week (based on data)
-2. What to do differently next week
-3. One specific recommendation
+Write a brief in EXACTLY this format (3 short bullet points, no headers, no bold, no markdown):
 
-Be concise, direct, data-driven. No fluff. Output ONLY the brief text.`
+- What worked: [one sentence based on the data]
+- Try next week: [one specific action to change]
+- Focus: [one sentence recommendation]
+
+Rules: No markdown formatting. No asterisks. No headers. Just 3 plain text bullets. Under 150 words total.`
 
   let briefText = ''
   try {
