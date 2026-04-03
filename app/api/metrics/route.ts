@@ -22,7 +22,7 @@ export async function POST(request: Request) {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ profileUrls: [profileUrl], maxProfiles: 1 }),
+          body: JSON.stringify({ urls: [profileUrl], maxProfiles: 1 }),
           signal: AbortSignal.timeout(30000),
         }
       )
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       const profile = profiles[0]
       if (!profile) return NextResponse.json({ success: false, error: 'Profile not found' }, { status: 404 })
 
-      const connections = (profile.connectionsCount as number) ?? (profile.followersCount as number) ?? 0
+      const connections = (profile.connectionsCount as number) ?? (profile.followerCount as number) ?? 0
       const today = new Date().toISOString().slice(0, 10)
 
       await auth.sb.from('metrics_snapshots').upsert(

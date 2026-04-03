@@ -107,13 +107,13 @@ async function handleScan(request: Request) {
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ profileUrls: [profileUrl], maxProfiles: 1 }),
+              body: JSON.stringify({ urls: [profileUrl], maxProfiles: 1 }),
               signal: AbortSignal.timeout(30000),
             }
           )
           if (!resp.ok) continue
           const profiles = await resp.json() as Array<Record<string, unknown>>
-          const connections = (profiles[0]?.connectionsCount as number) ?? (profiles[0]?.followersCount as number)
+          const connections = (profiles[0]?.connectionsCount as number) ?? (profiles[0]?.followerCount as number)
           if (typeof connections === 'number' && connections > 0) {
             await sb.from('metrics_snapshots').upsert(
               { user_id: u.id, metric: 'li_connections', value: connections, snapshot_date: today },
