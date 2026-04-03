@@ -45,6 +45,38 @@ async function handleScan(request: Request) {
   }
 
   const sb = createServiceClient()
+  const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
+
+  // Auto-track follower counts for all users with x_handle
+  const { data: allUsers } = await sb
+    .from('sb_users')
+    .select('id, x_handle')
+    .not('x_handle', 'is', null)
+
+  if (socialDataKey && allUsers) {
+    const today = new Date().toISOString().slice(0, 10)
+    await Promise.all(allUsers.map(async (u) => {
+      if (!u.x_handle) return
+      try {
+        const resp = await fetch(
+          `https://api.socialdata.tools/twitter/user/${encodeURIComponent(u.x_handle)}`,
+          {
+            headers: { Authorization: `Bearer ${socialDataKey}`, Accept: 'application/json' },
+            signal: AbortSignal.timeout(5000),
+          }
+        )
+        if (!resp.ok) return
+        const data = await resp.json()
+        const followers = data.followers_count ?? data.public_metrics?.followers_count
+        if (typeof followers === 'number') {
+          await sb.from('metrics_snapshots').upsert(
+            { user_id: u.id, metric: 'x_followers', value: followers, snapshot_date: today },
+            { onConflict: 'user_id,metric,snapshot_date' }
+          )
+        }
+      } catch { /* skip */ }
+    }))
+  }
 
   // Get all users with notification channels configured
   const { data: users } = await sb

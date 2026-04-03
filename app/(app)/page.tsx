@@ -1323,38 +1323,59 @@ export default function WatchlistFeed() {
             )}
           </div>
 
-          {/* Section 3: This week's progress */}
+          {/* Section 3: This week's progress — actual vs recommended */}
           {growthActions.length > 0 && (() => {
             const weekStart = new Date()
             weekStart.setDate(weekStart.getDate() - weekStart.getDay())
             const weekStr = weekStart.toISOString().slice(0, 10)
-            const weekActions = growthActions.filter(a => a.date >= weekStr)
-            const totalActions = weekActions.reduce((sum, a) => sum + a.count, 0)
-            // Count action types from activity data
             const allItems = Object.values(activityData).flat()
             const weekItems = allItems.filter(item => item.created_at.slice(0, 10) >= weekStr)
             const replies = weekItems.filter(i => i.action_type === 'reply' || i.action_type === 'reply_copy').length
-            const posts = weekItems.filter(i => ['x_post', 'x_thread', 'li_post', 'li_carousel'].includes(i.action_type)).length
+            const posts = weekItems.filter(i => ['x_post', 'x_thread', 'x_quote', 'li_post', 'li_carousel', 'li_comment'].includes(i.action_type)).length
             const scrapes = weekItems.filter(i => i.action_type === 'scrape').length
+            const dms = weekItems.filter(i => i.action_type === 'dm_send').length
+
+            // Recommended weekly targets based on mode
+            const targets = userMode === 'b2b_outbound'
+              ? { replies: 35, posts: 2, scrapes: 3, dms: 5, label: 'B2B targets' }
+              : { replies: 70, posts: 7, scrapes: 0, dms: 0, label: 'Growth targets' }
+
+            const metrics = [
+              { label: 'Replies', actual: replies, target: targets.replies, view: 'feed' as const },
+              { label: 'Posts', actual: posts, target: targets.posts, view: 'create' as const },
+              ...(targets.scrapes > 0 ? [{ label: 'Scrapes', actual: scrapes, target: targets.scrapes, view: 'feed' as const }] : []),
+              ...(targets.dms > 0 ? [{ label: 'DMs', actual: dms, target: targets.dms, view: 'feed' as const }] : []),
+            ]
+
             return (
-              <div className="card p-3 mb-4">
-                <div className="text-[11px] text-ink-4 mb-1">This week</div>
-                <div className="flex items-center gap-3 text-xs text-ink">
-                  <button onClick={() => setActiveView('feed')} className="hover:text-accent">
-                    <span className="font-semibold">{replies}</span><span className="text-ink-4"> replies</span>
-                  </button>
-                  <span className="text-ink-4">·</span>
-                  <button onClick={() => setActiveView('create')} className="hover:text-accent">
-                    <span className="font-semibold">{posts}</span><span className="text-ink-4"> posts</span>
-                  </button>
-                  <span className="text-ink-4">·</span>
-                  <span>
-                    <span className="font-semibold">{scrapes}</span><span className="text-ink-4"> scrapes</span>
-                  </span>
-                  <span className="text-ink-4">·</span>
-                  <span>
-                    <span className="font-semibold">{totalActions}</span><span className="text-ink-4"> total actions</span>
-                  </span>
+              <div className="card p-4 mb-4">
+                <div className="text-[11px] text-ink-4 mb-2">This week</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {metrics.map(m => {
+                    const pct = m.target > 0 ? Math.min(100, Math.round((m.actual / m.target) * 100)) : 100
+                    return (
+                      <button
+                        key={m.label}
+                        onClick={() => setActiveView(m.view)}
+                        className="text-left hover:bg-[var(--bg-warm)] rounded-lg p-2 transition-colors"
+                      >
+                        <div className="flex items-baseline gap-1">
+                          <span className="font-head text-lg font-bold text-ink">{m.actual}</span>
+                          <span className="text-[11px] text-ink-4">/{m.target}</span>
+                        </div>
+                        <div className="text-[11px] text-ink-4">{m.label}</div>
+                        <div className="mt-1 h-1 rounded-full bg-[var(--rule-light)] overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${pct}%`,
+                              backgroundColor: pct >= 100 ? 'var(--green)' : pct >= 50 ? 'var(--blue-bright)' : 'var(--accent-orange)',
+                            }}
+                          />
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )
