@@ -1175,15 +1175,15 @@ export default function WatchlistFeed() {
       )}
       {(feed.length > 0 || !loadingFeed || currentSection?.key === 'community') && (
         <>
-          {/* Profile scoring status */}
-          {profileScoring && feed.length > 0 && (
+          {/* Profile scoring status — hide on community tab */}
+          {currentSection?.key !== 'community' && profileScoring && feed.length > 0 && (
             <div className="text-[11px] text-ink-4 text-center mb-2 animate-pulse">Scoring posts with your profile...</div>
           )}
-          {!profileScoring && Object.keys(profileScores).length > 0 && (
+          {currentSection?.key !== 'community' && !profileScoring && Object.keys(profileScores).length > 0 && (
             <div className="text-[11px] text-ink-4 text-center mb-2">Ranked by your profile graph</div>
           )}
-          {/* ═══ UNIFIED FEED — sorted by ICP relevance + ROI ═══ */}
-          {(() => {
+          {/* ═══ UNIFIED FEED — sorted by ICP relevance + ROI (hidden on community tab) ═══ */}
+          {currentSection?.key !== 'community' && (() => {
             // Build ICP keyword set from user's actual ICP titles + topic insights
             // e.g. "Marketing Manager" → ["marketing", "manager"]
             // e.g. "Head of Sales" → ["head", "sales"]
