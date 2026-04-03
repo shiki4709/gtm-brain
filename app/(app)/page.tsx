@@ -1207,7 +1207,9 @@ export default function WatchlistFeed() {
             const allValues = [...values, ...growthConnections.map(c => c.value)]
             const minV = Math.min(...allValues)
             const maxV = Math.max(...allValues)
-            const rangeV = maxV - minV || 1
+            // Ensure minimum visual range so small changes are visible
+            const rawRange = maxV - minV
+            const rangeV = Math.max(rawRange, maxV * 0.05, 10)
             const latest = values[values.length - 1] ?? 0
             const weekAgoIdx = Math.max(0, values.length - 7)
             const weekDelta = latest - (values[weekAgoIdx] ?? latest)
