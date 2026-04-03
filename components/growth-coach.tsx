@@ -78,7 +78,7 @@ export default function GrowthCoach() {
           <div className="section-label !mb-0">{plan.stage.label}</div>
           <span className="badge badge-icp">{plan.stage.followerRange}</span>
         </div>
-        <button onClick={() => setCollapsed(!collapsed)} className="text-[11px] text-ink-4 hover:text-ink">
+        <button onClick={() => setCollapsed(!collapsed)} className="text-[11px] text-ink-4 hover:text-ink" aria-expanded={!collapsed}>
           {collapsed ? 'Show plan' : 'Hide'}
         </button>
       </div>
@@ -93,7 +93,7 @@ export default function GrowthCoach() {
             {highPriority.map(s => (
               <div key={s.metric} className="card-flat py-2.5 px-3">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-sm">{METRIC_ICONS[s.metric] ?? '\u{1F4CB}'}</span>
+                  <span className="text-sm" aria-hidden="true">{METRIC_ICONS[s.metric] ?? '\u{1F4CB}'}</span>
                   <span className="font-head text-sm font-bold text-ink">{s.target}</span>
                   <span className="text-[10px] text-ink-4">/{s.period}</span>
                 </div>
@@ -107,7 +107,7 @@ export default function GrowthCoach() {
             <div className="flex flex-wrap gap-3 mb-4">
               {medPriority.map(s => (
                 <div key={s.metric} className="flex items-center gap-1.5 text-xs text-ink-3">
-                  <span>{METRIC_ICONS[s.metric] ?? '\u{1F4CB}'}</span>
+                  <span aria-hidden="true">{METRIC_ICONS[s.metric] ?? '\u{1F4CB}'}</span>
                   <span className="font-head font-semibold text-ink">{s.target}</span>
                   <span>{METRIC_LABELS[s.metric] ?? s.metric}/{s.period}</span>
                 </div>

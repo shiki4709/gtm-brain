@@ -843,6 +843,7 @@ export default function WatchlistFeed() {
               value={addInput}
               onChange={e => setAddInput(e.target.value)}
               placeholder="LinkedIn URL or @handle..."
+              aria-label="Add to watchlist"
               className="input flex-1 py-3 px-4 text-sm"
               onKeyDown={e => { if (e.key === 'Enter') addToWatchlist() }}
             />
@@ -915,7 +916,7 @@ export default function WatchlistFeed() {
   if (selectedPerson) {
     return (
       <div className="max-w-2xl mx-auto">
-        <button onClick={() => setSelectedPerson(null)} className="text-xs text-ink-4 hover:text-ink mb-4">
+        <button onClick={() => setSelectedPerson(null)} className="text-xs text-ink-4 hover:text-ink mb-4" aria-label="Back to feed">
           ← Back to feed
         </button>
         <div className="flex items-center gap-3 mb-4">
@@ -1125,9 +1126,9 @@ export default function WatchlistFeed() {
 
           {/* Mode header */}
           <div className="mb-5">
-            <h1 className="font-head text-lg font-bold text-ink">
+            <h2 className="font-head text-lg font-bold text-ink">
               {userMode === 'personal_brand' ? 'Build your audience' : 'Find and close leads'}
-            </h1>
+            </h2>
             <p className="text-xs text-ink-4 mt-0.5">
               {userMode === 'personal_brand'
                 ? 'Reply to trending posts and create content to grow your visibility.'
@@ -1240,6 +1241,7 @@ export default function WatchlistFeed() {
           <div className="card p-4 mt-4">
             <button
               className="flex items-center justify-between w-full text-left"
+              aria-expanded={activityOpen}
               onClick={() => setActivityOpen(prev => !prev)}
             >
               <span className="font-head text-sm font-bold text-ink">Recent activity</span>
@@ -1274,7 +1276,7 @@ export default function WatchlistFeed() {
                           })()
                           return (
                             <div key={item.id} className="flex items-start gap-2 text-xs">
-                              <span className="shrink-0">{icon}</span>
+                              <span className="shrink-0" aria-hidden="true">{icon}</span>
                               <div className="flex-1 min-w-0">
                                 <span className="text-ink">{item.label}</span>
                                 {item.platform && (
@@ -1305,7 +1307,7 @@ export default function WatchlistFeed() {
       {activeView === 'create' && (
         <div>
           <div className="mb-5">
-            <h1 className="font-head text-lg font-bold text-ink">Create content</h1>
+            <h2 className="font-head text-lg font-bold text-ink">Create content</h2>
             <p className="text-xs text-ink-4 mt-0.5">AI-generated posts based on trending topics in your feed.</p>
           </div>
           <ContentCalendar />
@@ -1680,7 +1682,7 @@ export default function WatchlistFeed() {
                             {(item.engagement.retweets ?? 0) > 0 && <span>{item.engagement.retweets} {isLinkedIn ? 'shares' : 'RTs'}</span>}
                           </div>
                         )}
-                        <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
+                        <div className="text-sm text-ink-2 leading-relaxed mb-2">{item.text}</div>
 
                         {/* ROI for the relevant action (mode-aware) */}
                         <div className="text-[11px] text-ink-4 mb-2">

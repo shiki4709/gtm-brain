@@ -150,7 +150,7 @@ body {
 ═══ */
 .btn-primary, .btn-accent, .btn-outline {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 7px 15px; border-radius: 6px;
+  padding: 7px 15px; border-radius: 6px; min-height: 44px;
   font-family: var(--font-head); font-size: 12px; font-weight: 600;
   cursor: pointer; transition: opacity 0.15s, transform 0.15s;
   white-space: nowrap;
@@ -177,7 +177,7 @@ body {
 
 .btn-ghost {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 7px 15px; border-radius: 6px;
+  padding: 7px 15px; border-radius: 6px; min-height: 44px;
   font-family: var(--font-head); font-size: 12px; font-weight: 600;
   cursor: pointer; transition: opacity 0.15s;
   background: transparent; border: none; color: var(--ink-3);
@@ -203,10 +203,11 @@ body {
 .input {
   width: 100%; padding: 10px 14px; border: 1.5px solid var(--rule);
   border-radius: var(--radius-sm); font-family: var(--font-body);
-  font-size: 13px; color: var(--ink); background: #fff;
+  font-size: 16px; color: var(--ink); background: #fff;
   transition: border-color 0.15s;
 }
-.input:focus { border-color: var(--accent-blue); outline: none; }
+.input:focus:not(:focus-visible) { border-color: var(--accent-blue); outline: none; }
+.input:focus-visible { border-color: var(--accent-blue); outline: 2px solid var(--blue-bright); outline-offset: 2px; }
 .input::placeholder { color: var(--ink-4); }
 
 /* ═══ Section labels ═══ */

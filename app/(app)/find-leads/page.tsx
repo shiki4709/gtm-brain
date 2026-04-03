@@ -338,6 +338,7 @@ export default function Outbound() {
               value={scrapeUrl}
               onChange={(e) => setScrapeUrl(e.target.value)}
               placeholder="Paste a LinkedIn post URL..."
+              aria-label="Post URL to scrape"
               className="input flex-1 py-2.5 px-4 text-sm"
               onKeyDown={(e) => { if (e.key === 'Enter') handleScrape() }}
               disabled={scraping}
@@ -384,6 +385,7 @@ export default function Outbound() {
             value={similarUrl}
             onChange={e => setSimilarUrl(e.target.value)}
             placeholder="Paste a post URL or describe the type of post..."
+            aria-label="Find similar posts"
             className="input flex-1 py-2 px-3 text-sm"
             onKeyDown={e => {
               if (e.key === 'Enter' && similarUrl.trim()) {
@@ -462,7 +464,8 @@ export default function Outbound() {
       {scrapes.length === 0 && (
         <div className="text-center py-12">
           <div className="text-sm text-ink-3 mb-2">No leads yet</div>
-          <div className="text-xs text-ink-4">Scrape a post from the Feed or use the button above to get started.</div>
+          <div className="text-xs text-ink-4 mb-4">Scrape a post from the Feed or use the button above to get started.</div>
+          <button className="btn-primary" onClick={() => setShowScrapeInput(true)}>Scrape your first post</button>
         </div>
       )}
       {scrapes.length > 0 && scrapes.map(sc => {
@@ -480,6 +483,7 @@ export default function Outbound() {
             {/* Hero row */}
             <button
               className="w-full text-left px-5 py-4 hover:bg-[var(--bg-warm)] transition-colors"
+              aria-expanded={isExpanded}
               onClick={() => setExpandedScrape(isExpanded ? null : sc.id)}
             >
               <div className="flex items-center gap-6">
@@ -518,16 +522,16 @@ export default function Outbound() {
               </div>
 
               {/* Pipeline */}
-              <div className="flex items-center gap-1.5 mt-3 text-[11px]">
-                <span className="pipe-step">{sc.total_engagers} scraped</span>
-                <span className="pipe-arrow">→</span>
-                <span className="pipe-step pipe-active">{sc.icp_matches} ICP</span>
-                <span className="pipe-arrow">→</span>
-                <span className="pipe-step">{sentCount} messaged</span>
-                <span className="pipe-arrow">→</span>
-                <span className="pipe-step">{allLeads.filter(l => l.status === 'replied' || l.status === 'converted').length} replied</span>
-                <span className="pipe-arrow">→</span>
-                <span className="pipe-step">{allLeads.filter(l => l.status === 'converted').length} meetings</span>
+              <div className="flex items-center gap-1.5 mt-3 text-[11px] overflow-x-auto">
+                <span className="pipe-step flex-shrink-0">{sc.total_engagers} scraped</span>
+                <span className="pipe-arrow flex-shrink-0">→</span>
+                <span className="pipe-step pipe-active flex-shrink-0">{sc.icp_matches} ICP</span>
+                <span className="pipe-arrow flex-shrink-0">→</span>
+                <span className="pipe-step flex-shrink-0">{sentCount} messaged</span>
+                <span className="pipe-arrow flex-shrink-0">→</span>
+                <span className="pipe-step flex-shrink-0">{allLeads.filter(l => l.status === 'replied' || l.status === 'converted').length} replied</span>
+                <span className="pipe-arrow flex-shrink-0">→</span>
+                <span className="pipe-step flex-shrink-0">{allLeads.filter(l => l.status === 'converted').length} meetings</span>
               </div>
             </button>
 
@@ -601,6 +605,7 @@ export default function Outbound() {
                                 <input
                                   className="input flex-1 text-xs py-1.5"
                                   placeholder="e.g. make it shorter, mention AI..."
+                                  aria-label="Tailor instruction"
                                   value={editInstruction}
                                   onChange={e => setEditInstruction(e.target.value)}
                                   onKeyDown={e => { if (e.key === 'Enter') handleTailorDm(l, sc.post_topic ?? '') }}
@@ -671,7 +676,10 @@ export default function Outbound() {
                     <div className="text-center py-3 text-xs text-ink-4">+ {filteredLeads.length - 25} more leads</div>
                   )}
                   {filteredLeads.length === 0 && (
-                    <div className="text-center py-6 text-xs text-ink-4">No leads match the selected filters</div>
+                    <div className="text-center py-6 text-xs text-ink-4">
+                      No leads match the selected filters
+                      <button className="btn-outline ml-3 text-xs" onClick={() => setActiveFilters(prev => ({ ...prev, [sc.id]: [] }))}>Clear filters</button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -680,12 +688,6 @@ export default function Outbound() {
         )
       })}
 
-      {scrapes.length === 0 && !scraping && (
-        <div className="text-center py-16 text-ink-4">
-          <div className="text-4xl mb-3">↑</div>
-          <div className="text-sm">Paste a LinkedIn post URL above to find leads who engage with content in your space</div>
-        </div>
-      )}
     </div>
   )
 }

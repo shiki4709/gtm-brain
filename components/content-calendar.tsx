@@ -453,7 +453,7 @@ export default function ContentCalendar() {
                       </div>
 
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-base">{ANGLE_ICONS[slot.angle] ?? '\u{1F4A1}'}</span>
+                        <span className="text-base" aria-hidden="true">{ANGLE_ICONS[slot.angle] ?? '\u{1F4A1}'}</span>
                         <span className="font-head text-sm font-semibold text-ink">{slot.topic}</span>
                       </div>
                       <div className="text-[11px] text-ink-4 mb-3">
@@ -658,7 +658,7 @@ export default function ContentCalendar() {
               {hotTopics.map((topic, i) => (
                 <div key={i} className="card p-4">
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-base">{ANGLE_ICONS[topic.suggestedAngle] ?? '\u{1F525}'}</span>
+                    <span className="text-base" aria-hidden="true">{ANGLE_ICONS[topic.suggestedAngle] ?? '\u{1F525}'}</span>
                     <span className="font-head text-sm font-semibold text-ink">{topic.topic}</span>
                     <span className={`badge text-[10px] ${
                       topic.source === 'both' ? 'badge-icp' :

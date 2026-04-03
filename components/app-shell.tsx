@@ -109,6 +109,7 @@ export default function AppShell({ children }: AppShellProps) {
           <button
             onClick={() => setEditingIcp(false)}
             className="text-xs text-ink-4 hover:text-ink mb-4"
+            aria-label="Back to app"
           >
             ← Back to app
           </button>

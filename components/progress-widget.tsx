@@ -174,7 +174,7 @@ function MetricTile({ progress, onLog, logging }: {
           <span className={`font-head text-lg font-bold ${done ? 'text-green' : 'text-ink'}`}>
             {progress.current}<span className="text-ink-4 text-sm font-normal">/{progress.target}</span>
           </span>
-          <span className="text-sm">{config?.icon ?? '\u{1F4CB}'}</span>
+          <span className="text-sm" aria-hidden="true">{config?.icon ?? '\u{1F4CB}'}</span>
         </div>
         <div className="text-[11px] text-ink-4">
           {config?.label ?? progress.metric}

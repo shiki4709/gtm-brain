@@ -344,6 +344,7 @@ export default function Settings() {
             <input
               className="input flex-1 py-2.5 px-3 text-sm"
               placeholder="your_handle"
+              aria-label="X handle"
               value={xHandle}
               onChange={e => setXHandle(e.target.value.replace(/^@/, ''))}
             />
@@ -394,8 +395,9 @@ export default function Settings() {
               value={voicePersona}
               onChange={e => setVoicePersona(e.target.value)}
             />
-            <label className="font-head text-xs font-semibold text-ink block mb-1.5">How do you sound?</label>
+            <label htmlFor="voice-desc" className="font-head text-xs font-semibold text-ink block mb-1.5">How do you sound?</label>
             <textarea
+              id="voice-desc"
               className="input w-full min-h-[80px] text-xs leading-relaxed"
               placeholder="e.g. Casual and direct. Short sentences. I use humor and sarcasm. No corporate speak."
               value={voiceSamples}
@@ -537,7 +539,7 @@ export default function Settings() {
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
               placeholder={'@handle, x.com/name, or "SaaS sales leaders"'}
-              className="flex-1 py-2 px-3 text-sm bg-transparent outline-none placeholder:text-ink-4"
+              className="flex-1 py-2 px-3 text-sm bg-transparent placeholder:text-ink-4"
               onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) handleSmartAdd(chatInput.trim()) }}
             />
             <button onClick={() => handleSmartAdd(chatInput.trim())} disabled={chatLoading || directAdding || !chatInput.trim()}
@@ -730,6 +732,7 @@ export default function Settings() {
                 <input
                   className="input flex-1 py-2 px-3 text-sm"
                   placeholder="Paste Slack webhook URL..."
+                  aria-label="Slack webhook URL"
                   value={slackWebhookInput}
                   onChange={e => setSlackWebhookInput(e.target.value)}
                 />
