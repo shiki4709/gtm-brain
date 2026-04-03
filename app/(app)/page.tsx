@@ -97,7 +97,7 @@ export default function WatchlistFeed() {
   // Community posts (Reddit/HN)
   const [communityPosts, setCommunityPosts] = useState<Array<{
     platform: 'reddit' | 'hackernews'; title: string; text: string; url: string
-    commentsUrl: string; score: number; comments: number; author: string; subreddit?: string
+    commentsUrl: string; score: number; comments: number; author: string; subreddit?: string; time?: string
   }>>([])
   const [loadingCommunity, setLoadingCommunity] = useState(false)
 
@@ -1017,7 +1017,7 @@ export default function WatchlistFeed() {
       <div className="flex items-center gap-1 mb-6">
         {([
           { key: 'dashboard' as const, label: 'Dashboard' },
-          { key: 'feed' as const, label: 'Feed', count: feed.length },
+          { key: 'feed' as const, label: 'Feed', count: feedLoaded ? feed.length : 0 },
           ...(userMode === 'personal_brand' ? [{ key: 'create' as const, label: 'Create' }] : []),
         ]).map(tab => (
           <button
@@ -1423,7 +1423,7 @@ export default function WatchlistFeed() {
             return (
               <>
                 {/* Section header */}
-                {currentSection && currentSection.key !== 'done' && (
+                {currentSection && currentSection.key !== 'done' && currentSection.key !== 'community' && (
                   <div className="brain-nudge mb-4">
                     <div className="brain-nudge-icon">{currentSection.key === 'engage' ? '\u{1F4AC}' : currentSection.key === 'create' ? '\u270F\uFE0F' : '\u{1F50D}'}</div>
                     <div>
@@ -1458,7 +1458,13 @@ export default function WatchlistFeed() {
                               <span className={`badge text-[10px] ${post.platform === 'reddit' ? 'badge-replied' : 'badge-icp'}`}>
                                 {post.platform === 'reddit' ? `r/${post.subreddit}` : 'Hacker News'}
                               </span>
-                              <span className="text-[10px] text-ink-4">{post.score} pts &middot; {post.comments} comments</span>
+                              <span className="text-[10px] text-ink-4">
+                                {post.score} pts &middot; {post.comments} comments
+                                {post.time && (() => {
+                                  const hrs = Math.round((Date.now() - new Date(post.time).getTime()) / 3600000)
+                                  return ` \u00B7 ${hrs < 1 ? 'just now' : hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`}`
+                                })()}
+                              </span>
                             </div>
                             <div className="font-head text-sm font-semibold text-ink mb-1">{post.title}</div>
                             {post.text && (
