@@ -78,6 +78,62 @@ async function handleScan(request: Request) {
     }))
   }
 
+  // Auto-track LinkedIn connections via Apify for users with LinkedIn in watchlist
+  const apifyToken = process.env.APIFY_TOKEN ?? ''
+  if (apifyToken) {
+    const { data: liWatchers } = await sb
+      .from('sb_watchlist')
+      .select('user_id, username, profile_url')
+      .eq('platform', 'linkedin')
+
+    if (liWatchers && liWatchers.length > 0) {
+      // Group by user — pick first LinkedIn profile per user as their "self" proxy
+      const userProfiles = new Map<string, string>()
+      for (const w of liWatchers) {
+        if (!userProfiles.has(w.user_id)) {
+          userProfiles.set(w.user_id, w.profile_url ?? `https://www.linkedin.com/in/${w.username}`)
+        }
+      }
+
+      const today = new Date().toISOString().slice(0, 10)
+      // Check if we already tracked today to avoid redundant API calls
+      for (const [userId, profileUrl] of userProfiles) {
+        try {
+          const { data: existing } = await sb
+            .from('metrics_snapshots')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('metric', 'li_connections')
+            .eq('snapshot_date', today)
+            .single()
+          if (existing) continue // already tracked today
+
+          const resp = await fetch(
+            `https://api.apify.com/v2/acts/harvestapi~linkedin-profile-scraper/run-sync-get-dataset-items?token=${apifyToken}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ profileUrls: [profileUrl], maxProfiles: 1 }),
+              signal: AbortSignal.timeout(30000),
+            }
+          )
+          if (!resp.ok) continue
+          const profiles = await resp.json() as Array<Record<string, unknown>>
+          const profile = profiles[0]
+          if (!profile) continue
+
+          const connections = (profile.connectionsCount as number) ?? (profile.followersCount as number)
+          if (typeof connections === 'number' && connections > 0) {
+            await sb.from('metrics_snapshots').upsert(
+              { user_id: userId, metric: 'li_connections', value: connections, snapshot_date: today },
+              { onConflict: 'user_id,metric,snapshot_date' }
+            )
+          }
+        } catch { /* skip */ }
+      }
+    }
+  }
+
   // Get all users with notification channels configured
   const { data: users } = await sb
     .from('sb_users')

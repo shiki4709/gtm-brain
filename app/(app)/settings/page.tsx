@@ -291,6 +291,8 @@ export default function Settings() {
       </p>
 
       {/* Account */}
+      {/* ═══ PROFILE ═══ */}
+      <div className="text-[10px] font-bold uppercase tracking-widest text-ink-4 mb-3">Profile</div>
       <Section title="Account" defaultOpen={false}>
         <div className="border-l-2 border-rule pl-4">
           <div className="text-sm text-ink">{user?.name}</div>
@@ -339,9 +341,13 @@ export default function Settings() {
       {/* Weekly targets auto-set by growth coach based on your stage */}
 
       {/* X Handle for follower tracking */}
-      {/* X account — personal brand only */}
+      {/* ═══ TRACKING ═══ */}
+      <hr className="border-rule-light my-8" />
+      <div className="text-[10px] font-bold uppercase tracking-widest text-ink-4 mb-3">Growth tracking</div>
+
+      {/* X account */}
       {mode === 'personal_brand' && (
-      <Section title="Your X account">
+      <Section title="X / Twitter">
           <p className="text-xs text-ink-4 mb-3">Connect your X handle to track follower growth automatically.</p>
           <div className="flex gap-2 items-center">
             <span className="text-sm text-ink-3">@</span>
@@ -489,9 +495,10 @@ export default function Settings() {
         </div>
       </Section>
 
-      <hr className="border-rule-light my-6" />
+      {/* ═══ TARGETING ═══ */}
+      <hr className="border-rule-light my-8" />
+      <div className="text-[10px] font-bold uppercase tracking-widest text-ink-4 mb-3">Targeting</div>
 
-      {/* People you watch */}
       <Section title="People you watch">
         <p className="text-xs text-ink-4 mb-3">Tell the brain who you want to follow. It finds real influencers on LinkedIn and X.</p>
 
@@ -647,9 +654,11 @@ export default function Settings() {
       </Section>
       </>)}
 
-      {/* Notifications */}
-      <hr className="border-rule-light my-6" />
-      <Section title="Notifications">
+      {/* ═══ NOTIFICATIONS ═══ */}
+      <hr className="border-rule-light my-8" />
+      <div className="text-[10px] font-bold uppercase tracking-widest text-ink-4 mb-3">Notifications</div>
+
+      <Section title="Channels">
         <p className="text-xs text-ink-4 mb-4">Get notified on Telegram or Slack when high-value posts appear in your feed.</p>
 
         {/* Telegram */}
@@ -829,7 +838,6 @@ export default function Settings() {
       </Section>
 
       {/* Topic keywords */}
-      <hr className="border-rule-light my-6" />
       <Section title="Topics to track">
         <p className="text-xs text-ink-4 mb-3">Keywords that matter to you. Posts matching these get boosted in the Feed.</p>
 
