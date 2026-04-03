@@ -1235,7 +1235,7 @@ export default function WatchlistFeed() {
                   )}
                   {growthConnections.length > 0 && (
                     <span className="ml-2 text-ink-4">
-                      · {growthConnections[growthConnections.length - 1].value.toLocaleString()} connections
+                      · {growthConnections[growthConnections.length - 1].value.toLocaleString()} LI followers
                     </span>
                   )}
                 </div>
