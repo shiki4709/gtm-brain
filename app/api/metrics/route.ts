@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       const profile = profiles[0]
       if (!profile) return NextResponse.json({ success: false, error: 'Profile not found' }, { status: 404 })
 
-      const connections = (profile.connectionsCount as number) ?? (profile.followerCount as number) ?? 0
+      const connections = (profile.followerCount as number) ?? (profile.connectionsCount as number) ?? 0
       const today = new Date().toISOString().slice(0, 10)
 
       await auth.sb.from('metrics_snapshots').upsert(

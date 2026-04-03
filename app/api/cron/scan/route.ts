@@ -113,7 +113,7 @@ async function handleScan(request: Request) {
           )
           if (!resp.ok) continue
           const profiles = await resp.json() as Array<Record<string, unknown>>
-          const connections = (profiles[0]?.connectionsCount as number) ?? (profiles[0]?.followerCount as number)
+          const connections = (profiles[0]?.followerCount as number) ?? (profiles[0]?.connectionsCount as number)
           if (typeof connections === 'number' && connections > 0) {
             await sb.from('metrics_snapshots').upsert(
               { user_id: u.id, metric: 'li_connections', value: connections, snapshot_date: today },

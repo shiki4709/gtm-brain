@@ -428,7 +428,7 @@ export default function Settings() {
         </div>
         {liConnected && liConnections !== null && (
           <div className="mt-2 text-sm text-[var(--green)]">
-            Connected — {liConnections.toLocaleString()} connections
+            Connected — {liConnections.toLocaleString()} followers
           </div>
         )}
       </Section>
