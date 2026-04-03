@@ -1200,7 +1200,7 @@ export default function WatchlistFeed() {
           {/* Section 2: Growth chart (simplified) */}
           {growthFollowers.length >= 2 ? (() => {
             const svgW = 320
-            const svgH = 96
+            const svgH = 160
             const padX = 0
             const padY = 8
             const values = growthFollowers.map(p => p.value)
@@ -1239,7 +1239,7 @@ export default function WatchlistFeed() {
                     </span>
                   )}
                 </div>
-                <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: 80 }} preserveAspectRatio="none">
+                <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: 140 }}>
                   {[0.25, 0.5, 0.75].map(pct => (
                     <line key={pct} x1={0} x2={svgW} y1={padY + pct * (svgH - 2 * padY)} y2={padY + pct * (svgH - 2 * padY)} stroke="var(--rule-light)" strokeWidth="0.5" />
                   ))}
