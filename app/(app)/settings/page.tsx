@@ -77,8 +77,10 @@ export default function Settings() {
   const [xFollowers, setXFollowers] = useState<number | null>(null)
 
   // LinkedIn tracking
-  const [liConnections, setLiConnections] = useState('')
-  const [savingLi, setSavingLi] = useState(false)
+  const [liUrl, setLiUrl] = useState('')
+  const [liConnections, setLiConnections] = useState<number | null>(null)
+  const [connectingLi, setConnectingLi] = useState(false)
+  const [liConnected, setLiConnected] = useState(false)
 
   // Voice profile
   const [voiceProfile, setVoiceProfile] = useState<{
@@ -132,6 +134,7 @@ export default function Settings() {
         setTrackKeywords(u.icp_config?.track_keywords ?? [])
         setMode(u.mode ?? 'personal_brand')
         if (u.x_handle) { setXHandle(u.x_handle); setXConnected(true) }
+        if ((u as unknown as Record<string, unknown>).linkedin_url) { setLiUrl((u as unknown as Record<string, unknown>).linkedin_url as string); setLiConnected(true) }
       }
       if (wlJson.success) setWatchlist(wlJson.data ?? [])
       if (goalsJson.success) {
@@ -390,37 +393,44 @@ export default function Settings() {
       )}
 
       {/* LinkedIn tracking */}
-      <Section title="LinkedIn" defaultOpen={false}>
-        <p className="text-xs text-ink-4 mb-3">Enter your LinkedIn connection count to track growth. Check your profile for the number.</p>
+      <Section title="LinkedIn">
+        <p className="text-xs text-ink-4 mb-3">Connect your LinkedIn profile to track connection growth automatically.</p>
         <div className="flex gap-2 items-center">
           <input
-            type="number"
-            className="input w-32 py-2.5 px-3 text-sm"
-            placeholder="e.g. 500"
-            aria-label="LinkedIn connections"
-            value={liConnections}
-            onChange={e => setLiConnections(e.target.value)}
+            className="input flex-1 py-2.5 px-3 text-sm"
+            placeholder="linkedin.com/in/yourprofile"
+            aria-label="LinkedIn profile URL"
+            value={liUrl}
+            onChange={e => setLiUrl(e.target.value)}
           />
-          <span className="text-xs text-ink-4">connections</span>
           <button
-            className="btn-accent"
-            disabled={savingLi || !liConnections.trim()}
+            className="btn-primary"
+            disabled={connectingLi || !liUrl.trim()}
             onClick={async () => {
-              setSavingLi(true)
+              setConnectingLi(true)
               try {
-                const today = new Date().toISOString().slice(0, 10)
-                await fetch('/api/goals', {
+                const res = await fetch('/api/metrics', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ metric_snapshot: { metric: 'li_connections', value: parseInt(liConnections), snapshot_date: today } }),
+                  body: JSON.stringify({ linkedin_url: liUrl.trim() }),
                 })
+                const json = await res.json()
+                if (json.success) {
+                  setLiConnected(true)
+                  setLiConnections(json.data?.connections ?? null)
+                }
               } catch { /* */ }
-              finally { setSavingLi(false) }
+              finally { setConnectingLi(false) }
             }}
           >
-            {savingLi ? '...' : 'Save'}
+            {connectingLi ? 'Connecting...' : liConnected ? 'Refresh' : 'Connect'}
           </button>
         </div>
+        {liConnected && liConnections !== null && (
+          <div className="mt-2 text-sm text-[var(--green)]">
+            Connected — {liConnections.toLocaleString()} connections
+          </div>
+        )}
       </Section>
 
       {/* Voice & Tone */}

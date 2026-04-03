@@ -78,35 +78,29 @@ async function handleScan(request: Request) {
     }))
   }
 
-  // Auto-track LinkedIn connections via Apify for users with LinkedIn in watchlist
+  // Auto-track LinkedIn connections for users with linkedin_url saved
   const apifyToken = process.env.APIFY_TOKEN ?? ''
   if (apifyToken) {
-    const { data: liWatchers } = await sb
-      .from('sb_watchlist')
-      .select('user_id, username, profile_url')
-      .eq('platform', 'linkedin')
+    const { data: liUsers } = await sb
+      .from('sb_users')
+      .select('id, linkedin_url')
+      .not('linkedin_url', 'is', null)
 
-    if (liWatchers && liWatchers.length > 0) {
-      // Group by user — pick first LinkedIn profile per user as their "self" proxy
-      const userProfiles = new Map<string, string>()
-      for (const w of liWatchers) {
-        if (!userProfiles.has(w.user_id)) {
-          userProfiles.set(w.user_id, w.profile_url ?? `https://www.linkedin.com/in/${w.username}`)
-        }
-      }
-
+    if (liUsers) {
       const today = new Date().toISOString().slice(0, 10)
-      // Check if we already tracked today to avoid redundant API calls
-      for (const [userId, profileUrl] of userProfiles) {
+      for (const u of liUsers) {
+        const profileUrl = (u as Record<string, unknown>).linkedin_url as string
+        if (!profileUrl) continue
         try {
+          // Skip if already tracked today
           const { data: existing } = await sb
             .from('metrics_snapshots')
             .select('id')
-            .eq('user_id', userId)
+            .eq('user_id', u.id)
             .eq('metric', 'li_connections')
             .eq('snapshot_date', today)
             .single()
-          if (existing) continue // already tracked today
+          if (existing) continue
 
           const resp = await fetch(
             `https://api.apify.com/v2/acts/harvestapi~linkedin-profile-scraper/run-sync-get-dataset-items?token=${apifyToken}`,
@@ -119,13 +113,10 @@ async function handleScan(request: Request) {
           )
           if (!resp.ok) continue
           const profiles = await resp.json() as Array<Record<string, unknown>>
-          const profile = profiles[0]
-          if (!profile) continue
-
-          const connections = (profile.connectionsCount as number) ?? (profile.followersCount as number)
+          const connections = (profiles[0]?.connectionsCount as number) ?? (profiles[0]?.followersCount as number)
           if (typeof connections === 'number' && connections > 0) {
             await sb.from('metrics_snapshots').upsert(
-              { user_id: userId, metric: 'li_connections', value: connections, snapshot_date: today },
+              { user_id: u.id, metric: 'li_connections', value: connections, snapshot_date: today },
               { onConflict: 'user_id,metric,snapshot_date' }
             )
           }
