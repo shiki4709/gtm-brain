@@ -6,6 +6,7 @@ import ModeSelector from '@/components/mode-selector'
 import GrowthCoach from '@/components/growth-coach'
 import ContentCalendar from '@/components/content-calendar'
 import type { UserMode } from '@/lib/types'
+import { getIcpRelevance, getPlaybookBonus, type UserScoringConfig, type ProfileScoreOverride } from '@/lib/scoring'
 
 interface FeedItem {
   platform: 'linkedin' | 'x'
@@ -996,8 +997,8 @@ export default function WatchlistFeed() {
                     <div className="mt-3 pt-3 border-t border-rule-light">
                       <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">{draftReplies[item.url]}</div>
                       <div className="flex gap-2">
-                        <button className="btn-primary" onClick={() => { copyAndOpen(draftReplies[item.url], item.url); markDone(item.url, 'reply') }}>
-                          {copied === item.url ? 'Copied' : 'Copy & Open'}
+                        <button className="btn-primary" onClick={() => { copyAndOpen(draftReplies[item.url], item.url, item.platform); markDone(item.url, 'reply', item.platform) }}>
+                          {copied === item.url ? 'Copied' : item.platform === 'linkedin' ? 'Copy & Open on LinkedIn' : 'Copy & Open'}
                         </button>
                         <button className="btn-outline" onClick={() => handleDraftReply(item)}>Rewrite</button>
                       </div>
@@ -1333,123 +1334,23 @@ export default function WatchlistFeed() {
           )}
           {/* ═══ UNIFIED FEED — sorted by ICP relevance + ROI (hidden on community tab) ═══ */}
           {currentSection?.key !== 'community' && (() => {
-            // Build ICP keyword set from user's actual ICP titles + topic insights
-            // e.g. "Marketing Manager" → ["marketing", "manager"]
-            // e.g. "Head of Sales" → ["head", "sales"]
-            const icpWords = new Set<string>()
-            const stopWords = new Set(['of', 'the', 'and', 'a', 'an', 'in', 'for', 'to', 'at', 'on', 'vp', 'head', 'director', 'manager', 'chief', 'officer'])
-            for (const title of icpTitles) {
-              for (const word of title.toLowerCase().split(/[\s,/]+/)) {
-                if (word.length > 2 && !stopWords.has(word)) {
-                  icpWords.add(word)
-                }
-              }
-            }
-            // Add topic insights
-            const topicKeywords: Array<{ keyword: string; rate: number }> = []
+            // Build scoring config from user's ICP titles + topic insights
+            const topicInsightsArr: Array<{ keyword: string; rate: number }> = []
             if (insights?.topics) {
               for (const t of insights.topics) {
-                if (t.avg_icp_rate > 0) topicKeywords.push({ keyword: t.topic.toLowerCase(), rate: t.avg_icp_rate })
+                if (t.avg_icp_rate > 0) topicInsightsArr.push({ keyword: t.topic.toLowerCase(), rate: t.avg_icp_rate })
               }
             }
             if (roi?.topic_rates) {
               for (const [topic, rate] of Object.entries(roi.topic_rates)) {
-                topicKeywords.push({ keyword: topic.toLowerCase(), rate })
+                topicInsightsArr.push({ keyword: topic.toLowerCase(), rate })
               }
             }
 
-            // Word-boundary match — "ai" matches "ai" but not "raise" or "Oakland"
-            // Negative signals — if post contains these, it's NOT about tech/AI
-            const SPAM_SIGNALS = /fan\s?meet|fan\s?ival|fancam|fanart|idol|k-?pop|bias|comeback|fancall|photocard|lightstick|aegyo|oppa|noona|ship\s?name|otp|stan|manga|anime|cosplay|horoscope|zodiac|♈|♉|♊|♋|♌|♍|♎|♏|♐|♑|♒|♓|cheek\s?kiss|shyly|😭😭|fot\b|geminifourth|lookkhunnoo|gmmtv|fourth\s?nattawat|gem\s?fourth|nattawat|praew|คั่นกู/i
-
-            // Heavy emoji posts (3+ emotional emojis) with no tech terms = likely fan/entertainment content
-            const EMOJI_HEAVY = /(?:😭|😍|🥺|💕|💞|❤️|🫶|😆|🤣|💗|🥰|😘){3,}/
-
-            function matchesWord(text: string, word: string): boolean {
-              const re = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
-              return re.test(text)
-            }
-
-            // Check if a post is spam/irrelevant (fan content, horoscopes, etc.)
-            function isSpamContent(text: string): boolean {
-              if (SPAM_SIGNALS.test(text)) return true
-              // Heavy emoji posts without any tech context = entertainment
-              if (EMOJI_HEAVY.test(text) && !TECH_CONTEXT.test(text)) return true
-              return false
-            }
-
-            // Tech context regex (moved up for use in isSpamContent)
-            const TECH_CONTEXT = /\bapi\b|startup|saas|b2b|founder|shipped|deploy|code|developer|engineer|benchmark|token|context window|fine.?tun|inference|parameter|prompt|llm|ml\b|neural|training|dataset|vc\b|series [a-c]|ipo|revenue|arr\b|pipeline|funnel|conversion|product|launch|build|ship|growth|metric/i
-
-            // Expand keywords with common related terms
-            const RELATED_TERMS: Record<string, string[]> = {
-              'ai': ['artificial intelligence', 'machine learning', 'ml', 'agents', 'agentic', 'gpt', 'chatbot', 'automation', 'neural', 'deep learning'],
-              'llm': ['large language model', 'language model', 'foundation model', 'gpt', 'transformer'],
-              'claude': ['anthropic'],
-              'openai': ['chatgpt', 'gpt-4', 'gpt-5', 'gpt'],
-              'gemini': ['google ai', 'deepmind'],
-              'saas': ['software as a service', 'b2b software', 'subscription software'],
-              'gtm': ['go to market', 'go-to-market'],
-              'sales': ['selling', 'pipeline', 'quota', 'revenue', 'deals', 'prospecting'],
-              'marketing': ['demand gen', 'content marketing', 'brand', 'campaigns'],
-              'growth': ['scaling', 'product-led', 'plg', 'acquisition'],
-            }
-
-            function getExpandedKeywords(): string[] {
-              const expanded = [...trackKeywords]
-              for (const kw of trackKeywords) {
-                const related = RELATED_TERMS[kw]
-                if (related) expanded.push(...related)
-              }
-              return [...new Set(expanded)]
-            }
-
-            const expandedKeywords = getExpandedKeywords()
-
-            function getIcpRelevance(text: string): { score: number; matchedTopic: string | null } {
-              // Filter out spam/fan content that false-matches keywords like "gemini"
-              if (isSpamContent(text)) return { score: 0, matchedTopic: null }
-
-              // Uses TECH_CONTEXT defined above
-              const hasTechContext = TECH_CONTEXT.test(text)
-
-              // Ambiguous keywords that need tech context to confirm relevance
-              const AMBIGUOUS_KEYWORDS = new Set(['gemini', 'claude', 'model', 'agents', 'agent'])
-
-              // 1. User-defined track keywords — exact match (strongest)
-              const exactMatches = trackKeywords.filter(kw => matchesWord(text, kw))
-              if (exactMatches.length >= 2) return { score: 0.6, matchedTopic: exactMatches.slice(0, 2).join(', ') }
-              if (exactMatches.length === 1) {
-                // If the only match is an ambiguous keyword, require tech context
-                if (AMBIGUOUS_KEYWORDS.has(exactMatches[0].toLowerCase()) && !hasTechContext) {
-                  return { score: 0, matchedTopic: null } // ambiguous without tech context = not relevant
-                }
-                return { score: 0.4, matchedTopic: exactMatches[0] }
-              }
-
-              // 1b. Expanded/related keywords (strong — auto-inferred from user keywords)
-              const relatedMatches = expandedKeywords.filter(kw => matchesWord(text, kw))
-              if (relatedMatches.length >= 2) return { score: 0.35, matchedTopic: relatedMatches.slice(0, 2).join(', ') }
-              if (relatedMatches.length === 1) return { score: 0.25, matchedTopic: relatedMatches[0] }
-
-              // 2. Topic insights from past scrapes (strong — real conversion data)
-              let bestRate = 0
-              let bestTopic: string | null = null
-              for (const { keyword, rate } of topicKeywords) {
-                if (matchesWord(text, keyword) && rate > bestRate) {
-                  bestRate = rate
-                  bestTopic = keyword
-                }
-              }
-              if (bestRate > 0) return { score: bestRate, matchedTopic: bestTopic }
-
-              // 3. ICP title keywords (medium — inferred from job titles)
-              const titleMatches = [...icpWords].filter(w => matchesWord(text, w))
-              if (titleMatches.length >= 3) return { score: 0.5, matchedTopic: titleMatches.slice(0, 2).join(', ') }
-              if (titleMatches.length === 2) return { score: 0.35, matchedTopic: titleMatches.join(', ') }
-              if (titleMatches.length === 1) return { score: 0.2, matchedTopic: titleMatches[0] }
-
-              return { score: 0, matchedTopic: null }
+            const scoringConfig: UserScoringConfig = {
+              trackKeywords,
+              icpTitles,
+              topicInsights: topicInsightsArr,
             }
 
             const allScored = feed
@@ -1462,10 +1363,8 @@ export default function WatchlistFeed() {
                 const eng = likes + comments + rts
 
                 // Use AI profile scores when available, fall back to keyword matching
-                const ps = profileScores[item.url]
-                const icpRel: { score: number; matchedTopic: string | null } = ps && ps.score > 0
-                  ? { score: ps.score, matchedTopic: ps.topic }
-                  : getIcpRelevance(item.text)
+                const ps = profileScores[item.url] as ProfileScoreOverride | undefined
+                const icpRel = getIcpRelevance(item.text, scoringConfig, ps)
 
                 const { ageHours } = getVelocity(item)
 
@@ -1481,20 +1380,8 @@ export default function WatchlistFeed() {
                 // Engagement base
                 score += eng * 0.1
 
-                // PLAYBOOK BONUSES:
-                // Early window bonus — playbook says first 15 min (X) / 60-90 min (LinkedIn) is everything
-                if (ageHours < 0.25) score += 80 // under 15 min = huge bonus
-                else if (ageHours < 1.5) score += 40 // under 90 min = good bonus
-                else if (ageHours < 3) score += 15 // under 3 hours = small bonus
-
-                // Like-to-reply ratio bonus — playbook says high likes + low replies = your reply stands out
-                if (likes >= 30 && comments < 5) score += 50
-
-                // Save-worthy content bonus — playbook says bookmarks = 5-10x a like
-                const hasFramework = /step|framework|system|playbook|process|how to/i.test(item.text)
-                const hasData = /\d+%|\$\d|x\d|\d+x/i.test(item.text)
-                if (hasFramework) score += 25
-                if (hasData) score += 20
+                // Playbook bonuses (early window, like-to-reply ratio, framework/data content)
+                score += getPlaybookBonus({ ageHours, likes, comments, text: item.text })
 
                 const primaryType = rec.actions[0]?.type ?? 'skip'
                 return { item, rec, score, icpRelevance: icpRel, primaryType }
@@ -1819,7 +1706,7 @@ export default function WatchlistFeed() {
                             })
                           })()}
                           <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
-                            {isLinkedIn ? 'View post' : 'Open on X'}
+                            {isLinkedIn ? 'Open on LinkedIn' : 'Open on X'}
                           </a>
                           <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
                         </div>
@@ -1943,8 +1830,8 @@ export default function WatchlistFeed() {
                           <div className="mt-3 pt-3 border-t border-rule-light">
                             <div className="text-sm text-ink bg-[var(--bg-warm)] rounded-lg px-3 py-2 mb-2 leading-relaxed">{draftReply}</div>
                             <div className="flex gap-2 mb-2">
-                              <button className="btn-primary" onClick={() => { copyAndOpen(draftReply, item.url); markDone(item.url, 'reply') }}>
-                                {copied === item.url ? 'Copied!' : 'Copy & Open tweet'}
+                              <button className="btn-primary" onClick={() => { copyAndOpen(draftReply, item.url, item.platform); markDone(item.url, 'reply', item.platform) }}>
+                                {copied === item.url ? 'Copied!' : isLinkedIn ? 'Copy & Open on LinkedIn' : 'Copy & Open tweet'}
                               </button>
                               <button className="btn-outline" onClick={() => handleDraftReply(item)} disabled={draftingUrl === item.url}>
                                 {draftingUrl === item.url ? '...' : '\u21BB Regenerate'}

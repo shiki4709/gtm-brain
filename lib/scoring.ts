@@ -42,6 +42,23 @@ export interface PostScore {
   finalScore: number
 }
 
+// ═══ SPAM / NOISE FILTERS ═══
+
+export const SPAM_SIGNALS = /fan\s?meet|fan\s?ival|fancam|fanart|idol|k-?pop|bias|comeback|fancall|photocard|lightstick|aegyo|oppa|noona|ship\s?name|otp|stan|manga|anime|cosplay|horoscope|zodiac|♈|♉|♊|♋|♌|♍|♎|♏|♐|♑|♒|♓|cheek\s?kiss|shyly|😭😭|fot\b|geminifourth|lookkhunnoo|gmmtv|fourth\s?nattawat|gem\s?fourth|nattawat|praew|คั่นกู/i
+
+export const EMOJI_HEAVY = /(?:😭|😍|🥺|💕|💞|❤️|🫶|😆|🤣|💗|🥰|😘){3,}/
+
+export const TECH_CONTEXT = /\bapi\b|startup|saas|b2b|founder|shipped|deploy|code|developer|engineer|benchmark|token|context window|fine.?tun|inference|parameter|prompt|llm|ml\b|neural|training|dataset|vc\b|series [a-c]|ipo|revenue|arr\b|pipeline|funnel|conversion|product|launch|build|ship|growth|metric/i
+
+export const AMBIGUOUS_KEYWORDS = new Set(['gemini', 'claude', 'model', 'agents', 'agent'])
+
+export function isSpamContent(text: string): boolean {
+  if (SPAM_SIGNALS.test(text)) return true
+  // Heavy emoji posts without any tech context = entertainment
+  if (EMOJI_HEAVY.test(text) && !TECH_CONTEXT.test(text)) return true
+  return false
+}
+
 // ═══ WORD BOUNDARY MATCHING ═══
 
 function matchesWord(text: string, word: string): boolean {
@@ -51,7 +68,7 @@ function matchesWord(text: string, word: string): boolean {
 
 // ═══ RELATED TERMS EXPANSION ═══
 
-const RELATED_TERMS: Record<string, string[]> = {
+export const RELATED_TERMS: Record<string, string[]> = {
   'ai': ['artificial intelligence', 'machine learning', 'ml', 'agents', 'agentic', 'gpt', 'chatbot', 'automation', 'neural', 'deep learning'],
   'llm': ['large language model', 'language model', 'foundation model', 'gpt', 'transformer'],
   'claude': ['anthropic'],
@@ -73,15 +90,46 @@ function expandKeywords(trackKeywords: string[]): string[] {
   return [...new Set(expanded)]
 }
 
-// ═══ ICP RELEVANCE — keyword-based (fast, runs client-side) ═══
+// ═══ ICP RELEVANCE — keyword-based with spam filtering (fast, runs client-side) ═══
 
-export function getIcpRelevance(text: string, config: UserScoringConfig): IcpRelevanceResult {
+export interface ProfileScoreOverride {
+  score: number
+  topic: string | null
+  reason: string
+}
+
+export function getIcpRelevance(
+  text: string,
+  config: UserScoringConfig,
+  profileScore?: ProfileScoreOverride | null,
+): IcpRelevanceResult {
+  // Use AI profile scores when available
+  if (profileScore && profileScore.score > 0) {
+    return { score: profileScore.score, matchedTopic: profileScore.topic, method: 'profile' }
+  }
+
+  return getIcpRelevanceKeywords(text, config)
+}
+
+/** Pure keyword-based ICP relevance with spam filtering and ambiguous keyword handling */
+export function getIcpRelevanceKeywords(text: string, config: UserScoringConfig): IcpRelevanceResult {
   const { trackKeywords, icpTitles, topicInsights } = config
+
+  // Filter out spam/fan content that false-matches keywords like "gemini"
+  if (isSpamContent(text)) return { score: 0, matchedTopic: null, method: 'none' }
+
+  const hasTechContext = TECH_CONTEXT.test(text)
 
   // 1. User-defined track keywords — exact match (strongest)
   const exactMatches = trackKeywords.filter(kw => matchesWord(text, kw))
   if (exactMatches.length >= 2) return { score: 0.6, matchedTopic: exactMatches.slice(0, 2).join(', '), method: 'exact' }
-  if (exactMatches.length === 1) return { score: 0.4, matchedTopic: exactMatches[0], method: 'exact' }
+  if (exactMatches.length === 1) {
+    // If the only match is an ambiguous keyword, require tech context
+    if (AMBIGUOUS_KEYWORDS.has(exactMatches[0].toLowerCase()) && !hasTechContext) {
+      return { score: 0, matchedTopic: null, method: 'none' }
+    }
+    return { score: 0.4, matchedTopic: exactMatches[0], method: 'exact' }
+  }
 
   // 1b. Expanded/related keywords
   const expandedKeywords = expandKeywords(trackKeywords)
@@ -116,6 +164,36 @@ export function getIcpRelevance(text: string, config: UserScoringConfig): IcpRel
   if (titleMatches.length === 1) return { score: 0.2, matchedTopic: titleMatches[0], method: 'title_keyword' }
 
   return { score: 0, matchedTopic: null, method: 'none' }
+}
+
+// ═══ PLAYBOOK BONUS SCORING ═══
+
+export interface PlaybookBonusInput {
+  ageHours: number
+  likes: number
+  comments: number
+  text: string
+}
+
+/** Calculate playbook-informed bonus score for feed ranking */
+export function getPlaybookBonus(input: PlaybookBonusInput): number {
+  let bonus = 0
+
+  // Early window bonus — playbook says first 15 min (X) / 60-90 min (LinkedIn) is everything
+  if (input.ageHours < 0.25) bonus += 80 // under 15 min = huge bonus
+  else if (input.ageHours < 1.5) bonus += 40 // under 90 min = good bonus
+  else if (input.ageHours < 3) bonus += 15 // under 3 hours = small bonus
+
+  // Like-to-reply ratio bonus — playbook says high likes + low replies = your reply stands out
+  if (input.likes >= 30 && input.comments < 5) bonus += 50
+
+  // Save-worthy content bonus — playbook says bookmarks = 5-10x a like
+  const hasFramework = /step|framework|system|playbook|process|how to/i.test(input.text)
+  const hasData = /\d+%|\$\d|x\d|\d+x/i.test(input.text)
+  if (hasFramework) bonus += 25
+  if (hasData) bonus += 20
+
+  return bonus
 }
 
 // ═══ HAIKU ICP SCORING — semantic (accurate, runs server-side in cron) ═══
