@@ -320,13 +320,31 @@ export default function Outbound() {
         >
           Scrape a post
         </button>
-        <a
-          href="/api/export-leads"
-          className="btn-outline text-xs px-3 py-1.5"
-          download
-        >
-          Export CSV
-        </a>
+        <div className="relative group">
+          <button className="btn-outline text-xs px-3 py-1.5">
+            Export CSV ▾
+          </button>
+          <div className="hidden group-hover:block absolute top-full right-0 mt-1 bg-white border border-rule rounded-lg shadow-md z-10 min-w-[180px] py-1">
+            {[
+              { key: 'default', label: 'All fields' },
+              { key: 'dripify', label: 'Dripify' },
+              { key: 'salesnav', label: 'Sales Navigator' },
+              { key: 'hubspot', label: 'HubSpot' },
+              { key: 'apollo', label: 'Apollo.io' },
+              { key: 'outreach', label: 'Outreach.io' },
+              { key: 'instantly', label: 'Instantly.ai' },
+            ].map(f => (
+              <a
+                key={f.key}
+                href={`/api/export-leads?format=${f.key}`}
+                download
+                className="block px-3 py-1.5 text-xs text-ink-3 hover:bg-[var(--bg-warm)] hover:text-ink"
+              >
+                {f.label}
+              </a>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Collapsible scrape input */}
