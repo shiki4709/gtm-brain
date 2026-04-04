@@ -133,12 +133,14 @@ export async function POST(request: Request) {
 
     if (insight?.insight_data) {
       const analysis = insight.insight_data as Record<string, string>
+      // Randomly pick which insight to emphasize so replies vary in structure
+      const structures = ['REFRAME', 'STACK', 'PROOF', 'QUESTION', 'ONE-LINER']
+      const pickedStructure = structures[Math.floor(Math.random() * structures.length)]
       const parts: string[] = []
-      if (analysis.topTactic) parts.push(`DO: ${analysis.topTactic}`)
       if (analysis.avoid) parts.push(`AVOID: ${analysis.avoid}`)
-      if (analysis.replyStyle) parts.push(`STYLE: ${analysis.replyStyle}`)
+      parts.push(`FOR THIS REPLY, USE THE "${pickedStructure}" STRUCTURE specifically. Do NOT default to contrarian reframe every time — vary your approach.`)
       if (parts.length > 0) {
-        brainInsightsContext = `\nBRAIN INSIGHTS (learned from your engagement data):\n${parts.join('\n')}\nApply these insights to this reply.`
+        brainInsightsContext = `\nBRAIN INSIGHTS (learned from your engagement data):\n${parts.join('\n')}`
       }
     }
   } catch { /* no cached analysis yet */ }
