@@ -40,6 +40,7 @@ export default function MyContentPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterTab>('all')
+  const [platform, setPlatform] = useState<'all' | 'x' | 'linkedin'>('all')
   const [sort, setSort] = useState<SortMode>('recency')
 
   const fetchContent = useCallback(async () => {
@@ -63,8 +64,9 @@ export default function MyContentPage() {
 
   useEffect(() => { fetchContent() }, [fetchContent])
 
-  // Filter
+  // Filter by platform then type
   const filtered = items.filter(item => {
+    if (platform !== 'all' && item.platform !== platform) return false
     if (filter === 'all') return true
     if (filter === 'replies') return item.type === 'reply'
     if (filter === 'posts') return item.type === 'post' || item.type === 'quote'
@@ -96,6 +98,32 @@ export default function MyContentPage() {
         >
           {loading ? 'Loading...' : 'Refresh'}
         </button>
+      </div>
+
+      {/* Platform toggle */}
+      <div className="flex gap-1 mb-3">
+        {([
+          { key: 'all' as const, label: 'All platforms' },
+          { key: 'x' as const, label: 'X / Twitter' },
+          { key: 'linkedin' as const, label: 'LinkedIn' },
+        ]).map(p => (
+          <button
+            key={p.key}
+            onClick={() => setPlatform(p.key)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+              platform === p.key
+                ? 'text-ink bg-[var(--blue-tint)]'
+                : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
+            }`}
+          >
+            {p.label}
+            {p.key !== 'all' && (
+              <span className="ml-1 text-[10px] opacity-60">
+                {items.filter(i => i.platform === p.key).length}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* Filter tabs + sort toggle */}
