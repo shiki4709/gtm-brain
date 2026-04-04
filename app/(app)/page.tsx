@@ -1361,28 +1361,20 @@ export default function WatchlistFeed() {
                   <div className="skeleton skeleton-stat" />
                 </div>
               </div>
-            ) : replyAnalysis ? (() => {
-              const brief = (s: string) => {
-                const clean = s.replace(/\*\*/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\s*"[^"]*"/g, '')
-                const first = clean.split(/[.;:]\s/)[0]
-                const words = first.split(/\s+/).slice(0, 8)
-                return words.join(' ')
-              }
-              return (
-                <div className="grid grid-cols-3 gap-2 items-stretch">
-                  {([
-                    { label: 'Do more', text: brief(replyAnalysis.topTactic), bg: 'bg-[var(--green-tint)]', color: 'text-green' },
-                    { label: 'Avoid', text: brief(replyAnalysis.avoid), bg: 'bg-[var(--orange-tint)]', color: 'text-orange' },
-                    { label: 'Audience', text: brief(replyAnalysis.whoEngages), bg: 'bg-[var(--bg-warm)]', color: '' },
-                  ]).map((c, i) => (
-                    <div key={i} className={`${c.bg} rounded-[var(--radius-sm)] px-3 py-2.5 flex flex-col items-center justify-center`}>
-                      <h3 className={`section-label mb-1 ${c.color}`}>{c.label}</h3>
-                      <div className="text-xs text-ink-2 font-medium text-center">{c.text}</div>
-                    </div>
-                  ))}
-                </div>
-              )
-            })() : (
+            ) : replyAnalysis ? (
+              <div className="grid grid-cols-3 gap-2 items-stretch">
+                {([
+                  { label: 'Do more', text: replyAnalysis.topTactic, bg: 'bg-[var(--green-tint)]', color: 'text-green' },
+                  { label: 'Avoid', text: replyAnalysis.avoid, bg: 'bg-[var(--orange-tint)]', color: 'text-orange' },
+                  { label: 'Audience', text: replyAnalysis.whoEngages, bg: 'bg-[var(--bg-warm)]', color: '' },
+                ]).map((c, i) => (
+                  <div key={i} className={`${c.bg} rounded-[var(--radius-sm)] px-3 py-2.5 flex flex-col items-center justify-center`}>
+                    <h3 className={`section-label mb-1 ${c.color}`}>{c.label}</h3>
+                    <div className="text-xs text-ink-2 font-medium text-center">{c.text.replace(/\*\*/g, '')}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
                   <h3 className="section-label mb-1">Best time</h3>

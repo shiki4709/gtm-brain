@@ -119,13 +119,14 @@ ${lowRepliesSample}
 PEOPLE WHO REPLY TO THEM:
 ${repliersSample}
 
-Return ONLY a JSON object:
+Return ONLY a JSON object. IMPORTANT: Each value must be a short phrase (max 8 words). No full sentences. No markdown. Think dashboard label, not paragraph.
+
 {
-  "replyStyle": "2 sentences: what reply STYLE works (contrarian? question? data point? humor? one-liner?). Compare high vs low performing.",
-  "whoEngages": "2 sentences: WHO engages — are they post authors replying back, or other followers? What's their profile (founders, devs, VCs)?",
-  "whyTheyEngage": "2 sentences: WHY people engage — what triggers them (controversy? useful info? humor? personal experience?)",
-  "topTactic": "1 sentence: the single most effective tactic based on the data",
-  "avoid": "1 sentence: what to stop doing based on low-performing replies"
+  "replyStyle": "max 8 words: what reply style works best (e.g. 'Contrarian takes with specific examples')",
+  "whoEngages": "max 8 words: who engages (e.g. 'Founders and builders shipping products')",
+  "whyTheyEngage": "max 8 words: why they engage (e.g. 'Debatable claims about their industry')",
+  "topTactic": "max 8 words: what to do more (e.g. 'Lead with a sharp opinion')",
+  "avoid": "max 8 words: what to stop (e.g. 'Generic questions without a take')"
 }` }],
       }),
     })
