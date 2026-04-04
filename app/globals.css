@@ -386,6 +386,7 @@ h3 { font-family: var(--font-head); font-size: 14px; font-weight: 600; color: va
 button, a, [role="button"] {
   min-height: 24px;
   min-width: 24px;
+  cursor: pointer;
 }
 
 /* Inline text actions (Skip, Undo, × remove) — ensure tappable on mobile */
