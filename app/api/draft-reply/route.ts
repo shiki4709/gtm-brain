@@ -145,6 +145,40 @@ export async function POST(request: Request) {
     }
   } catch { /* no cached analysis yet */ }
 
+  // Fetch user's stated opinions on related topics
+  let userTakesContext = ''
+  try {
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: takes } = await auth.sb
+      .from('sb_insights')
+      .select('insight_data, generated_at')
+      .eq('user_id', auth.dbUser.id)
+      .eq('insight_type', 'user_take')
+      .gte('generated_at', ninetyDaysAgo)
+      .order('generated_at', { ascending: false })
+      .limit(20)
+
+    if (takes && takes.length > 0) {
+      const tweetWords = new Set(
+        tweet_text.toLowerCase().split(/\W+/).filter((w: string) => w.length > 3)
+      )
+      const relevant = takes
+        .filter(t => {
+          const data = t.insight_data as { keywords?: string[] }
+          return (data.keywords ?? []).some(k => tweetWords.has(k.toLowerCase()))
+        })
+        .slice(0, 2)
+
+      if (relevant.length > 0) {
+        userTakesContext = `\nYOUR REAL OPINIONS (use these — this is what you actually think):\n` +
+          relevant.map(t => {
+            const d = t.insight_data as { topic: string; opinion: string }
+            return `- On "${d.topic}": "${d.opinion}"`
+          }).join('\n')
+      }
+    }
+  } catch { /* no takes yet */ }
+
   // Learn from top-performing replies — fetch user's best replies via SocialData
   let topRepliesContext = ''
   const xHandle = auth.dbUser.x_handle
@@ -214,7 +248,7 @@ Return ONLY the rewritten reply. Nothing else. Keep under 280 characters.`,
     ].filter(Boolean).join(', ')
 
     const { text } = await callClaude(
-      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}${brainInsightsContext}${topRepliesContext}
+      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}${brainInsightsContext}${topRepliesContext}${userTakesContext}
 
 ${isLinkedIn ? 'POST' : 'TWEET'} by @${author_handle} (${author_name}):
 "${tweet_text.substring(0, 500)}"

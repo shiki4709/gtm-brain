@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import ModeSelector from '@/components/mode-selector'
 import ContentCalendar from '@/components/content-calendar'
+import OpinionCapture from '@/components/opinion-capture'
 import type { UserMode } from '@/lib/types'
 import { getIcpRelevance, getPlaybookBonus, type UserScoringConfig, type ProfileScoreOverride } from '@/lib/scoring'
 
@@ -139,6 +140,7 @@ export default function WatchlistFeed() {
     replyStyle: string; whoEngages: string; whyTheyEngage: string; topTactic: string; avoid: string
   } | null>(null)
   const [insightsLoading, setInsightsLoading] = useState(true)
+  const [dashboardTopics, setDashboardTopics] = useState<Array<{ topic: string; totalEngagement: number; signalScore: number; samplePosts: Array<{ author: string; text: string; engagement: number; url: string }> }>>([])
 
   const [growthActions, setGrowthActions] = useState<Array<{ date: string; count: number }>>([])
 
@@ -344,6 +346,12 @@ export default function WatchlistFeed() {
         .then(json => { if (json.success && json.analysis) setReplyAnalysis(json.analysis) })
         .catch(() => {})
         .finally(() => setInsightsLoading(false))
+
+      // Fetch hot topics for opinion capture
+      fetch('/api/topics')
+        .then(r => r.json())
+        .then(json => { if (json.success) setDashboardTopics(json.data?.topics ?? []) })
+        .catch(() => {})
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView])
@@ -1287,6 +1295,9 @@ export default function WatchlistFeed() {
               </div>
             )
           })()}
+
+          {/* Opinion Capture — ask for user's take on hot topic */}
+          {dashboardTopics.length > 0 && <OpinionCapture hotTopics={dashboardTopics} />}
 
           {/* Section 2.5: Weekly GTM Brief */}
           <div className="card p-4 mb-4">

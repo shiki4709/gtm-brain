@@ -116,6 +116,17 @@ export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
   if (!apiKey) return NextResponse.json({ success: false, error: 'API key not configured' }, { status: 500 })
 
+  // Fetch user's stated opinions for content injection
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: userTakes } = await auth.sb
+    .from('sb_insights')
+    .select('insight_data')
+    .eq('user_id', user.id)
+    .eq('insight_type', 'user_take')
+    .gte('generated_at', ninetyDaysAgo)
+    .order('generated_at', { ascending: false })
+    .limit(20)
+
   // Generate a draft for each slot
   const slots: CalendarSlot[] = []
 
@@ -126,6 +137,25 @@ export async function POST(request: Request) {
     const sampleContext = topic.samplePosts
       .map(p => `@${p.author}: "${p.text}"`)
       .join('\n')
+
+    // Find relevant user takes for this topic
+    let userTakesContext = ''
+    if (userTakes && userTakes.length > 0) {
+      const topicWords = new Set(topic.topic.toLowerCase().split(/\W+/).filter((w: string) => w.length > 3))
+      const relevant = userTakes
+        .filter(t => {
+          const data = t.insight_data as { keywords?: string[] }
+          return (data.keywords ?? []).some(k => topicWords.has(k.toLowerCase()))
+        })
+        .slice(0, 2)
+      if (relevant.length > 0) {
+        userTakesContext = `\n\nYOUR REAL OPINIONS ON THIS TOPIC (weave these in naturally):\n` +
+          relevant.map(t => {
+            const d = t.insight_data as { topic: string; opinion: string }
+            return `- On "${d.topic}": "${d.opinion}"`
+          }).join('\n')
+      }
+    }
 
     const formatPrompt = FORMAT_PROMPTS[slot.format] ?? FORMAT_PROMPTS.post
 
@@ -152,7 +182,7 @@ CRITICAL RULES:
 - NEVER use: delve, leverage, utilize, game-changer, groundbreaking, tapestry, realm, landscape, innovative, robust, seamless.
 - Use contractions. Sound human. No em dashes. Short punchy sentences.
 - The goal is BOOKMARKS and REPOSTS, not likes. Make it save-worthy and share-worthy.
-- Reference specific details from the source posts below to make the content grounded in real observations.`,
+- Reference specific details from the source posts below to make the content grounded in real observations.${userTakesContext}`,
           messages: [{
             role: 'user',
             content: `Write content about "${topic.topic}" for ${slot.platform === 'linkedin' ? 'LinkedIn' : 'X/Twitter'}.
