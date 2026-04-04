@@ -125,11 +125,17 @@ export default function WatchlistFeed() {
   // Weekly brief state
   const [weeklyBrief, setWeeklyBrief] = useState<{
     brief: string
-    patterns: { mostActiveDay: string; avgActionsPerDay: number; notificationActRate: number; topAction: string; trend: string }
+    patterns: {
+      mostActiveDay: string; avgActionsPerDay: number; notificationActRate: number
+      topAction: string; trend: string; bestHour?: string; bestDay?: string
+      topGrowthDays?: Array<{ date: string; followerDelta: number; actions: number; topActionType: string }>
+    }
     generatedAt: string
   } | null>(null)
   const [briefLoading, setBriefLoading] = useState(false)
   const [briefMessage, setBriefMessage] = useState<string | null>(null)
+  const [whoReplies, setWhoReplies] = useState<Array<{ handle: string; name: string; replyCount: number; isIcp: boolean }>>([])
+
   const [growthActions, setGrowthActions] = useState<Array<{ date: string; count: number }>>([])
 
   // Profile-based scoring state
@@ -308,7 +314,7 @@ export default function WatchlistFeed() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection])
 
-  // Fetch weekly brief on dashboard load
+  // Fetch weekly brief + who-replies on dashboard load
   useEffect(() => {
     if (activeView === 'dashboard') {
       fetch('/api/learning')
@@ -318,6 +324,15 @@ export default function WatchlistFeed() {
             setWeeklyBrief(json.data)
           } else if (json.message) {
             setBriefMessage(json.message)
+          }
+        })
+        .catch(() => {})
+
+      fetch('/api/who-replies')
+        .then(r => r.json())
+        .then(json => {
+          if (json.success && json.data) {
+            setWhoReplies(json.data)
           }
         })
         .catch(() => {})
@@ -1308,6 +1323,58 @@ export default function WatchlistFeed() {
               </p>
             )}
           </div>
+
+          {/* Brain Insights card */}
+          {(weeklyBrief || whoReplies.length > 0) && (
+            <div className="card p-4 mb-4">
+              <div className="font-head text-sm font-bold text-ink mb-3">Brain Insights</div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                {/* Timing */}
+                <div className="bg-[var(--bg-warm)] rounded-lg p-3">
+                  <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">Best time to post</div>
+                  <div className="font-head text-sm font-bold text-ink">
+                    {weeklyBrief?.patterns.bestHour && weeklyBrief.patterns.bestHour !== 'not enough data'
+                      ? `${weeklyBrief.patterns.bestHour} on ${weeklyBrief.patterns.bestDay ?? weeklyBrief.patterns.mostActiveDay}`
+                      : 'Keep going — need more data'}
+                  </div>
+                </div>
+                {/* Who replies */}
+                <div className="bg-[var(--bg-warm)] rounded-lg p-3">
+                  <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">Top repliers</div>
+                  <div className="text-ink text-xs">
+                    {whoReplies.length > 0
+                      ? whoReplies.slice(0, 3).map(r => `@${r.handle}${r.isIcp ? ' (ICP)' : ''}`).join(', ')
+                      : 'No reply data yet'}
+                  </div>
+                </div>
+                {/* Attribution */}
+                <div className="bg-[var(--bg-warm)] rounded-lg p-3">
+                  <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">Best growth day</div>
+                  {weeklyBrief?.patterns.topGrowthDays && weeklyBrief.patterns.topGrowthDays.length > 0 ? (
+                    <>
+                      <div className="font-head text-sm font-bold text-ink">
+                        +{weeklyBrief.patterns.topGrowthDays[0].followerDelta} on {new Date(weeklyBrief.patterns.topGrowthDays[0].date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </div>
+                      <div className="text-[10px] text-ink-4">
+                        {weeklyBrief.patterns.topGrowthDays[0].actions} actions &middot; mostly {weeklyBrief.patterns.topGrowthDays[0].topActionType}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-ink text-xs">Keep going — tracking growth</div>
+                  )}
+                </div>
+                {/* Reply patterns */}
+                <div className="bg-[var(--bg-warm)] rounded-lg p-3">
+                  <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">Reply style that works</div>
+                  <div className="text-ink text-xs">
+                    {weeklyBrief?.patterns.topAction
+                      ? `Your top action: ${weeklyBrief.patterns.topAction} (${weeklyBrief.patterns.trend} trend)`
+                      : 'Keep engaging — learning your style'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Section 3: This week's progress — actual vs recommended */}
           {growthActions.length > 0 && (() => {

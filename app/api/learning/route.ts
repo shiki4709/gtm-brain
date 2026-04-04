@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 import { callClaude } from '@/lib/claude'
 
+interface GrowthDay {
+  readonly date: string
+  readonly followerDelta: number
+  readonly actions: number
+  readonly topActionType: string
+}
+
 interface LearningPatterns {
   readonly mostActiveDay: string
   readonly avgActionsPerDay: number
@@ -9,6 +16,9 @@ interface LearningPatterns {
   readonly topAction: string
   readonly trend: string
   readonly bestTopics: readonly string[]
+  readonly bestHour: string
+  readonly bestDay: string
+  readonly topGrowthDays: readonly GrowthDay[]
 }
 
 interface WeeklyBriefData {
@@ -160,6 +170,52 @@ async function generateBrief(userId: string, sb: any) {
     .slice(0, 3)
     .map(t => t.topic)
 
+  // Best hour of day
+  const hourCounts = new Map<number, number>()
+  for (const action of actions) {
+    const hour = new Date(action.created_at).getHours()
+    hourCounts.set(hour, (hourCounts.get(hour) ?? 0) + 1)
+  }
+  const bestHourNum = [...hourCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+  const bestHourLabel = bestHourNum != null
+    ? `${bestHourNum === 0 ? 12 : bestHourNum > 12 ? bestHourNum - 12 : bestHourNum}${bestHourNum >= 12 ? 'pm' : 'am'}`
+    : 'not enough data'
+
+  // Best day of week (reuse dayCountMap computed above)
+  const bestDay = mostActiveDay
+
+  // Attribution: follower growth correlation
+  const { data: snapshots } = await sb
+    .from('metrics_snapshots')
+    .select('value, snapshot_date')
+    .eq('user_id', userId)
+    .eq('metric', 'x_followers')
+    .order('snapshot_date', { ascending: true })
+    .limit(14)
+
+  const topGrowthDays: GrowthDay[] = []
+  if (snapshots && snapshots.length > 1) {
+    for (let i = 1; i < snapshots.length; i++) {
+      const delta = (snapshots[i].value as number) - (snapshots[i - 1].value as number)
+      if (delta > 0) {
+        const dayActions = actions.filter(a => a.created_at.slice(0, 10) === snapshots[i].snapshot_date)
+        const dayActionTypes: Record<string, number> = {}
+        for (const da of dayActions) {
+          dayActionTypes[da.action_type] = (dayActionTypes[da.action_type] ?? 0) + 1
+        }
+        const topActionType = Object.entries(dayActionTypes)
+          .sort(([, a], [, b]) => b - a)[0]?.[0] ?? 'none'
+        topGrowthDays.push({
+          date: snapshots[i].snapshot_date as string,
+          followerDelta: delta,
+          actions: dayActions.length,
+          topActionType,
+        })
+      }
+    }
+    topGrowthDays.sort((a, b) => b.followerDelta - a.followerDelta)
+  }
+
   // Reply frequency trend (compare first 7 days vs last 7 days)
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const replyTypes = new Set(['reply', 'reply_copy', 'li_comment'])
@@ -182,6 +238,9 @@ async function generateBrief(userId: string, sb: any) {
     topAction,
     trend,
     bestTopics,
+    bestHour: bestHourLabel,
+    bestDay,
+    topGrowthDays,
   }
 
   // Generate brief with Claude Haiku
