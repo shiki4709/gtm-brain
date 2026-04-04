@@ -1288,7 +1288,7 @@ export default function WatchlistFeed() {
           {/* Section 2.5: Weekly GTM Brief */}
           <div className="card p-4 mb-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="font-head text-sm font-bold text-ink">Weekly GTM Brief</div>
+              <div className="section-label">Weekly GTM Brief</div>
               {weeklyBrief && (
                 <button
                   className="text-[11px] text-accent hover:underline disabled:opacity-50"
@@ -1308,15 +1308,15 @@ export default function WatchlistFeed() {
             </div>
             {weeklyBrief ? (
               <>
-                <p className="text-sm text-ink-3 leading-relaxed mb-3">{weeklyBrief.brief}</p>
+                <p className="text-xs text-ink-3 leading-relaxed mb-3">{weeklyBrief.brief}</p>
                 <div className="flex flex-wrap gap-1.5">
-                  <span className="badge text-[10px] px-2 py-0.5 rounded">Most active: {weeklyBrief.patterns.mostActiveDay}</span>
-                  <span className="badge text-[10px] px-2 py-0.5 rounded">Avg {weeklyBrief.patterns.avgActionsPerDay} actions/day</span>
+                  <span className="badge badge-icp">Most active: {weeklyBrief.patterns.mostActiveDay}</span>
+                  <span className="badge badge-icp">Avg {weeklyBrief.patterns.avgActionsPerDay}/day</span>
                   {weeklyBrief.patterns.notificationActRate > 0 && (
-                    <span className="badge text-[10px] px-2 py-0.5 rounded">{weeklyBrief.patterns.notificationActRate}% act rate</span>
+                    <span className="badge badge-icp">{weeklyBrief.patterns.notificationActRate}% act rate</span>
                   )}
-                  <span className="badge text-[10px] px-2 py-0.5 rounded">Top: {weeklyBrief.patterns.topAction}</span>
-                  <span className="badge text-[10px] px-2 py-0.5 rounded">Trend: {weeklyBrief.patterns.trend}</span>
+                  <span className="badge badge-icp">Top: {weeklyBrief.patterns.topAction}</span>
+                  <span className={`badge ${weeklyBrief.patterns.trend === 'increasing' ? 'badge-sent' : 'badge-drafted'}`}>Trend: {weeklyBrief.patterns.trend}</span>
                 </div>
                 {weeklyBrief.generatedAt && (
                   <div className="text-[10px] text-ink-4 mt-2">
@@ -1333,54 +1333,55 @@ export default function WatchlistFeed() {
 
           {/* Brain Insights card — deep pattern analysis */}
           <div className="card p-4 mb-4">
-            <div className="font-head text-sm font-bold text-ink mb-3">Brain Insights</div>
+            <div className="section-label mb-2.5">Brain Insights</div>
 
             {insightsLoading ? (
-              <div className="space-y-3">
-                <div className="skeleton skeleton-card" />
-                <div className="skeleton skeleton-card" />
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <div className="skeleton skeleton-text w-full" />
+                <div className="skeleton skeleton-text w-4/5" />
+                <div className="skeleton skeleton-text w-3/5" />
+                <div className="grid grid-cols-2 gap-2 mt-2">
                   <div className="skeleton skeleton-stat" />
                   <div className="skeleton skeleton-stat" />
                 </div>
               </div>
             ) : replyAnalysis ? (
-              <div className="space-y-3">
-                <div className="bg-[var(--bg-warm)] rounded-lg p-3">
-                  <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">What reply style gets engagement</div>
-                  <div className="text-sm text-ink leading-relaxed">{replyAnalysis.replyStyle}</div>
+              <div className="space-y-2">
+                <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
+                  <div className="section-label mb-1">What reply style gets engagement</div>
+                  <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.replyStyle}</div>
                 </div>
-                <div className="bg-[var(--bg-warm)] rounded-lg p-3">
-                  <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">Who engages with you</div>
-                  <div className="text-sm text-ink leading-relaxed">{replyAnalysis.whoEngages}</div>
+                <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
+                  <div className="section-label mb-1">Who engages with you</div>
+                  <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.whoEngages}</div>
                 </div>
-                <div className="bg-[var(--bg-warm)] rounded-lg p-3">
-                  <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">Why they engage</div>
-                  <div className="text-sm text-ink leading-relaxed">{replyAnalysis.whyTheyEngage}</div>
+                <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
+                  <div className="section-label mb-1">Why they engage</div>
+                  <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.whyTheyEngage}</div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-[var(--green-tint)] rounded-lg p-3">
-                    <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">Do more of this</div>
-                    <div className="text-sm text-ink font-semibold">{replyAnalysis.topTactic}</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-[var(--green-tint)] rounded-[var(--radius-sm)] px-3 py-2">
+                    <div className="section-label mb-1 text-green">Do more</div>
+                    <div className="text-xs text-ink-2 font-medium leading-relaxed">{replyAnalysis.topTactic}</div>
                   </div>
-                  <div className="bg-[var(--orange-tint)] rounded-lg p-3">
-                    <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">Stop doing this</div>
-                    <div className="text-sm text-ink font-semibold">{replyAnalysis.avoid}</div>
+                  <div className="bg-[var(--orange-tint)] rounded-[var(--radius-sm)] px-3 py-2">
+                    <div className="section-label mb-1 text-orange">Stop</div>
+                    <div className="text-xs text-ink-2 font-medium leading-relaxed">{replyAnalysis.avoid}</div>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="bg-[var(--bg-warm)] rounded-lg p-3">
-                  <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">Best time</div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
+                  <div className="section-label mb-1">Best time</div>
                   <div className="font-semibold text-ink">
                     {weeklyBrief?.patterns.bestHour && weeklyBrief.patterns.bestHour !== 'not enough data'
                       ? `${weeklyBrief.patterns.bestHour} · ${weeklyBrief.patterns.bestDay}`
                       : 'Need more data'}
                   </div>
                 </div>
-                <div className="bg-[var(--bg-warm)] rounded-lg p-3">
-                  <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">Top repliers</div>
+                <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
+                  <div className="section-label mb-1">Top repliers</div>
                   <div className="text-ink">
                     {whoReplies.length > 0
                       ? whoReplies.slice(0, 3).map(r => `@${r.handle}${r.isIcp ? ' (ICP)' : ''}`).join(', ')
@@ -1417,22 +1418,22 @@ export default function WatchlistFeed() {
 
             return (
               <div className="card p-4 mb-4">
-                <div className="text-[11px] text-ink-4 mb-2">This week</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="section-label mb-2">This week</div>
+                <div className={`grid gap-2 ${metrics.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
                   {metrics.map(m => {
                     const pct = m.target > 0 ? Math.min(100, Math.round((m.actual / m.target) * 100)) : 100
                     return (
                       <button
                         key={m.label}
                         onClick={() => setActiveView(m.view)}
-                        className="text-left hover:bg-[var(--bg-warm)] rounded-lg p-2 transition-colors"
+                        className="stat-card text-left hover:border-accent transition-colors cursor-pointer"
                       >
-                        <div className="flex items-baseline gap-1">
+                        <div className="flex items-baseline gap-1 mb-0.5">
                           <span className="font-head text-lg font-bold text-ink">{m.actual}</span>
                           <span className="text-[11px] text-ink-4">/{m.target}</span>
                         </div>
-                        <div className="text-[11px] text-ink-4">{m.label}</div>
-                        <div className="mt-1 h-1 rounded-full bg-[var(--rule-light)] overflow-hidden">
+                        <div className="text-[11px] text-ink-4 mb-1.5">{m.label}</div>
+                        <div className="h-1 rounded-full bg-[var(--rule-light)] overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all"
                             style={{
