@@ -29,7 +29,7 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
             {/* Brand */}
             <Link href="/" className="flex items-center gap-2 shrink-0">
               <div className="w-2.5 h-2.5 rounded-full gradient-dot" />
-              <span className="font-head text-[15px] font-bold text-ink">GTM Brain</span>
+              <span className="font-head text-sm font-bold text-ink">GTM Brain</span>
             </Link>
 
             {/* Nav links — only show Pipeline for B2B (Dashboard/Feed handled by page tabs) */}
@@ -37,7 +37,7 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
               <nav className="flex items-center gap-1" role="navigation">
                 <Link
                   href="/find-leads"
-                  className={`font-head text-[13px] font-semibold px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${
+                  className={`font-head text-xs font-semibold px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${
                     isOnPipeline ? 'text-ink bg-[var(--blue-tint)]' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
                   }`}
                 >
