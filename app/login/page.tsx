@@ -22,6 +22,19 @@ export default function LoginPage() {
     const supabase = createAuthClientBrowser()
 
     if (mode === 'signup') {
+      // Invite-only: check against allowed emails
+      const checkRes = await fetch('/api/auth/check-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const checkJson = await checkRes.json()
+      if (!checkJson.allowed) {
+        setError('This app is invite-only. Contact the admin to get access.')
+        setLoading(false)
+        return
+      }
+
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
