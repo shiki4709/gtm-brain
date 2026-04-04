@@ -1362,22 +1362,24 @@ export default function WatchlistFeed() {
                 </div>
               </div>
             ) : replyAnalysis ? (() => {
-              // Extract just the key phrase (before first comma, paren, or dash)
-              const shortPhrase = (s: string) => s.split(/[,()\u2014\u2013—–]/)[0].trim().replace(/\.+$/, '')
+              // First complete sentence, max 12 words
+              const brief = (s: string) => {
+                const first = s.split(/\.\s/)[0]
+                const words = first.split(/\s+/)
+                return words.length > 12 ? words.slice(0, 12).join(' ') + '...' : first.replace(/\.+$/, '')
+              }
               return (
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="bg-[var(--green-tint)] rounded-[var(--radius-sm)] px-3 py-2.5 text-center">
-                    <h3 className="section-label text-green mb-1">Do more</h3>
-                    <div className="text-xs text-ink-2 font-medium">{shortPhrase(replyAnalysis.topTactic)}</div>
-                  </div>
-                  <div className="bg-[var(--orange-tint)] rounded-[var(--radius-sm)] px-3 py-2.5 text-center">
-                    <h3 className="section-label text-orange mb-1">Avoid</h3>
-                    <div className="text-xs text-ink-2 font-medium">{shortPhrase(replyAnalysis.avoid)}</div>
-                  </div>
-                  <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2.5 text-center">
-                    <h3 className="section-label mb-1">Audience</h3>
-                    <div className="text-xs text-ink-2 font-medium">{shortPhrase(replyAnalysis.whoEngages)}</div>
-                  </div>
+                <div className="grid grid-cols-3 gap-2 items-stretch">
+                  {([
+                    { label: 'Do more', text: brief(replyAnalysis.topTactic), bg: 'bg-[var(--green-tint)]', color: 'text-green' },
+                    { label: 'Avoid', text: brief(replyAnalysis.avoid), bg: 'bg-[var(--orange-tint)]', color: 'text-orange' },
+                    { label: 'Audience', text: brief(replyAnalysis.whoEngages), bg: 'bg-[var(--bg-warm)]', color: '' },
+                  ]).map((c, i) => (
+                    <div key={i} className={`${c.bg} rounded-[var(--radius-sm)] px-3 py-2.5 flex flex-col items-center justify-center`}>
+                      <h3 className={`section-label mb-1 ${c.color}`}>{c.label}</h3>
+                      <div className="text-xs text-ink-2 font-medium text-center">{c.text}</div>
+                    </div>
+                  ))}
                 </div>
               )
             })() : (
