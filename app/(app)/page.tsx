@@ -1197,77 +1197,47 @@ export default function WatchlistFeed() {
             )
           })()}
 
-          {/* Section 2: Growth chart (simplified) */}
-          {growthFollowers.length >= 2 ? (() => {
-            const svgW = 320
-            const svgH = 160
-            const padX = 0
-            const padY = 8
-            const values = growthFollowers.map(p => p.value)
-            const allValues = [...values, ...growthConnections.map(c => c.value)]
-            const minV = Math.min(...allValues)
-            const maxV = Math.max(...allValues)
-            // Ensure minimum visual range so small changes are visible
-            const rawRange = maxV - minV
-            const rangeV = Math.max(rawRange, maxV * 0.05, 10)
-            const latest = values[values.length - 1] ?? 0
-            const weekAgoIdx = Math.max(0, values.length - 7)
-            const weekDelta = latest - (values[weekAgoIdx] ?? latest)
-            const points = growthFollowers.map((p, i) => {
-              const x = padX + (i / (growthFollowers.length - 1)) * (svgW - 2 * padX)
-              const y = padY + (1 - (p.value - minV) / rangeV) * (svgH - 2 * padY)
-              return { x, y }
-            })
-            const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-            // LinkedIn line
-            const liPoints = growthConnections.length >= 2 ? growthConnections.map((p, i) => {
-              const x = padX + (i / (growthConnections.length - 1)) * (svgW - 2 * padX)
-              const y = padY + (1 - (p.value - minV) / rangeV) * (svgH - 2 * padY)
-              return { x, y }
-            }) : []
-            const liPathD = liPoints.length > 0 ? liPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') : ''
+          {/* Section 2: Growth charts — X and LinkedIn separate */}
+          {(growthFollowers.length >= 2 || growthConnections.length >= 2) ? (() => {
+            function renderMiniChart(data: Array<{ date: string; value: number }>, color: string, label: string) {
+              const svgW = 300, svgH = 80, padX = 0, padY = 6
+              const values = data.map(p => p.value)
+              const minV = Math.min(...values)
+              const maxV = Math.max(...values)
+              const rangeV = Math.max(maxV - minV, maxV * 0.05, 10)
+              const latest = values[values.length - 1] ?? 0
+              const weekAgoIdx = Math.max(0, values.length - 7)
+              const weekDelta = latest - (values[weekAgoIdx] ?? latest)
+              const points = data.map((p, i) => ({
+                x: padX + (i / Math.max(data.length - 1, 1)) * (svgW - 2 * padX),
+                y: padY + (1 - (p.value - minV) / rangeV) * (svgH - 2 * padY),
+              }))
+              const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+              return (
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] text-ink-4 mb-1">{label}</div>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="font-head text-lg font-bold text-ink">{latest.toLocaleString()}</span>
+                    {weekDelta !== 0 && (
+                      <span className={`text-xs ${weekDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
+                        {weekDelta > 0 ? '+' : ''}{weekDelta}
+                      </span>
+                    )}
+                  </div>
+                  <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: 60 }}>
+                    <path d={`${pathD} L ${points[points.length - 1].x.toFixed(1)},${svgH} L ${points[0].x.toFixed(1)},${svgH} Z`} fill={`${color}15`} />
+                    <path d={pathD} stroke={color} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                    {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={2} fill={color} />)}
+                  </svg>
+                </div>
+              )
+            }
             return (
               <div className="card p-4 mb-4">
-                <div className="text-xs text-ink-4 mb-2">
-                  <span className="text-ink font-semibold">{latest.toLocaleString()} followers</span>
-                  {weekDelta !== 0 && (
-                    <span className={`ml-1 ${weekDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
-                      {weekDelta > 0 ? '+' : ''}{weekDelta} this week
-                    </span>
-                  )}
-                  {growthConnections.length > 0 && (
-                    <span className="ml-2 text-ink-4">
-                      · {growthConnections[growthConnections.length - 1].value.toLocaleString()} LI followers
-                    </span>
-                  )}
+                <div className={`flex gap-6 ${growthConnections.length >= 2 ? '' : ''}`}>
+                  {growthFollowers.length >= 2 && renderMiniChart(growthFollowers, '#2196F3', 'X followers')}
+                  {growthConnections.length >= 2 && renderMiniChart(growthConnections, '#0A66C2', 'LinkedIn followers')}
                 </div>
-                <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: 140 }}>
-                  {[0.25, 0.5, 0.75].map(pct => (
-                    <line key={pct} x1={0} x2={svgW} y1={padY + pct * (svgH - 2 * padY)} y2={padY + pct * (svgH - 2 * padY)} stroke="var(--rule-light)" strokeWidth="0.5" />
-                  ))}
-                  <path
-                    d={`${pathD} L ${points[points.length - 1].x.toFixed(1)},${svgH} L ${points[0].x.toFixed(1)},${svgH} Z`}
-                    fill="var(--blue-tint)"
-                  />
-                  <path d={pathD} stroke="var(--blue-bright)" fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-                  {liPathD && (
-                    <path d={liPathD} stroke="var(--accent)" fill="none" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" strokeDasharray="4 2" />
-                  )}
-                  {points.map((p, i) => (
-                    <circle key={i} cx={p.x} cy={p.y} r={points.length <= 10 ? 2.5 : 1.5} fill="var(--blue-bright)" />
-                  ))}
-                </svg>
-                <div className="flex justify-between mt-1 text-[9px] text-ink-4">
-                  {growthFollowers.length > 0 && <span>{new Date(growthFollowers[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
-                  {growthFollowers.length > 2 && <span>{new Date(growthFollowers[Math.floor(growthFollowers.length / 2)].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
-                  {growthFollowers.length > 1 && <span>{new Date(growthFollowers[growthFollowers.length - 1].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
-                </div>
-                {liPathD && (
-                  <div className="flex items-center gap-3 mt-2 text-[10px] text-ink-4">
-                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-[var(--blue-bright)] rounded" /> X followers</span>
-                    <span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 border-t border-dashed border-[var(--accent)]" /> LinkedIn</span>
-                  </div>
-                )}
               </div>
             )
           })() : (
