@@ -1321,7 +1321,7 @@ export default function WatchlistFeed() {
                   <span className={`badge ${weeklyBrief.patterns.trend === 'increasing' ? 'badge-sent' : 'badge-drafted'}`}>Trend: {weeklyBrief.patterns.trend}</span>
                 </div>
                 {(() => {
-                  const lines = weeklyBrief.brief.split(/\s*[-–]\s+(?=\w)/).filter(Boolean)
+                  const lines = weeklyBrief.brief.split(/\n/).flatMap(l => l.split(/\s*[-–]\s+(?=\w)/)).map(l => l.trim()).filter(Boolean)
                   return (
                     <div className="space-y-1">
                       {lines.map((line: string, i: number) => {
