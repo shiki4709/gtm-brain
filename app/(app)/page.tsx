@@ -1149,105 +1149,79 @@ export default function WatchlistFeed() {
             </div>
           )}
 
-          {/* Section 1: Quick stats bar */}
+          {/* Platform cards — each platform gets its own card with followers + chart + actions */}
           {(() => {
-            const latestFollowers = growthFollowers.length > 0 ? growthFollowers[growthFollowers.length - 1].value : 0
-            const weekAgoIdx = Math.max(0, growthFollowers.length - 7)
-            const followerDelta = growthFollowers.length > 1 ? latestFollowers - (growthFollowers[weekAgoIdx]?.value ?? latestFollowers) : 0
-            const latestConnections = growthConnections.length > 0 ? growthConnections[growthConnections.length - 1].value : 0
-            const liWeekIdx = Math.max(0, growthConnections.length - 7)
-            const connectionDelta = growthConnections.length > 1 ? latestConnections - (growthConnections[liWeekIdx]?.value ?? latestConnections) : 0
-            const todayStr = new Date().toISOString().slice(0, 10)
-            const actionsToday = growthActions.find(a => a.date === todayStr)?.count ?? 0
-            return (
-              <div className="card p-3 mb-4 flex items-center gap-6">
-                {growthFollowers.length > 0 && (
-                  <div>
-                    <div className="text-[11px] text-ink-4">X followers</div>
-                    <div className="font-head text-2xl font-bold text-ink leading-tight">
-                      {latestFollowers.toLocaleString()}
-                      {followerDelta !== 0 && (
-                        <span className={`text-sm ml-1 ${followerDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
-                          {followerDelta > 0 ? '+' : ''}{followerDelta}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {growthConnections.length > 0 && (
-                  <div className="border-l border-[var(--rule-light)] pl-6">
-                    <div className="text-[11px] text-ink-4">LinkedIn</div>
-                    <div className="font-head text-2xl font-bold text-ink leading-tight">
-                      {latestConnections.toLocaleString()}
-                      {connectionDelta !== 0 && (
-                        <span className={`text-sm ml-1 ${connectionDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
-                          {connectionDelta > 0 ? '+' : ''}{connectionDelta}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-                <div className={`${growthFollowers.length > 0 || growthConnections.length > 0 ? 'border-l border-[var(--rule-light)] pl-6' : ''}`}>
-                  <div className="text-[11px] text-ink-4">Actions today</div>
-                  <div className="font-head text-2xl font-bold text-ink leading-tight">
-                    {actionsToday}<span className="text-sm text-ink-4 font-normal">/10</span>
-                  </div>
-                </div>
-              </div>
-            )
-          })()}
-
-          {/* Section 2: Growth charts — X and LinkedIn separate */}
-          {(growthFollowers.length >= 2 || growthConnections.length >= 2) ? (() => {
-            function renderMiniChart(data: Array<{ date: string; value: number }>, color: string, label: string) {
-              const svgW = 300, svgH = 80, padX = 0, padY = 6
+            function renderPlatformCard(
+              label: string, color: string,
+              data: Array<{ date: string; value: number }>,
+              actionsToday: number, actionsTarget: number,
+            ) {
               const values = data.map(p => p.value)
-              const minV = Math.min(...values)
-              const maxV = Math.max(...values)
-              const rangeV = Math.max(maxV - minV, maxV * 0.05, 10)
               const latest = values[values.length - 1] ?? 0
               const weekAgoIdx = Math.max(0, values.length - 7)
-              const weekDelta = latest - (values[weekAgoIdx] ?? latest)
+              const weekDelta = values.length > 1 ? latest - (values[weekAgoIdx] ?? latest) : 0
+
+              // Mini chart
+              const svgW = 200, svgH = 50, padY = 4
+              const minV = Math.min(...values)
+              const rangeV = Math.max(Math.max(...values) - minV, latest * 0.05, 5)
               const points = data.map((p, i) => ({
-                x: padX + (i / Math.max(data.length - 1, 1)) * (svgW - 2 * padX),
+                x: (i / Math.max(data.length - 1, 1)) * svgW,
                 y: padY + (1 - (p.value - minV) / rangeV) * (svgH - 2 * padY),
               }))
               const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+
               return (
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] text-ink-4 mb-1">{label}</div>
-                  <div className="flex items-baseline gap-1 mb-2">
-                    <span className="font-head text-lg font-bold text-ink">{latest.toLocaleString()}</span>
+                <div className="card p-4 flex-1 min-w-0">
+                  <div className="text-[11px] text-ink-4 font-semibold uppercase tracking-wider mb-2">{label}</div>
+                  <div className="flex items-baseline gap-1.5 mb-1">
+                    <span className="font-head text-xl font-bold text-ink">{latest.toLocaleString()}</span>
+                    <span className="text-[11px] text-ink-4">followers</span>
                     {weekDelta !== 0 && (
-                      <span className={`text-xs ${weekDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
+                      <span className={`text-xs font-semibold ${weekDelta > 0 ? 'text-[var(--green)]' : 'text-[var(--status-error)]'}`}>
                         {weekDelta > 0 ? '+' : ''}{weekDelta}
                       </span>
                     )}
                   </div>
-                  <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full" style={{ height: 60 }}>
-                    <path d={`${pathD} L ${points[points.length - 1].x.toFixed(1)},${svgH} L ${points[0].x.toFixed(1)},${svgH} Z`} fill={`${color}15`} />
-                    <path d={pathD} stroke={color} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-                    {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={2} fill={color} />)}
-                  </svg>
+                  {data.length >= 2 && (
+                    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full mb-2" style={{ height: 40 }}>
+                      <path d={`${pathD} L ${points[points.length - 1].x.toFixed(1)},${svgH} L ${points[0].x.toFixed(1)},${svgH} Z`} fill={`${color}12`} />
+                      <path d={pathD} stroke={color} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                    </svg>
+                  )}
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="text-ink-4">Today:</span>
+                    <span className="font-semibold text-ink">{actionsToday}/{actionsTarget}</span>
+                    <div className="flex-1 h-1 rounded-full bg-[var(--rule-light)] overflow-hidden">
+                      <div className="h-full rounded-full" style={{
+                        width: `${Math.min(100, (actionsToday / Math.max(actionsTarget, 1)) * 100)}%`,
+                        backgroundColor: color,
+                      }} />
+                    </div>
+                  </div>
                 </div>
               )
             }
+
+            const todayStr = new Date().toISOString().slice(0, 10)
+            const allItems = Object.values(activityData).flat()
+            const todayItems = allItems.filter(item => item.created_at.slice(0, 10) === todayStr)
+            const xActions = todayItems.filter(i => ['reply', 'reply_copy', 'x_thread', 'x_quote', 'x_post'].includes(i.action_type)).length
+            const liActions = todayItems.filter(i => ['li_comment', 'li_post', 'li_carousel', 'li_connection'].includes(i.action_type)).length
+
             return (
-              <div className="card p-4 mb-4">
-                <div className={`flex gap-6 ${growthConnections.length >= 2 ? '' : ''}`}>
-                  {growthFollowers.length >= 2 && renderMiniChart(growthFollowers, '#2196F3', 'X followers')}
-                  {growthConnections.length >= 2 && renderMiniChart(growthConnections, '#0A66C2', 'LinkedIn followers')}
-                </div>
+              <div className="flex gap-3 mb-4">
+                {growthFollowers.length > 0 && renderPlatformCard('X / Twitter', '#2196F3', growthFollowers, xActions, 10)}
+                {growthConnections.length > 0 && renderPlatformCard('LinkedIn', '#0A66C2', growthConnections, liActions, 10)}
+                {growthFollowers.length === 0 && growthConnections.length === 0 && (
+                  <div className="card p-4 flex-1">
+                    <div className="font-head text-sm font-bold text-ink mb-1">Growth</div>
+                    <p className="text-xs text-ink-4">Connect your X handle or LinkedIn in Settings to track growth.</p>
+                  </div>
+                )}
               </div>
             )
-          })() : (
-            <div className="card p-4 mb-4">
-              <div className="font-head text-sm font-bold text-ink mb-1">Growth</div>
-              <p className="text-xs text-ink-4">
-                Follower tracking starts after 2 days. Connect your X handle in Settings.
-              </p>
-            </div>
-          )}
+          })()}
 
           {/* Section 2.5: Weekly GTM Brief */}
           <div className="card p-4 mb-4">
