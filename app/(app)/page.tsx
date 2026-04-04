@@ -1311,8 +1311,7 @@ export default function WatchlistFeed() {
             </div>
             {weeklyBrief ? (
               <>
-                {/* Stats row — the glanceable data */}
-                <div className="flex flex-wrap gap-1.5 mb-3">
+                <div className="flex flex-wrap gap-1.5">
                   <span className="badge badge-icp">Most active: {weeklyBrief.patterns.mostActiveDay}</span>
                   <span className="badge badge-icp">Avg {weeklyBrief.patterns.avgActionsPerDay}/day</span>
                   {weeklyBrief.patterns.notificationActRate > 0 && (
@@ -1321,26 +1320,6 @@ export default function WatchlistFeed() {
                   <span className="badge badge-icp">Top: {weeklyBrief.patterns.topAction}</span>
                   <span className={`badge ${weeklyBrief.patterns.trend === 'increasing' ? 'badge-sent' : 'badge-drafted'}`}>Trend: {weeklyBrief.patterns.trend}</span>
                 </div>
-                {/* AI brief — 3 short lines */}
-                <div className="space-y-1">
-                  {weeklyBrief.brief.split(/\s*[-–]\s+(?=\w)/).filter(Boolean).map((line: string, i: number) => {
-                    const match = line.match(/^([^:]+):\s*(.+)/)
-                    if (!match) return null
-                    const icons = ['\u2705', '\u{1F4CB}', '\u{1F3AF}']
-                    return (
-                      <div key={i} className="flex gap-1.5 text-xs">
-                        <span className="shrink-0">{icons[i] ?? '\u2022'}</span>
-                        <span className="text-ink-4 font-semibold shrink-0">{match[1].trim()}:</span>
-                        <span className="text-ink-3">{match[2].trim()}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-                {weeklyBrief.generatedAt && (
-                  <div className="text-[10px] text-ink-4 mt-2">
-                    Generated {new Date(weeklyBrief.generatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                  </div>
-                )}
               </>
             ) : (
               <p className="text-xs text-ink-4">
