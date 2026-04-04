@@ -1149,19 +1149,36 @@ export default function WatchlistFeed() {
             </div>
           )}
 
-          {/* Platform cards — each platform gets its own card with followers + chart + actions */}
+          {/* Platform cards — followers + chart + action correlation */}
           {(() => {
+            // Compute per-day action counts for correlation
+            const allItems = Object.values(activityData).flat()
+            const weekStr = (() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10) })()
+            const weekItems = allItems.filter(i => i.created_at.slice(0, 10) >= weekStr)
+
+            // Find top topics/content from this week's actions
+            const topicCounts = new Map<string, number>()
+            const actionCounts = new Map<string, number>()
+            for (const item of weekItems) {
+              actionCounts.set(item.action_type, (actionCounts.get(item.action_type) ?? 0) + 1)
+              const topic = (item as Record<string, unknown>).metadata
+                ? ((item as Record<string, unknown>).metadata as Record<string, unknown>)?.topic as string | undefined
+                : undefined
+              if (topic) topicCounts.set(topic, (topicCounts.get(topic) ?? 0) + 1)
+            }
+            const topAction = [...actionCounts.entries()].sort((a, b) => b[1] - a[1])[0]
+            const topTopics = [...topicCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
+
             function renderPlatformCard(
               label: string, color: string,
               data: Array<{ date: string; value: number }>,
-              actionsToday: number, actionsTarget: number,
+              weekActions: number, topActionLabel: string,
             ) {
               const values = data.map(p => p.value)
               const latest = values[values.length - 1] ?? 0
               const weekAgoIdx = Math.max(0, values.length - 7)
               const weekDelta = values.length > 1 ? latest - (values[weekAgoIdx] ?? latest) : 0
 
-              // Mini chart
               const svgW = 200, svgH = 50, padY = 4
               const minV = Math.min(...values)
               const rangeV = Math.max(Math.max(...values) - minV, latest * 0.05, 5)
@@ -1189,30 +1206,33 @@ export default function WatchlistFeed() {
                       <path d={pathD} stroke={color} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
                     </svg>
                   )}
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <span className="text-ink-4">Today:</span>
-                    <span className="font-semibold text-ink">{actionsToday}/{actionsTarget}</span>
-                    <div className="flex-1 h-1 rounded-full bg-[var(--rule-light)] overflow-hidden">
-                      <div className="h-full rounded-full" style={{
-                        width: `${Math.min(100, (actionsToday / Math.max(actionsTarget, 1)) * 100)}%`,
-                        backgroundColor: color,
-                      }} />
-                    </div>
+                  {/* Correlation insight instead of daily counter */}
+                  <div className="text-[11px] text-ink-4">
+                    {weekDelta > 0 && weekActions > 0
+                      ? <span>{weekActions} actions this week &rarr; <span className="text-[var(--green)] font-semibold">+{weekDelta} followers</span></span>
+                      : weekActions > 0
+                        ? <span>{weekActions} actions this week</span>
+                        : <span>No actions yet this week</span>
+                    }
+                    {topActionLabel && <span className="ml-1">· mostly {topActionLabel}</span>}
                   </div>
                 </div>
               )
             }
 
-            const todayStr = new Date().toISOString().slice(0, 10)
-            const allItems = Object.values(activityData).flat()
-            const todayItems = allItems.filter(item => item.created_at.slice(0, 10) === todayStr)
-            const xActions = todayItems.filter(i => ['reply', 'reply_copy', 'x_thread', 'x_quote', 'x_post'].includes(i.action_type)).length
-            const liActions = todayItems.filter(i => ['li_comment', 'li_post', 'li_carousel', 'li_connection'].includes(i.action_type)).length
+            const xWeekActions = weekItems.filter(i => ['reply', 'reply_copy', 'x_thread', 'x_quote', 'x_post'].includes(i.action_type)).length
+            const liWeekActions = weekItems.filter(i => ['li_comment', 'li_post', 'li_carousel', 'li_connection'].includes(i.action_type)).length
+            const xTopAction = topAction && ['reply', 'reply_copy', 'x_thread', 'x_quote', 'x_post'].includes(topAction[0])
+              ? topAction[0].replace('reply_copy', 'replies').replace('reply', 'replies').replace('x_thread', 'threads').replace('x_quote', 'quotes').replace('x_post', 'posts')
+              : ''
+            const liTopAction = topAction && ['li_comment', 'li_post', 'li_carousel', 'li_connection'].includes(topAction[0])
+              ? topAction[0].replace('li_comment', 'comments').replace('li_post', 'posts').replace('li_carousel', 'carousels').replace('li_connection', 'connections')
+              : ''
 
             return (
               <div className="flex gap-3 mb-4">
-                {growthFollowers.length > 0 && renderPlatformCard('X / Twitter', '#2196F3', growthFollowers, xActions, 10)}
-                {growthConnections.length > 0 && renderPlatformCard('LinkedIn', '#0A66C2', growthConnections, liActions, 10)}
+                {growthFollowers.length > 0 && renderPlatformCard('X / Twitter', '#2196F3', growthFollowers, xWeekActions, xTopAction)}
+                {growthConnections.length > 0 && renderPlatformCard('LinkedIn', '#0A66C2', growthConnections, liWeekActions, liTopAction)}
                 {growthFollowers.length === 0 && growthConnections.length === 0 && (
                   <div className="card p-4 flex-1">
                     <div className="font-head text-sm font-bold text-ink mb-1">Growth</div>
