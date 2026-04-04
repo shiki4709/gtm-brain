@@ -1363,28 +1363,35 @@ export default function WatchlistFeed() {
               </div>
             ) : replyAnalysis ? (
               <div className="space-y-2">
-                <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                  <h3 className="section-label mb-1">What reply style gets engagement</h3>
-                  <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.replyStyle}</div>
-                </div>
-                <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                  <h3 className="section-label mb-1">Who engages with you</h3>
-                  <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.whoEngages}</div>
-                </div>
-                <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                  <h3 className="section-label mb-1">Why they engage</h3>
-                  <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.whyTheyEngage}</div>
-                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-[var(--green-tint)] rounded-[var(--radius-sm)] px-3 py-2">
                     <h3 className="section-label mb-1 text-green">Do more</h3>
-                    <div className="text-xs text-ink-2 font-medium leading-relaxed">{replyAnalysis.topTactic}</div>
+                    <div className="text-xs text-ink-2 font-medium leading-relaxed line-clamp-2">{replyAnalysis.topTactic}</div>
                   </div>
                   <div className="bg-[var(--orange-tint)] rounded-[var(--radius-sm)] px-3 py-2">
                     <h3 className="section-label mb-1 text-orange">Stop</h3>
-                    <div className="text-xs text-ink-2 font-medium leading-relaxed">{replyAnalysis.avoid}</div>
+                    <div className="text-xs text-ink-2 font-medium leading-relaxed line-clamp-2">{replyAnalysis.avoid}</div>
                   </div>
                 </div>
+                <details className="group">
+                  <summary className="text-[11px] text-accent cursor-pointer hover:underline list-none">
+                    Show details
+                  </summary>
+                  <div className="space-y-2 mt-2">
+                    <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
+                      <h3 className="section-label mb-1">What reply style gets engagement</h3>
+                      <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.replyStyle}</div>
+                    </div>
+                    <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
+                      <h3 className="section-label mb-1">Who engages with you</h3>
+                      <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.whoEngages}</div>
+                    </div>
+                    <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
+                      <h3 className="section-label mb-1">Why they engage</h3>
+                      <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.whyTheyEngage}</div>
+                    </div>
+                  </div>
+                </details>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 text-xs">
