@@ -1362,11 +1362,11 @@ export default function WatchlistFeed() {
                 </div>
               </div>
             ) : replyAnalysis ? (() => {
-              // First complete sentence, max 12 words
               const brief = (s: string) => {
-                const first = s.split(/\.\s/)[0]
-                const words = first.split(/\s+/)
-                return words.length > 12 ? words.slice(0, 12).join(' ') + '...' : first.replace(/\.+$/, '')
+                const clean = s.replace(/\*\*/g, '').replace(/\s*\([^)]*\)/g, '').replace(/\s*"[^"]*"/g, '')
+                const first = clean.split(/[.;:]\s/)[0]
+                const words = first.split(/\s+/).slice(0, 8)
+                return words.join(' ')
               }
               return (
                 <div className="grid grid-cols-3 gap-2 items-stretch">
