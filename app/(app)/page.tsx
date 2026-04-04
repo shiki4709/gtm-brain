@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import ModeSelector from '@/components/mode-selector'
 import ContentCalendar from '@/components/content-calendar'
-import OpinionCapture from '@/components/opinion-capture'
+import BrainChat from '@/components/brain-chat'
 import type { UserMode } from '@/lib/types'
 import { getIcpRelevance, getPlaybookBonus, type UserScoringConfig, type ProfileScoreOverride } from '@/lib/scoring'
 
@@ -82,6 +82,7 @@ export default function WatchlistFeed() {
   // Mode gate state
   const [showModeSelector, setShowModeSelector] = useState(false)
   const [userMode, setUserMode] = useState<UserMode>('personal_brand')
+  const [userName, setUserName] = useState('')
   const [activeSection, setActiveSection] = useState<string>('engage')
   const [activeView, setActiveView] = useState<'dashboard' | 'feed' | 'create'>('dashboard')
   const [feedLoaded, setFeedLoaded] = useState(false)
@@ -278,6 +279,7 @@ export default function WatchlistFeed() {
       }
       if (userJson.success && userJson.data) {
         setUserMode(userJson.data.mode ?? 'personal_brand')
+        setUserName(userJson.data.name ?? userJson.data.email?.split('@')[0] ?? '')
         if (!userJson.data.mode_set) setShowModeSelector(true)
       }
       if (activityJson.success && activityJson.data) setActivityData(activityJson.data)
@@ -1296,8 +1298,13 @@ export default function WatchlistFeed() {
             )
           })()}
 
-          {/* Opinion Capture — ask for user's take on hot topic */}
-          {dashboardTopics.length > 0 && <OpinionCapture hotTopics={dashboardTopics} />}
+          {/* Brain Chat — daily briefing + hot takes */}
+          <BrainChat
+            hotTopics={dashboardTopics}
+            briefPatterns={weeklyBrief?.patterns ?? null}
+            briefLines={weeklyBrief ? weeklyBrief.brief.split(/\n/).flatMap(l => l.split(/\s*[-–]\s+(?=\w)/)).map(l => l.trim()).filter(Boolean).map(l => { const m = l.match(/^([^:]+):\s*(.+)/); return m ? `${m[1].trim()}: ${m[2].replace(/\*\*/g, '').trim()}` : l }).filter(l => l.length > 5) : []}
+            userName={userName}
+          />
 
           {/* Section 2.5: Weekly GTM Brief */}
           <div className="card p-4 mb-4">
