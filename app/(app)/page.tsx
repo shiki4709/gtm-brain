@@ -1383,68 +1383,7 @@ export default function WatchlistFeed() {
             )
           })()}
 
-          {/* Recent Activity */}
-          <div className="card p-4 mt-4">
-            <button
-              className="flex items-center justify-between w-full text-left"
-              aria-expanded={activityOpen}
-              onClick={() => setActivityOpen(prev => !prev)}
-            >
-              <span className="font-head text-sm font-bold text-ink">Recent activity</span>
-              <span className="text-ink-4 text-xs">{activityOpen ? '▲' : '▼'}</span>
-            </button>
-            {activityOpen && (
-              <div className="mt-3">
-                {Object.keys(activityData).length === 0 ? (
-                  <p className="text-xs text-ink-4">
-                    No activity yet. Start by replying to posts in the Feed tab.
-                  </p>
-                ) : (
-                  Object.entries(activityData).slice(0, 4).map(([group, items]) => (
-                    <div key={group} className="mb-3">
-                      <div className="text-[11px] font-head font-semibold text-ink-4 mb-1.5 uppercase tracking-wide">{group}</div>
-                      <div className="space-y-1.5">
-                        {items.slice(0, 20).map((item) => {
-                          const icons: Record<string, string> = {
-                            reply: '💬', reply_copy: '📋', dm_draft: '📝', dm_send: '✉️',
-                            scrape: '🔍', x_thread: '🧵', x_quote: '🔁', x_post: '✏️',
-                            li_comment: '💬', li_post: '📝', li_carousel: '🎠',
-                            li_connection: '🤝', notification_skip: '⏭️',
-                          }
-                          const icon = icons[item.action_type] ?? '📌'
-                          const ago = (() => {
-                            const diff = Date.now() - new Date(item.created_at).getTime()
-                            const mins = Math.floor(diff / 60000)
-                            if (mins < 60) return `${mins}m ago`
-                            const hrs = Math.floor(mins / 60)
-                            if (hrs < 24) return `${hrs}h ago`
-                            return `${Math.floor(hrs / 24)}d ago`
-                          })()
-                          return (
-                            <div key={item.id} className="flex items-start gap-2 text-xs">
-                              <span className="shrink-0" aria-hidden="true">{icon}</span>
-                              <div className="flex-1 min-w-0">
-                                <span className="text-ink">{item.label}</span>
-                                {item.platform && (
-                                  <span className="badge ml-1.5 text-[10px] px-1.5 py-0 rounded">{item.platform}</span>
-                                )}
-                                <span className="text-ink-4 ml-1.5">{ago}</span>
-                                {item.content_preview && (
-                                  <div className="text-[11px] text-ink-4 truncate mt-0.5">
-                                    {item.content_preview}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+          {/* Recent activity removed — weekly progress bars are more useful */}
 
         </div>
       )}
