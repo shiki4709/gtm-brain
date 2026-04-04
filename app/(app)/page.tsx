@@ -1415,7 +1415,9 @@ export default function WatchlistFeed() {
             const xTargets = userMode === 'b2b_outbound'
               ? { replies: 35, posts: 2 }
               : { replies: 70, posts: 5 }
-            const liTargets = { comments: 70, posts: 2 }
+            const liTargets = userMode === 'b2b_outbound'
+              ? { comments: 20, posts: 2 }
+              : { comments: 35, posts: 3 }
 
             function ProgressRow({ label, actual, target }: { label: string; actual: number; target: number }) {
               const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 100
