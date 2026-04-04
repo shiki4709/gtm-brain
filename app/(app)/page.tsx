@@ -1312,7 +1312,7 @@ export default function WatchlistFeed() {
             {weeklyBrief ? (
               <>
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                  <span className="badge badge-icp">Most active: {weeklyBrief.patterns.mostActiveDay}</span>
+                  <span className="badge badge-icp">Peak day: {weeklyBrief.patterns.mostActiveDay}</span>
                   <span className="badge badge-icp">Avg {weeklyBrief.patterns.avgActionsPerDay}/day</span>
                   {weeklyBrief.patterns.notificationActRate > 0 && (
                     <span className="badge badge-icp">{weeklyBrief.patterns.notificationActRate}% act rate</span>
@@ -1657,60 +1657,6 @@ export default function WatchlistFeed() {
                       <div className="font-head text-sm font-semibold text-ink">{descs[currentSection.key] ?? 'Posts for you'}</div>
                       <div className="text-[11px] text-ink-4 mt-0.5">{allTodo.length} {allTodo.length === 1 ? 'post' : 'posts'} to act on</div>
                     </div>
-                  </div>
-                )}
-
-                {/* ═══ COMMUNITY — Reddit & HN ═══ */}
-                {currentSection?.key === 'community' && (
-                  <div className="mb-4">
-                    {loadingCommunity && (
-                      <div className="space-y-3">
-                        <div className="skeleton skeleton-card" />
-                        <div className="skeleton skeleton-card" />
-                        <div className="skeleton skeleton-card" />
-                      </div>
-                    )}
-                    {!loadingCommunity && communityPosts.length === 0 && (
-                      <div className="empty-state">
-                        <div className="empty-state-icon">{'\u{1F30D}'}</div>
-                        <div className="empty-state-title">No community posts found</div>
-                        <div className="empty-state-desc">Add tracked keywords in Settings to discover relevant Reddit and Hacker News posts.</div>
-                      </div>
-                    )}
-                    {!loadingCommunity && communityPosts.length > 0 && (
-                      <div className="space-y-3">
-                        {communityPosts.map((post, i) => (
-                          <div key={i} className="card p-4">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className={`badge text-[10px] ${post.platform === 'reddit' ? 'badge-replied' : 'badge-icp'}`}>
-                                {post.platform === 'reddit' ? `r/${post.subreddit}` : 'Hacker News'}
-                              </span>
-                              <span className="text-[10px] text-ink-4">
-                                {post.score} pts &middot; {post.comments} comments
-                                {post.time && (() => {
-                                  const hrs = Math.round((Date.now() - new Date(post.time).getTime()) / 3600000)
-                                  return ` \u00B7 ${hrs < 1 ? 'just now' : hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`}`
-                                })()}
-                              </span>
-                            </div>
-                            <div className="font-head text-sm font-semibold text-ink mb-1">{post.title}</div>
-                            {post.text && (
-                              <div className="text-xs text-ink-3 mb-2 line-clamp-2">{post.text}</div>
-                            )}
-                            <div className="flex gap-2">
-                              <a href={post.commentsUrl} target="_blank" rel="noopener noreferrer" className="btn-primary text-xs">
-                                Reply in thread
-                              </a>
-                              {post.url !== post.commentsUrl && (
-                                <a href={post.url} target="_blank" rel="noopener noreferrer" className="btn-outline text-xs">
-                                  Open link
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -2066,6 +2012,60 @@ export default function WatchlistFeed() {
               </>
             )
           })()}
+
+          {/* ═══ COMMUNITY — Reddit & HN ═══ */}
+          {currentSection?.key === 'community' && (
+            <div className="mb-4">
+              {loadingCommunity && (
+                <div className="space-y-3">
+                  <div className="skeleton skeleton-card" />
+                  <div className="skeleton skeleton-card" />
+                  <div className="skeleton skeleton-card" />
+                </div>
+              )}
+              {!loadingCommunity && communityPosts.length === 0 && (
+                <div className="empty-state">
+                  <div className="empty-state-icon">{'\u{1F30D}'}</div>
+                  <div className="empty-state-title">No community posts found</div>
+                  <div className="empty-state-desc">Add tracked keywords in Settings to discover relevant Reddit and Hacker News posts.</div>
+                </div>
+              )}
+              {!loadingCommunity && communityPosts.length > 0 && (
+                <div className="space-y-3">
+                  {communityPosts.map((post, i) => (
+                    <div key={i} className="card p-4">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className={`badge text-[10px] ${post.platform === 'reddit' ? 'badge-replied' : 'badge-icp'}`}>
+                          {post.platform === 'reddit' ? `r/${post.subreddit}` : 'Hacker News'}
+                        </span>
+                        <span className="text-[10px] text-ink-4">
+                          {post.score} pts &middot; {post.comments} comments
+                          {post.time && (() => {
+                            const hrs = Math.round((Date.now() - new Date(post.time).getTime()) / 3600000)
+                            return ` \u00B7 ${hrs < 1 ? 'just now' : hrs < 24 ? `${hrs}h ago` : `${Math.round(hrs / 24)}d ago`}`
+                          })()}
+                        </span>
+                      </div>
+                      <div className="font-head text-sm font-semibold text-ink mb-1">{post.title}</div>
+                      {post.text && (
+                        <div className="text-xs text-ink-3 mb-2 line-clamp-2">{post.text}</div>
+                      )}
+                      <div className="flex gap-2">
+                        <a href={post.commentsUrl} target="_blank" rel="noopener noreferrer" className="btn-primary text-xs">
+                          Reply in thread
+                        </a>
+                        {post.url !== post.commentsUrl && (
+                          <a href={post.url} target="_blank" rel="noopener noreferrer" className="btn-outline text-xs">
+                            Open link
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
       </>)}
