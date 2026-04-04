@@ -1100,6 +1100,7 @@ export default function WatchlistFeed() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <h1 className="sr-only">GTM Brain Dashboard</h1>
       {/* ═══ TOP-LEVEL VIEW TABS ═══ */}
       <div className="flex items-center gap-1 mb-6">
         {([
