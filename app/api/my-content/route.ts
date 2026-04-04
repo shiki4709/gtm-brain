@@ -179,7 +179,17 @@ export async function GET() {
       platform: 'x' as const,
       text: tweetText,
       url: tweetUrl,
-      createdAt: tw.created_at ?? new Date().toISOString(),
+      createdAt: (() => {
+        // Use snowflake ID for reliable timestamp
+        const TWITTER_EPOCH = 1288834974657
+        if (tw.id_str) {
+          const ms = (Number(BigInt(tw.id_str as string) >> BigInt(22))) + TWITTER_EPOCH
+          return new Date(ms).toISOString()
+        }
+        // Fallback: parse Twitter date format
+        if (tw.created_at) return new Date(tw.created_at as string).toISOString()
+        return new Date().toISOString()
+      })(),
       engagement: {
         likes: tw.favorite_count ?? 0,
         replies: tw.reply_count ?? 0,
