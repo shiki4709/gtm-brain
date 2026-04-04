@@ -1311,21 +1311,8 @@ export default function WatchlistFeed() {
             </div>
             {weeklyBrief ? (
               <>
-                <div className="space-y-2 mb-3">
-                  {weeklyBrief.brief.split(/\s*[-–]\s+(?=\w)/).filter(Boolean).map((section: string, i: number) => {
-                    const match = section.match(/^([^:]+):\s*(.+)/)
-                    if (match) {
-                      return (
-                        <div key={i} className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                          <div className="text-[10px] font-semibold text-ink-4 uppercase tracking-wider mb-0.5">{match[1].trim()}</div>
-                          <div className="text-xs text-ink-2 leading-relaxed">{match[2].trim()}</div>
-                        </div>
-                      )
-                    }
-                    return <p key={i} className="text-xs text-ink-3 leading-relaxed">{section.trim()}</p>
-                  })}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
+                {/* Stats row — the glanceable data */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
                   <span className="badge badge-icp">Most active: {weeklyBrief.patterns.mostActiveDay}</span>
                   <span className="badge badge-icp">Avg {weeklyBrief.patterns.avgActionsPerDay}/day</span>
                   {weeklyBrief.patterns.notificationActRate > 0 && (
@@ -1333,6 +1320,21 @@ export default function WatchlistFeed() {
                   )}
                   <span className="badge badge-icp">Top: {weeklyBrief.patterns.topAction}</span>
                   <span className={`badge ${weeklyBrief.patterns.trend === 'increasing' ? 'badge-sent' : 'badge-drafted'}`}>Trend: {weeklyBrief.patterns.trend}</span>
+                </div>
+                {/* AI brief — 3 short lines */}
+                <div className="space-y-1">
+                  {weeklyBrief.brief.split(/\s*[-–]\s+(?=\w)/).filter(Boolean).map((line: string, i: number) => {
+                    const match = line.match(/^([^:]+):\s*(.+)/)
+                    if (!match) return null
+                    const icons = ['\u2705', '\u{1F4CB}', '\u{1F3AF}']
+                    return (
+                      <div key={i} className="flex gap-1.5 text-xs">
+                        <span className="shrink-0">{icons[i] ?? '\u2022'}</span>
+                        <span className="text-ink-4 font-semibold shrink-0">{match[1].trim()}:</span>
+                        <span className="text-ink-3">{match[2].trim()}</span>
+                      </div>
+                    )
+                  })}
                 </div>
                 {weeklyBrief.generatedAt && (
                   <div className="text-[10px] text-ink-4 mt-2">

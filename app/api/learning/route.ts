@@ -256,13 +256,13 @@ Data:
 - Best performing scrape topics: ${bestTopics.length > 0 ? bestTopics.join(', ') : 'no scrape data yet'}
 - Action breakdown: ${Object.entries(actionTypeMap).map(([k, v]) => `${k}: ${v}`).join(', ')}
 
-Write a brief in EXACTLY this format (3 short bullet points, no headers, no bold, no markdown):
+Write EXACTLY 3 lines, each max 10 words. Dashboard labels, not sentences. No markdown, no asterisks, no periods.
 
-- What worked: [one sentence based on the data]
-- Try next week: [one specific action to change]
-- Focus: [one sentence recommendation]
+- What worked: [max 10 words, e.g. "Replies driving momentum, 67% activation rate"]
+- Try next week: [max 10 words, e.g. "Increase scrape actions to 8-10 per week"]
+- Focus: [max 10 words, e.g. "Saturday reply sessions during peak engagement"]
 
-Rules: No markdown formatting. No asterisks. No headers. Just 3 plain text bullets. Under 150 words total.`
+Rules: No markdown. No asterisks. No headers. Max 10 words per line. Think dashboard label, not paragraph.`
 
   let briefText = ''
   try {
