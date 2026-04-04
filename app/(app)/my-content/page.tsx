@@ -179,46 +179,33 @@ export default function MyContentPage() {
 
           return (
             <div key={item.id} className={`card p-3 ${isHot ? 'border-[var(--blue-bright)]' : ''}`}>
-              {/* Header row */}
-              <div className="flex items-center gap-2 mb-1.5">
+              {/* Header: badge + meta + engagement + link */}
+              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                 <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
                   item.type === 'reply' ? 'badge-icp' : item.type === 'quote' ? 'badge-replied' : 'badge-sent'
-                }`}>
-                  {item.type}
-                </span>
-                <span className="text-[10px] text-ink-4">{platformLabel}</span>
-                <span className="text-[10px] text-ink-4">{relativeTime(item.createdAt)}</span>
-                {item.fromBrain && <span className="badge badge-sent text-[9px]">Brain</span>}
+                }`}>{item.type}</span>
+                <span className="text-[10px] text-ink-4">{platformLabel} · {relativeTime(item.createdAt)}</span>
+                {item.fromBrain && <span className="text-[9px] font-semibold text-[var(--accent-blue)]">via Brain</span>}
                 {isHot && <span className="text-[9px] font-bold text-[var(--accent-orange)]">Top</span>}
-                {/* Engagement inline */}
-                <div className="ml-auto flex items-center gap-2.5 text-[11px] text-ink-4">
-                  {item.engagement.likes > 0 && <span>{item.engagement.likes} likes</span>}
-                  {item.engagement.replies > 0 && <span>{item.engagement.replies} replies</span>}
-                  {item.engagement.retweets > 0 && <span>{item.engagement.retweets} RTs</span>}
-                  {item.engagement.views != null && item.engagement.views > 0 && (
-                    <span>{item.engagement.views.toLocaleString()} views</span>
-                  )}
-                </div>
+                <span className="ml-auto text-[10px] text-ink-4 flex items-center gap-2">
+                  {item.engagement.likes > 0 && <span>{item.engagement.likes} {item.engagement.likes === 1 ? 'like' : 'likes'}</span>}
+                  {item.engagement.replies > 0 && <span>{item.engagement.replies} {item.engagement.replies === 1 ? 'reply' : 'replies'}</span>}
+                  {item.engagement.retweets > 0 && <span>{item.engagement.retweets} RT</span>}
+                  {item.engagement.views != null && item.engagement.views > 0 && <span>{item.engagement.views.toLocaleString()} views</span>}
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">Open</a>
+                </span>
               </div>
 
-              {/* Reply context — compact */}
+              {/* Reply context */}
               {item.replyTo && (
-                <div className="mb-1.5 px-2.5 py-1.5 rounded bg-[var(--bg-warm)] text-[11px] text-ink-4 line-clamp-1">
-                  <a href={item.replyTo.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                    <span className="font-semibold text-ink-3">@{item.replyTo.author.replace('@', '')}</span>: {item.replyTo.text}
-                  </a>
-                </div>
+                <a href={item.replyTo.url} target="_blank" rel="noopener noreferrer"
+                  className="block mb-1.5 px-2 py-1 rounded bg-[var(--bg-warm)] text-[11px] text-ink-4 truncate hover:text-ink-3">
+                  <span className="font-semibold">@{item.replyTo.author.replace('@', '')}</span> {item.replyTo.text}
+                </a>
               )}
 
               {/* Your text */}
               <p className="text-sm text-ink leading-relaxed line-clamp-3">{item.text}</p>
-
-              {/* Footer */}
-              <div className="flex items-center justify-end mt-1.5">
-                <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-accent hover:underline">
-                  Open on {platformLabel} &rarr;
-                </a>
-              </div>
             </div>
           )
         })}
