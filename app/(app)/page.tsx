@@ -1362,36 +1362,20 @@ export default function WatchlistFeed() {
                 </div>
               </div>
             ) : replyAnalysis ? (
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-[var(--green-tint)] rounded-[var(--radius-sm)] px-3 py-2">
-                    <h3 className="section-label mb-1 text-green">Do more</h3>
-                    <div className="text-xs text-ink-2 font-medium leading-relaxed line-clamp-2">{replyAnalysis.topTactic}</div>
+              <div className="space-y-1.5">
+                {([
+                  { icon: '\u2705', label: 'Do', text: replyAnalysis.topTactic, color: 'text-green' },
+                  { icon: '\u26D4', label: 'Stop', text: replyAnalysis.avoid, color: 'text-orange' },
+                  { icon: '\u{1F3AF}', label: 'Style', text: replyAnalysis.replyStyle, color: 'text-accent' },
+                  { icon: '\u{1F465}', label: 'Who', text: replyAnalysis.whoEngages, color: 'text-accent' },
+                  { icon: '\u{1F4A1}', label: 'Why', text: replyAnalysis.whyTheyEngage, color: 'text-accent' },
+                ] as const).map((item, i) => (
+                  <div key={i} className="flex gap-2 text-xs leading-snug">
+                    <span className="shrink-0 w-4 text-center">{item.icon}</span>
+                    <span className={`shrink-0 font-semibold ${item.color}`}>{item.label}:</span>
+                    <span className="text-ink-3">{item.text.split(/\.\s/)[0]}.</span>
                   </div>
-                  <div className="bg-[var(--orange-tint)] rounded-[var(--radius-sm)] px-3 py-2">
-                    <h3 className="section-label mb-1 text-orange">Stop</h3>
-                    <div className="text-xs text-ink-2 font-medium leading-relaxed line-clamp-2">{replyAnalysis.avoid}</div>
-                  </div>
-                </div>
-                <details className="group">
-                  <summary className="text-[11px] text-accent cursor-pointer hover:underline list-none">
-                    Show details
-                  </summary>
-                  <div className="space-y-2 mt-2">
-                    <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                      <h3 className="section-label mb-1">What reply style gets engagement</h3>
-                      <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.replyStyle}</div>
-                    </div>
-                    <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                      <h3 className="section-label mb-1">Who engages with you</h3>
-                      <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.whoEngages}</div>
-                    </div>
-                    <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                      <h3 className="section-label mb-1">Why they engage</h3>
-                      <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.whyTheyEngage}</div>
-                    </div>
-                  </div>
-                </details>
+                ))}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 text-xs">
