@@ -75,7 +75,7 @@ export default function GrowthCoach() {
     <div className="brain-card mb-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="section-label !mb-0">{plan.stage.label}</div>
+          <div className="section-label">{plan.stage.label}</div>
           <span className="badge badge-icp">{plan.stage.followerRange}</span>
         </div>
         <button onClick={() => setCollapsed(!collapsed)} className="text-[11px] text-ink-4 hover:text-ink" aria-expanded={!collapsed}>

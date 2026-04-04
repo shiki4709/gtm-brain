@@ -403,7 +403,7 @@ export default function ContentCalendar() {
         <>
           {loading && (
             <div className="space-y-3">
-              <div className="section-label">Generating your content calendar...</div>
+              <div className="section-label mb-2.5">Generating your content calendar...</div>
               <div className="skeleton skeleton-card" />
               <div className="skeleton skeleton-card" />
               <div className="skeleton skeleton-card" />
@@ -422,7 +422,7 @@ export default function ContentCalendar() {
             <>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <div className="section-label !mb-0">TODAY &middot; {calendar.dayName}</div>
+                  <div className="section-label">TODAY &middot; {calendar.dayName}</div>
                   <div className="text-xs text-ink-4">{calendar.slots.length - skipped.size} posts planned</div>
                 </div>
                 <button className="btn-outline text-xs" onClick={generateCalendar} disabled={loading}>
@@ -530,7 +530,7 @@ export default function ContentCalendar() {
         <>
           {loadingReplies && (
             <div className="space-y-3">
-              <div className="section-label">Finding your best replies...</div>
+              <div className="section-label mb-2.5">Finding your best replies...</div>
               <div className="skeleton skeleton-card" />
               <div className="skeleton skeleton-card" />
             </div>
@@ -638,7 +638,7 @@ export default function ContentCalendar() {
         <>
           {loadingTopics && (
             <div className="space-y-3">
-              <div className="section-label">Finding trending topics...</div>
+              <div className="section-label mb-2.5">Finding trending topics...</div>
               <div className="skeleton skeleton-card" />
               <div className="skeleton skeleton-card" />
             </div>
@@ -720,7 +720,7 @@ export default function ContentCalendar() {
         <>
           {loadingPublished && (
             <div className="space-y-3">
-              <div className="section-label">Loading your content...</div>
+              <div className="section-label mb-2.5">Loading your content...</div>
               <div className="skeleton skeleton-card" />
               <div className="skeleton skeleton-card" />
             </div>

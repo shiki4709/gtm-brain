@@ -138,6 +138,7 @@ export default function WatchlistFeed() {
   const [replyAnalysis, setReplyAnalysis] = useState<{
     replyStyle: string; whoEngages: string; whyTheyEngage: string; topTactic: string; avoid: string
   } | null>(null)
+  const [insightsLoading, setInsightsLoading] = useState(true)
 
   const [growthActions, setGrowthActions] = useState<Array<{ date: string; count: number }>>([])
 
@@ -320,6 +321,8 @@ export default function WatchlistFeed() {
   // Fetch weekly brief + who-replies on dashboard load
   useEffect(() => {
     if (activeView === 'dashboard') {
+      setInsightsLoading(true)
+
       fetch('/api/learning')
         .then(r => r.json())
         .then(json => {
@@ -340,6 +343,7 @@ export default function WatchlistFeed() {
         .then(r => r.json())
         .then(json => { if (json.success && json.analysis) setReplyAnalysis(json.analysis) })
         .catch(() => {})
+        .finally(() => setInsightsLoading(false))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView])
@@ -951,7 +955,7 @@ export default function WatchlistFeed() {
               <div><strong className="text-ink">{userMode === 'b2b_outbound' ? 'Scrape engagers' : 'Reply to trending posts'}</strong> → {userMode === 'b2b_outbound' ? 'find ICP matches → draft DMs → book meetings' : 'build visibility → grow your audience'}</div>
             </div>
             <div className="flex gap-3">
-              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0" style={{ background: 'var(--gradient-main)', color: '#fff' }}>B</div>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 gradient-dot text-white">B</div>
               <div><strong className="text-ink">Brain learns</strong> → what actually works for {userMode === 'b2b_outbound' ? 'booking meetings' : 'growing your audience'}</div>
             </div>
           </div>
@@ -984,8 +988,7 @@ export default function WatchlistFeed() {
           ← Back to feed
         </button>
         <div className="flex items-center gap-3 mb-4">
-          <div className={`w-2.5 h-2.5 rounded-full ${selectedEntry?.platform === 'linkedin' ? 'bg-accent' : ''}`}
-            style={selectedEntry?.platform === 'x' ? { background: 'var(--accent-orange)' } : undefined} />
+          <div className={`w-2.5 h-2.5 rounded-full ${selectedEntry?.platform === 'linkedin' ? 'bg-accent' : selectedEntry?.platform === 'x' ? 'bg-orange' : ''}`} />
           <h2 className="font-head text-lg font-bold text-ink">
             {selectedEntry?.platform === 'x' ? '@' : ''}{selectedEntry?.display_name ?? selectedPerson}
           </h2>
@@ -1045,18 +1048,18 @@ export default function WatchlistFeed() {
                           </button>
                         )
                         if (a.type === 'skip') return (
-                          <button key={j} onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink">Skip</button>
+                          <button key={j} onClick={() => markSkipped(item.url)} className="btn-inline text-[11px] text-ink-4 hover:text-ink">Skip</button>
                         )
                         return null
                       })}
                       <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">View post</a>
                       {!rec.actions.find(a => a.type === 'skip') && (
-                        <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
+                        <button onClick={() => markSkipped(item.url)} className="btn-inline text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
                       )}
                     </div>
                   )}
                   {isDone && (
-                    <button onClick={() => undoTask(item.url)} className="text-[10px] text-ink-4 hover:text-ink">Undo</button>
+                    <button onClick={() => undoTask(item.url)} className="btn-inline text-[10px] text-ink-4 hover:text-ink">Undo</button>
                   )}
                   {draftReplies[item.url] && (
                     <div className="mt-3 pt-3 border-t border-rule-light">
@@ -1209,7 +1212,7 @@ export default function WatchlistFeed() {
             const topTopics = [...topicCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
 
             function renderPlatformCard(
-              label: string, color: string,
+              label: string, color: string, fillColor: string,
               data: Array<{ date: string; value: number }>,
               weekActions: number, topActionLabel: string,
             ) {
@@ -1240,8 +1243,8 @@ export default function WatchlistFeed() {
                     )}
                   </div>
                   {data.length >= 2 && (
-                    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full mb-2" style={{ height: 40 }}>
-                      <path d={`${pathD} L ${points[points.length - 1].x.toFixed(1)},${svgH} L ${points[0].x.toFixed(1)},${svgH} Z`} fill={`${color}12`} />
+                    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full mb-2 h-10">
+                      <path d={`${pathD} L ${points[points.length - 1].x.toFixed(1)},${svgH} L ${points[0].x.toFixed(1)},${svgH} Z`} fill={fillColor} />
                       <path d={pathD} stroke={color} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
                     </svg>
                   )}
@@ -1270,8 +1273,8 @@ export default function WatchlistFeed() {
 
             return (
               <div className="flex gap-3 mb-4">
-                {growthFollowers.length > 0 && renderPlatformCard('X / Twitter', '#2196F3', growthFollowers, xWeekActions, xTopAction)}
-                {growthConnections.length > 0 && renderPlatformCard('LinkedIn', '#0A66C2', growthConnections, liWeekActions, liTopAction)}
+                {growthFollowers.length > 0 && renderPlatformCard('X / Twitter', 'var(--brand-x)', 'var(--brand-x-fill)', growthFollowers, xWeekActions, xTopAction)}
+                {growthConnections.length > 0 && renderPlatformCard('LinkedIn', 'var(--brand-linkedin)', 'var(--brand-linkedin-fill)', growthConnections, liWeekActions, liTopAction)}
                 {growthFollowers.length === 0 && growthConnections.length === 0 && (
                   <div className="card p-4 flex-1">
                     <div className="font-head text-sm font-bold text-ink mb-1">Growth</div>
@@ -1332,7 +1335,16 @@ export default function WatchlistFeed() {
           <div className="card p-4 mb-4">
             <div className="font-head text-sm font-bold text-ink mb-3">Brain Insights</div>
 
-            {replyAnalysis ? (
+            {insightsLoading ? (
+              <div className="space-y-3">
+                <div className="skeleton skeleton-card" />
+                <div className="skeleton skeleton-card" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="skeleton skeleton-stat" />
+                  <div className="skeleton skeleton-stat" />
+                </div>
+              </div>
+            ) : replyAnalysis ? (
               <div className="space-y-3">
                 <div className="bg-[var(--bg-warm)] rounded-lg p-3">
                   <div className="text-[10px] text-ink-4 uppercase tracking-wider mb-1">What reply style gets engagement</div>
@@ -1706,6 +1718,7 @@ export default function WatchlistFeed() {
                         type="text"
                         className="input flex-1 py-2.5 px-3 text-sm"
                         placeholder="Paste any URL or text to find content angles..."
+                        aria-label="Content source URL or text"
                         value={createInput}
                         onChange={e => { setCreateInput(e.target.value); setCreateError(''); setCreateAngles([]) }}
                         onKeyDown={e => { if (e.key === 'Enter' && createInput.trim()) handleAnalyzeAngles() }}
@@ -1776,21 +1789,19 @@ export default function WatchlistFeed() {
                     const draftReply = draftReplies[item.url]
                     const est = getEstimatedROI(item)
                     const p = est.prefix
-                    const accentColor = isLinkedIn ? undefined : 'var(--accent-orange)'
 
                     return (
                       <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${
                         primaryAction?.priority === 'high' ? (isLinkedIn ? 'border-accent' : 'border-[var(--accent-orange)]') : 'border-rule'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
-                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isLinkedIn ? 'bg-accent' : ''}`}
-                            style={!isLinkedIn ? { background: 'var(--accent-orange)' } : undefined} />
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isLinkedIn ? 'bg-accent' : 'bg-orange'}`} />
                           <span className="font-head text-sm font-semibold text-ink">{item.author}</span>
                           <span className="text-[11px] text-ink-4">
                             {!isLinkedIn && `@${item.authorHandle} · `}{timeAgo(item.time)}
                           </span>
                           {primaryAction?.priority === 'high' && (
-                            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColor ?? 'var(--accent)' }}>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isLinkedIn ? 'text-accent' : 'text-orange'}`}>
                               High ROI
                             </span>
                           )}
@@ -1808,8 +1819,7 @@ export default function WatchlistFeed() {
                             <span className="text-[10px] text-ink-4 px-1.5 py-0.5 bg-[var(--rule-light)] rounded">Off-topic</span>
                           )}
                           {(() => { const v = getVelocity(item); return v.velocity >= 2 ? (
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${v.velocity >= 10 ? 'text-white' : 'bg-[var(--rule-light)] text-ink-3'}`}
-                              style={v.velocity >= 10 ? { background: accentColor ?? 'var(--accent)' } : undefined}>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${v.velocity >= 10 ? `text-white ${isLinkedIn ? 'bg-accent' : 'bg-orange'}` : 'bg-[var(--rule-light)] text-ink-3'}`}>
                               {v.velocity}/hr
                             </span>
                           ) : null })()}
@@ -1817,7 +1827,7 @@ export default function WatchlistFeed() {
                         {item.engagement && (
                           <div className="flex gap-3 text-[11px] text-ink-4 mb-1.5">
                             {(item.engagement.likes ?? 0) > 0 && <span>{item.engagement.likes?.toLocaleString()} likes</span>}
-                            {(item.engagement.replies ?? 0) > 0 && <span className="font-semibold" style={{ color: accentColor ?? 'var(--accent)' }}>{item.engagement.replies} {isLinkedIn ? 'comments' : 'replies'}</span>}
+                            {(item.engagement.replies ?? 0) > 0 && <span className={`font-semibold ${isLinkedIn ? 'text-accent' : 'text-orange'}`}>{item.engagement.replies} {isLinkedIn ? 'comments' : 'replies'}</span>}
                             {(item.engagement.retweets ?? 0) > 0 && <span>{item.engagement.retweets} {isLinkedIn ? 'shares' : 'RTs'}</span>}
                           </div>
                         )}
@@ -1875,7 +1885,7 @@ export default function WatchlistFeed() {
                           <a href={item.url} target="_blank" rel="noopener noreferrer" className="btn-outline">
                             {isLinkedIn ? 'Open on LinkedIn' : 'Open on X'}
                           </a>
-                          <button onClick={() => markSkipped(item.url)} className="text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
+                          <button onClick={() => markSkipped(item.url)} className="btn-inline text-[11px] text-ink-4 hover:text-ink ml-auto">Skip</button>
                         </div>
 
                         {/* Repurpose content panel */}
@@ -1957,8 +1967,7 @@ export default function WatchlistFeed() {
                                     <div key={platform}>
                                       <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
-                                          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${isQuote ? 'bg-[var(--accent-orange)]/10' : 'bg-accent/10 text-accent'}`}
-                                            style={isQuote ? { color: 'var(--accent-orange)' } : undefined}>
+                                          <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${isQuote ? 'bg-orange-tint text-orange' : 'bg-accent/10 text-accent'}`}>
                                             {formatLabel}
                                           </span>
                                           {isPosted && <span className="text-[9px] text-[var(--green)] font-semibold">Posted</span>}
@@ -2011,6 +2020,7 @@ export default function WatchlistFeed() {
                                 value={refineInput[item.url] ?? ''}
                                 onChange={e => setRefineInput(prev => ({ ...prev, [item.url]: e.target.value }))}
                                 placeholder="e.g. make it punchier, add a question, be more contrarian..."
+                                aria-label="Refine reply instruction"
                                 className="input flex-1 py-1.5 px-3 text-xs"
                                 onKeyDown={e => { if (e.key === 'Enter' && (refineInput[item.url] ?? '').trim()) handleRefineReply(item, refineInput[item.url]) }}
                               />
@@ -2036,7 +2046,7 @@ export default function WatchlistFeed() {
                       <div key={i} className="flex items-center gap-2 py-1.5 text-xs text-ink-4">
                         <span>✓</span>
                         <span className="line-through">{item.author}: {item.text.slice(0, 60)}...</span>
-                        <button onClick={() => undoTask(item.url)} className="text-[10px] hover:text-ink ml-auto">Undo</button>
+                        <button onClick={() => undoTask(item.url)} className="btn-inline text-[10px] hover:text-ink ml-auto">Undo</button>
                       </div>
                     ))}
                   </div>

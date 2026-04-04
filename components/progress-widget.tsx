@@ -82,7 +82,7 @@ export default function ProgressWidget({ mode: propMode }: ProgressWidgetProps) 
       {dailyGoals.length > 0 && (
         <div className="mb-3">
           <div className="flex items-center gap-2 mb-2">
-            <span className="section-label !mb-0">Today</span>
+            <span className="section-label">Today</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {dailyGoals.map(p => (
@@ -96,7 +96,7 @@ export default function ProgressWidget({ mode: propMode }: ProgressWidgetProps) 
       {weeklyGoals.length > 0 && (
         <div className="mb-3">
           <div className="flex items-center gap-2 mb-2">
-            <span className="section-label !mb-0">This week</span>
+            <span className="section-label">This week</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {weeklyGoals.map(p => (

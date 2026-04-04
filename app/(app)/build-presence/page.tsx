@@ -180,6 +180,7 @@ export default function Inbound() {
           value={source}
           onChange={(e) => setSource(e.target.value)}
           placeholder="Paste a URL or topic to write about..."
+          aria-label="Content source URL or topic"
           className="input flex-1 py-3 px-4 text-sm"
           onKeyDown={(e) => { if (e.key === 'Enter') handleGenerate() }}
           disabled={generating}
@@ -213,7 +214,7 @@ export default function Inbound() {
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-accent" />
-                    <span className="section-label mb-0">LinkedIn</span>
+                    <span className="section-label">LinkedIn</span>
                   </div>
                   <button className="btn-outline text-[11px] py-1 px-2.5"
                     onClick={() => copyToClipboard(content.results.linkedin, 'linkedin')}>
@@ -230,7 +231,7 @@ export default function Inbound() {
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-orange" />
-                    <span className="section-label mb-0">X Thread</span>
+                    <span className="section-label">X Thread</span>
                   </div>
                   <button className="btn-outline text-[11px] py-1 px-2.5"
                     onClick={() => copyToClipboard(content.results.x, 'x')}>
@@ -269,9 +270,9 @@ export default function Inbound() {
         <div className="section-label mb-2">Accounts to watch</div>
         <div className="flex flex-wrap gap-2 mb-2">
           {(user?.x_accounts ?? []).map(a => (
-            <span key={a} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: 'var(--orange-tint)', color: 'var(--accent-orange)' }}>
+            <span key={a} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3 bg-orange-tint text-orange">
               @{a}
-              <button onClick={() => removeAccount(a)} className="hover:text-ink ml-0.5">×</button>
+              <button onClick={() => removeAccount(a)} className="btn-inline hover:text-ink ml-0.5" aria-label={`Remove @${a}`}>×</button>
             </span>
           ))}
         </div>
@@ -279,6 +280,7 @@ export default function Inbound() {
           <input
             className="input flex-1 py-2 px-3 text-sm"
             placeholder="@handle (e.g. markroberge)"
+            aria-label="X handle to watch"
             value={accountInput}
             onChange={e => setAccountInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAccount(accountInput) } }}
@@ -295,9 +297,9 @@ export default function Inbound() {
         <div className="section-label mb-2">Topics to watch</div>
         <div className="flex flex-wrap gap-2 mb-2">
           {(user?.x_topics ?? []).map(t => (
-            <span key={t} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3" style={{ background: 'var(--orange-tint)', color: 'var(--accent-orange)' }}>
+            <span key={t} className="badge flex items-center gap-1.5 text-xs py-1.5 px-3 bg-orange-tint text-orange">
               {t}
-              <button onClick={() => removeTopic(t)} className="hover:text-ink ml-0.5">×</button>
+              <button onClick={() => removeTopic(t)} className="btn-inline hover:text-ink ml-0.5" aria-label={`Remove ${t}`}>×</button>
             </span>
           ))}
         </div>
@@ -305,6 +307,7 @@ export default function Inbound() {
           <input
             className="input flex-1 py-2 px-3 text-sm"
             placeholder="e.g. GTM strategy, sales hiring"
+            aria-label="Topic to watch"
             value={topicInput}
             onChange={e => setTopicInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTopic(topicInput) } }}

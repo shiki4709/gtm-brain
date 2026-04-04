@@ -8,7 +8,7 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
   return (
     <div className="mb-6">
       <button className="collapsible-header w-full" onClick={() => setOpen(!open)}>
-        <div className="section-label !mb-0">{title}</div>
+        <div className="section-label">{title}</div>
         <svg className={`collapsible-chevron ${open ? 'open' : ''}`} viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
         </svg>
@@ -442,8 +442,9 @@ export default function Settings() {
         <div className="card-flat p-4 space-y-4">
           {/* Description */}
           <div>
-            <label className="font-head text-xs font-semibold text-ink block mb-1.5">Who are you? (your persona)</label>
+            <label htmlFor="voice-persona" className="font-head text-xs font-semibold text-ink block mb-1.5">Who are you? (your persona)</label>
             <input
+              id="voice-persona"
               className="input w-full text-xs mb-3"
               placeholder="e.g. AI startup COO building GTM tools, solo founder shipping with Claude daily"
               value={voicePersona}
@@ -461,8 +462,9 @@ export default function Settings() {
 
           {/* What to avoid */}
           <div>
-            <label className="font-head text-xs font-semibold text-ink block mb-1.5">What should AI never sound like when writing as you?</label>
+            <label htmlFor="voice-avoid" className="font-head text-xs font-semibold text-ink block mb-1.5">What should AI never sound like when writing as you?</label>
             <input
+              id="voice-avoid"
               className="input w-full text-xs"
               placeholder="e.g. No emojis, no exclamation marks, never say 'excited' or 'love this'"
               value={voiceAvoid}
@@ -520,7 +522,7 @@ export default function Settings() {
                 w.platform === 'linkedin' ? 'badge-icp' : 'badge-replied'
               }`}>
                 {w.platform === 'x' ? '@' : ''}{w.display_name ?? w.username}
-                <button onClick={() => removeFromWatchlist(w.id)} className="hover:opacity-60 ml-0.5">×</button>
+                <button onClick={() => removeFromWatchlist(w.id)} className="btn-inline hover:opacity-60 ml-0.5" aria-label={`Remove ${w.display_name ?? w.username}`}>×</button>
               </span>
             ))}
           </div>
@@ -594,6 +596,7 @@ export default function Settings() {
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
               placeholder={'@handle, x.com/name, or "SaaS sales leaders"'}
+              aria-label="Add to watchlist"
               className="flex-1 py-2 px-3 text-sm bg-transparent placeholder:text-ink-4"
               onKeyDown={e => { if (e.key === 'Enter' && chatInput.trim()) handleSmartAdd(chatInput.trim()) }}
             />
@@ -618,7 +621,7 @@ export default function Settings() {
             {titles.map(t => (
               <span key={t} className="badge badge-icp flex items-center gap-1.5 text-xs py-1.5 px-3">
                 {t}
-                <button onClick={() => removeFromList(t, titles, setTitles)} className="text-accent hover:text-accent-deep ml-0.5">×</button>
+                <button onClick={() => removeFromList(t, titles, setTitles)} className="btn-inline text-accent hover:text-accent-deep ml-0.5" aria-label={`Remove ${t}`}>×</button>
               </span>
             ))}
           </div>
@@ -628,6 +631,7 @@ export default function Settings() {
           <input
             className="input flex-1 py-2.5 px-4 text-sm"
             placeholder="Add a title..."
+            aria-label="Add ICP title"
             value={titleInput}
             onChange={e => setTitleInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList(titleInput, titles, setTitles, setTitleInput) } }}
@@ -645,7 +649,7 @@ export default function Settings() {
             {excludes.map(t => (
               <span key={t} className="badge badge-drafted flex items-center gap-1.5 text-xs py-1.5 px-3">
                 {t}
-                <button onClick={() => removeFromList(t, excludes, setExcludes)} className="text-ink-3 hover:text-ink ml-0.5">×</button>
+                <button onClick={() => removeFromList(t, excludes, setExcludes)} className="btn-inline text-ink-3 hover:text-ink ml-0.5" aria-label={`Remove ${t}`}>×</button>
               </span>
             ))}
           </div>
@@ -655,6 +659,7 @@ export default function Settings() {
           <input
             className="input flex-1 py-2.5 px-4 text-sm"
             placeholder="Add exclusion..."
+            aria-label="Add title to exclude"
             value={excludeInput}
             onChange={e => setExcludeInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList(excludeInput, excludes, setExcludes, setExcludeInput) } }}
@@ -856,7 +861,7 @@ export default function Settings() {
             {trackKeywords.map(t => (
               <span key={t} className="badge badge-sent flex items-center gap-1.5 text-xs py-1.5 px-3">
                 {t}
-                <button onClick={() => removeFromList(t, trackKeywords, setTrackKeywords)} className="hover:opacity-60 ml-0.5">×</button>
+                <button onClick={() => removeFromList(t, trackKeywords, setTrackKeywords)} className="btn-inline hover:opacity-60 ml-0.5" aria-label={`Remove ${t}`}>×</button>
               </span>
             ))}
           </div>
@@ -866,6 +871,7 @@ export default function Settings() {
           <input
             className="input flex-1 py-2.5 px-4 text-sm"
             placeholder="e.g. AI, automation, sales hiring, GTM strategy..."
+            aria-label="Add topic keyword"
             value={trackKeywordInput}
             onChange={e => setTrackKeywordInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList(trackKeywordInput.toLowerCase(), trackKeywords, setTrackKeywords, setTrackKeywordInput) } }}

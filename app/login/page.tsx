@@ -66,7 +66,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg-gradient)' }}>
+    <div className="min-h-screen flex items-center justify-center px-4">
       <div className="max-w-sm w-full">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
@@ -85,7 +85,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="bg-white border border-rule rounded-[var(--radius)] p-6">
           <div className="mb-4">
-            <label className="section-label" htmlFor="email">Email</label>
+            <label className="section-label mb-2.5" htmlFor="email">Email</label>
             <input
               id="email"
               type="email"
@@ -98,7 +98,7 @@ export default function LoginPage() {
             />
           </div>
           <div className="mb-6">
-            <label className="section-label" htmlFor="password">Password</label>
+            <label className="section-label mb-2.5" htmlFor="password">Password</label>
             <input
               id="password"
               type="password"

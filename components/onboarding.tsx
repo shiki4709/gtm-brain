@@ -191,6 +191,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
               <input
                 className="input py-3 px-4 text-sm w-full"
                 placeholder="e.g. Help non-technical people learn LLM for work"
+                aria-label="What problem do you solve"
                 value={problem}
                 onChange={e => setProblem(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && problem.trim()) goToStep2() }}
@@ -268,6 +269,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
               <input
                 className="input py-3 px-4 text-sm w-full"
                 placeholder="Your answer..."
+                aria-label="Your answer"
                 value={clarifyInput}
                 onChange={e => setClarifyInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && clarifyInput.trim()) answerClarify() }}
@@ -334,7 +336,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
               {titles.map(t => (
                 <span key={t} className="badge badge-icp flex items-center gap-1.5 text-xs py-1.5 px-3">
                   {t}
-                  <button onClick={() => removeTitle(t)} className="text-accent hover:text-accent-deep ml-0.5" aria-label={`Remove ${t}`}>×</button>
+                  <button onClick={() => removeTitle(t)} className="btn-inline text-accent hover:text-accent-deep ml-0.5" aria-label={`Remove ${t}`}>×</button>
                 </span>
               ))}
             </div>
@@ -344,6 +346,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
             <input
               className="input flex-1 py-3 px-4 text-sm"
               placeholder="Type a title and press Enter..."
+              aria-label="Add ICP title"
               value={titleInput}
               onChange={e => setTitleInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTitle(titleInput) } }}
@@ -405,7 +408,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
               {excludes.map(t => (
                 <span key={t} className="badge badge-drafted flex items-center gap-1.5 text-xs py-1.5 px-3">
                   {t}
-                  <button onClick={() => removeExclude(t)} className="text-ink-3 hover:text-ink ml-0.5" aria-label={`Remove ${t}`}>×</button>
+                  <button onClick={() => removeExclude(t)} className="btn-inline text-ink-3 hover:text-ink ml-0.5" aria-label={`Remove ${t}`}>×</button>
                 </span>
               ))}
             </div>
@@ -415,6 +418,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
             <input
               className="input flex-1 py-3 px-4 text-sm"
               placeholder="Type a title to exclude..."
+              aria-label="Add title to exclude"
               value={excludeInput}
               onChange={e => setExcludeInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExclude(excludeInput) } }}

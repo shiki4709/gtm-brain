@@ -53,7 +53,7 @@ export default function ModeSelector({ onComplete }: ModeSelectorProps) {
         <div className="modal-header">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-2 h-2 rounded-full gradient-dot" />
-            <span className="section-label !mb-0">GTM Brain</span>
+            <span className="section-label">GTM Brain</span>
           </div>
           <h2 className="font-head text-xl font-bold text-ink">What&apos;s your goal?</h2>
           <p className="text-sm text-ink-3 mt-1">This shapes your feed, metrics, and weekly targets.</p>

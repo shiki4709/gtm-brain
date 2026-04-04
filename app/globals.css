@@ -58,6 +58,10 @@
   --status-error: #c62828;
 
   /* Brand colors (third-party) */
+  --brand-x: #2196F3;
+  --brand-x-fill: rgba(33,150,243,0.07);
+  --brand-linkedin: #0A66C2;
+  --brand-linkedin-fill: rgba(10,102,194,0.07);
   --brand-telegram: #229ED9;
   --brand-slack: #4A154B;
 }
@@ -214,7 +218,7 @@ body {
 .section-label {
   font-family: var(--font-head); font-size: 10px; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--ink-4); margin-bottom: 10px;
+  color: var(--ink-4);
 }
 
 /* ═══ Heading (font shortcut) ═══ */
@@ -312,9 +316,9 @@ body {
   cursor: pointer;
 }
 .mode-option:hover { border-color: var(--ink-4); }
-.mode-option-active {
-  border-color: var(--blue-bright) !important;
-  background: var(--blue-tint) !important;
+.mode-option.mode-option-active {
+  border-color: var(--blue-bright);
+  background: var(--blue-tint);
   box-shadow: 0 0 0 1px var(--blue-tint-strong);
 }
 
@@ -379,6 +383,13 @@ h3 { font-family: var(--font-head); font-size: 14px; font-weight: 600; color: va
 button, a, [role="button"] {
   min-height: 24px;
   min-width: 24px;
+}
+
+/* Inline text actions (Skip, Undo, × remove) — ensure tappable on mobile */
+.btn-inline {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 32px; min-width: 32px;
+  padding: 4px 8px; cursor: pointer;
 }
 
 /* Don't rely on color alone — confidence levels get text labels */
