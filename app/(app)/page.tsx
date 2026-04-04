@@ -1397,59 +1397,65 @@ export default function WatchlistFeed() {
             )}
           </div>
 
-          {/* Section 3: This week's progress — actual vs recommended */}
+          {/* Section 3: This week's progress — split by platform */}
           {growthActions.length > 0 && (() => {
             const weekStart = new Date()
             weekStart.setDate(weekStart.getDate() - weekStart.getDay())
             const weekStr = weekStart.toISOString().slice(0, 10)
             const allItems = Object.values(activityData).flat()
             const weekItems = allItems.filter(item => item.created_at.slice(0, 10) >= weekStr)
-            const replies = weekItems.filter(i => i.action_type === 'reply' || i.action_type === 'reply_copy').length
-            const posts = weekItems.filter(i => ['x_post', 'x_thread', 'x_quote', 'li_post', 'li_carousel', 'li_comment'].includes(i.action_type)).length
-            const scrapes = weekItems.filter(i => i.action_type === 'scrape').length
-            const dms = weekItems.filter(i => i.action_type === 'dm_send').length
 
-            // Recommended weekly targets based on mode
-            const targets = userMode === 'b2b_outbound'
-              ? { replies: 35, posts: 2, scrapes: 3, dms: 5, label: 'B2B targets' }
-              : { replies: 70, posts: 7, scrapes: 0, dms: 0, label: 'Growth targets' }
+            // X metrics
+            const xReplies = weekItems.filter(i => i.action_type === 'reply' || i.action_type === 'reply_copy').length
+            const xPosts = weekItems.filter(i => ['x_post', 'x_thread', 'x_quote'].includes(i.action_type)).length
+            // LinkedIn metrics
+            const liComments = weekItems.filter(i => i.action_type === 'li_comment').length
+            const liPosts = weekItems.filter(i => ['li_post', 'li_carousel'].includes(i.action_type)).length
 
-            const metrics = [
-              { label: 'Replies', actual: replies, target: targets.replies, view: 'feed' as const },
-              { label: 'Posts', actual: posts, target: targets.posts, view: 'create' as const },
-              ...(targets.scrapes > 0 ? [{ label: 'Scrapes', actual: scrapes, target: targets.scrapes, view: 'feed' as const }] : []),
-              ...(targets.dms > 0 ? [{ label: 'DMs', actual: dms, target: targets.dms, view: 'feed' as const }] : []),
-            ]
+            const xTargets = userMode === 'b2b_outbound'
+              ? { replies: 35, posts: 2 }
+              : { replies: 70, posts: 5 }
+            const liTargets = { comments: 70, posts: 2 }
+
+            function ProgressRow({ label, actual, target }: { label: string; actual: number; target: number }) {
+              const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : 100
+              return (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-ink-3 w-16 shrink-0">{label}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-[var(--rule-light)] overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: pct >= 100 ? 'var(--green)' : 'var(--blue-bright)',
+                      }}
+                    />
+                  </div>
+                  <span className={`font-head text-xs font-bold shrink-0 ${pct >= 100 ? 'text-green' : 'text-ink-3'}`}>
+                    {actual}<span className="text-ink-4 font-normal">/{target}</span>
+                  </span>
+                </div>
+              )
+            }
 
             return (
               <div className="card p-4 mb-4">
-                <h2 className="section-label mb-2">This week</h2>
-                <div className={`grid gap-2 ${metrics.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
-                  {metrics.map(m => {
-                    const pct = m.target > 0 ? Math.min(100, Math.round((m.actual / m.target) * 100)) : 100
-                    return (
-                      <button
-                        key={m.label}
-                        onClick={() => setActiveView(m.view)}
-                        className="stat-card text-left hover:border-accent transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-baseline gap-1 mb-0.5">
-                          <span className="font-head text-lg font-bold text-ink">{m.actual}</span>
-                          <span className="text-[11px] text-ink-4">/{m.target}</span>
-                        </div>
-                        <div className="text-[11px] text-ink-4 mb-1.5">{m.label}</div>
-                        <div className="h-1 rounded-full bg-[var(--rule-light)] overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${pct}%`,
-                              backgroundColor: pct >= 100 ? 'var(--green)' : pct >= 50 ? 'var(--blue-bright)' : 'var(--accent-orange)',
-                            }}
-                          />
-                        </div>
-                      </button>
-                    )
-                  })}
+                <h2 className="section-label mb-3">This week</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-[10px] font-semibold text-ink-4 uppercase tracking-wider mb-2">X / Twitter</div>
+                    <div className="space-y-2">
+                      <ProgressRow label="Replies" actual={xReplies} target={xTargets.replies} />
+                      <ProgressRow label="Posts" actual={xPosts} target={xTargets.posts} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-semibold text-ink-4 uppercase tracking-wider mb-2">LinkedIn</div>
+                    <div className="space-y-2">
+                      <ProgressRow label="Comments" actual={liComments} target={liTargets.comments} />
+                      <ProgressRow label="Posts" actual={liPosts} target={liTargets.posts} />
+                    </div>
+                  </div>
                 </div>
               </div>
             )
