@@ -1311,7 +1311,20 @@ export default function WatchlistFeed() {
             </div>
             {weeklyBrief ? (
               <>
-                <p className="text-xs text-ink-3 leading-relaxed mb-3">{weeklyBrief.brief}</p>
+                <div className="space-y-2 mb-3">
+                  {weeklyBrief.brief.split(/\s*[-–]\s+(?=\w)/).filter(Boolean).map((section: string, i: number) => {
+                    const match = section.match(/^([^:]+):\s*(.+)/)
+                    if (match) {
+                      return (
+                        <div key={i} className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
+                          <div className="text-[10px] font-semibold text-ink-4 uppercase tracking-wider mb-0.5">{match[1].trim()}</div>
+                          <div className="text-xs text-ink-2 leading-relaxed">{match[2].trim()}</div>
+                        </div>
+                      )
+                    }
+                    return <p key={i} className="text-xs text-ink-3 leading-relaxed">{section.trim()}</p>
+                  })}
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   <span className="badge badge-icp">Most active: {weeklyBrief.patterns.mostActiveDay}</span>
                   <span className="badge badge-icp">Avg {weeklyBrief.patterns.avgActionsPerDay}/day</span>
