@@ -1130,7 +1130,7 @@ export default function WatchlistFeed() {
         <div>
           {/* Onboarding guide — only for new users with zero actions */}
           {!hasActions && !onboardingDismissed && (
-            <div className="card p-4 mb-5 border-l-[3px] border-l-[var(--accent)] relative">
+            <div className="card p-4 mb-5 bg-[var(--blue-tint)] relative">
               <button
                 className="absolute top-3 right-3 text-ink-4 hover:text-ink text-sm leading-none"
                 onClick={() => {
