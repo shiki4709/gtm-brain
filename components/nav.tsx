@@ -24,17 +24,33 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
     <header className="bg-surface border-b border-rule">
       <div className="max-w-5xl mx-auto px-6">
         <div className="flex items-center justify-between h-14">
-          {/* Left: Logo + nav */}
-          <div className="flex items-center gap-6">
+          {/* Left: Logo + navigation */}
+          <div className="flex items-center gap-1">
             {/* Brand */}
-            <Link href="/" className="flex items-center gap-2 shrink-0">
+            <Link href="/" className="flex items-center gap-2 shrink-0 mr-4">
               <div className="w-2.5 h-2.5 rounded-full gradient-dot" />
               <span className="font-head text-sm font-bold text-ink">GTM Brain</span>
             </Link>
 
-            {/* Nav links — only show Pipeline for B2B (Dashboard/Feed handled by page tabs) */}
-            {mode === 'b2b_outbound' && (
-              <nav className="flex items-center gap-1" role="navigation">
+            {/* Primary nav links */}
+            <nav className="flex items-center gap-1" role="navigation" aria-label="Main">
+              <Link
+                href="/"
+                className={`font-head text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                  isHome ? 'text-ink bg-[var(--blue-tint)]' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
+                }`}
+              >
+                Home
+              </Link>
+              <Link
+                href="/my-content"
+                className={`font-head text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                  isOnMyContent ? 'text-ink bg-[var(--blue-tint)]' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
+                }`}
+              >
+                My Content
+              </Link>
+              {mode === 'b2b_outbound' && (
                 <Link
                   href="/find-leads"
                   className={`font-head text-xs font-semibold px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 ${
@@ -46,24 +62,17 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
                     <span className="badge-count text-[10px]">{outboundBadge}</span>
                   )}
                 </Link>
-              </nav>
-            )}
+              )}
+            </nav>
           </div>
 
-          {/* Right: User + settings */}
-          <div className="flex items-center gap-3">
+          {/* Right: Account */}
+          <div className="flex items-center gap-2">
             <span className="text-xs text-ink-4 hidden sm:block">{userName ?? email}</span>
-            <Link
-              href="/my-content"
-              className={`text-xs font-semibold px-2 py-1 rounded-md transition-colors ${
-                isOnMyContent ? 'text-ink bg-[var(--blue-tint)]' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
-              }`}
-            >
-              My Content
-            </Link>
+            <span className="text-rule hidden sm:block">|</span>
             <Link
               href="/settings"
-              className={`p-2.5 rounded-md transition-colors ${
+              className={`p-2 rounded-md transition-colors ${
                 isOnSettings ? 'text-ink bg-[var(--blue-tint)]' : 'text-ink-4 hover:text-ink hover:bg-[var(--rule-light)]'
               }`}
               title="Settings"
