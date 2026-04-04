@@ -191,22 +191,39 @@ export default function BrainChat({ hotTopics, briefPatterns, briefLines, userNa
     const text = input.trim()
     if (!text) return
 
-    // Save answer
+    // Detect "explain" / "what do you mean" type responses
+    const explainPhrases = ['what do you mean', 'what is this', 'explain', 'i don\'t understand', 'idk', 'not sure what', 'can you explain', 'huh']
+    const isAskingExplain = explainPhrases.some(p => text.toLowerCase().includes(p))
+
+    if (isAskingExplain) {
+      setMessages(prev => [...prev, { role: 'user', text, type: 'answer' }])
+      setInput('')
+      handleExplain()
+      return
+    }
+
+    // Save answer with acknowledgment
     setMessages(prev => [...prev, { role: 'user', text, type: 'answer' }])
     setInput('')
+
+    const acks = ['Got it.', 'Sharp take.', 'Noted.', 'Good point.', 'Interesting.', 'Saved.']
+    const ack = acks[Math.floor(Math.random() * acks.length)]
 
     const nextQ = currentQ + 1
     if (nextQ < questions.length) {
       setCurrentQ(nextQ)
       setTimeout(() => {
-        setMessages(prev => [...prev, {
-          role: 'brain',
-          text: questions[nextQ].question,
-          type: 'question',
-        }])
-      }, 400)
+        setMessages(prev => [...prev,
+          { role: 'brain', text: ack, type: 'briefing' },
+        ])
+        setTimeout(() => {
+          setMessages(prev => [...prev,
+            { role: 'brain', text: questions[nextQ].question, type: 'question' },
+          ])
+        }, 400)
+      }, 300)
     } else {
-      finishChat()
+      setTimeout(() => finishChat(), 300)
     }
   }
 

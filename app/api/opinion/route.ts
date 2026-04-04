@@ -103,12 +103,13 @@ HOT TOPICS RIGHT NOW:
 ${topicList}
 
 Return ONLY a JSON array of 4-5 questions (pick the most relevant, skip generic ones):
-[{"topic": "exact topic name from list", "question": "specific opinionated question that forces a take (not yes/no)", "keywords": ["3-5 retrieval keywords"]}]
+[{"topic": "exact topic name from list", "question": "short punchy question max 15 words", "keywords": ["3-5 retrieval keywords"]}]
 
 Rules:
-- Questions should force a stance, not ask for information
-- Frame questions around what this means for the user's audience specifically
-- "What's your take on X" is lazy. Ask "Do you think X will Y, or is it Z?" or "Is X actually good for Y?"
+- MAX 15 WORDS per question. This is a chat, not an essay prompt
+- Questions should force a stance. Good: "Is Delve's removal good or bad for YC?" Bad: "What are the implications..."
+- Sound casual, like a coworker asking over coffee. No formal language
+- No em dashes. No "or does it" clauses. Keep it simple
 - Skip topics the user's audience wouldn't care about` }],
       }),
     })
