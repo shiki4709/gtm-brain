@@ -45,7 +45,22 @@ export default function OpinionCapture({ hotTopics }: OpinionCaptureProps) {
     }
     setTopic(top)
 
-    // Generate question
+    // Check cache first
+    const cacheKey = `gtm-brain-take-q-${today}`
+    try {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed.topic === top.topic && parsed.question) {
+          setQuestion(parsed.question)
+          setKeywords(parsed.keywords ?? [])
+          setLoading(false)
+          return
+        }
+      }
+    } catch { /* */ }
+
+    // Generate question via API
     const sample = top.samplePosts[0]?.text ?? ''
     fetch(`/api/opinion?topic=${encodeURIComponent(top.topic)}&sample=${encodeURIComponent(sample)}`)
       .then(r => r.json())
@@ -53,6 +68,7 @@ export default function OpinionCapture({ hotTopics }: OpinionCaptureProps) {
         if (json.success && json.question) {
           setQuestion(json.question)
           setKeywords(json.keywords ?? [])
+          try { localStorage.setItem(cacheKey, JSON.stringify({ topic: top.topic, question: json.question, keywords: json.keywords })) } catch { /* */ }
         }
       })
       .catch(() => {})
@@ -99,7 +115,21 @@ export default function OpinionCapture({ hotTopics }: OpinionCaptureProps) {
     localStorage.setItem(storageKey, 'skipped')
   }
 
-  if (loading || skipped || !topic || !question) return null
+  if (skipped) return null
+
+  // Show skeleton while loading topics/question
+  if (loading || (topic && !question)) {
+    return (
+      <div className="card p-4 mb-4">
+        <div className="skeleton skeleton-text w-1/3 mb-3" />
+        <div className="skeleton skeleton-text w-full mb-2" />
+        <div className="skeleton skeleton-text w-2/3 mb-3" />
+        <div className="skeleton" style={{ height: 56 }} />
+      </div>
+    )
+  }
+
+  if (!topic || !question) return null
 
   if (done) {
     return (
