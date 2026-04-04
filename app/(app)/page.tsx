@@ -486,11 +486,21 @@ export default function WatchlistFeed() {
     setCopied(url)
     window.open(url, '_blank')
     setTimeout(() => setCopied(null), 2000)
-    // Log reply action (high-intent: opening the post to reply)
+    // Log reply action with content + source context for My Content tracking
+    const sourceItem = feed.find(f => f.url === url)
     fetch('/api/actions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action_type: 'reply', post_id: url, platform: platform ?? 'x' }),
+      body: JSON.stringify({
+        action_type: 'reply_copy',
+        post_id: url,
+        platform: platform ?? 'x',
+        metadata: {
+          content: text,
+          source_author: sourceItem?.authorHandle ?? sourceItem?.author,
+          source_text: sourceItem?.text?.slice(0, 200),
+        },
+      }),
     }).catch(() => {})
   }
 
@@ -501,12 +511,22 @@ export default function WatchlistFeed() {
       const rec = getRecommendation(item)
       logBrainDecision(item, actionType ?? rec.actions[0]?.type ?? 'unknown', rec.actions[0]?.priority ?? 'medium', rec.reason, 'followed')
     }
-    // Log action for goal tracking
-    if (actionType && ['scrape', 'reply', 'dm_send'].includes(actionType)) {
+    // Log action for goal tracking — include content + source context
+    if (actionType && ['scrape', 'reply', 'dm_send', 'content'].includes(actionType)) {
+      const draftContent = draftReplies[url]
       fetch('/api/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action_type: actionType, post_id: url, platform: platform ?? 'x' }),
+        body: JSON.stringify({
+          action_type: actionType,
+          post_id: url,
+          platform: platform ?? 'x',
+          metadata: {
+            content: draftContent ?? undefined,
+            source_author: item?.authorHandle ?? item?.author,
+            source_text: item?.text?.slice(0, 200),
+          },
+        }),
       }).catch(() => {})
     }
   }

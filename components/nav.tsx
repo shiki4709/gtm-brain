@@ -18,6 +18,7 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
   const isHome = path === '/' || path === ''
   const isOnPipeline = path === '/find-leads'
   const isOnSettings = path === '/settings'
+  const isOnMyContent = path === '/my-content'
 
   return (
     <header className="bg-[var(--surface)] border-b border-rule">
@@ -52,6 +53,14 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
           {/* Right: User + settings */}
           <div className="flex items-center gap-3">
             <span className="text-xs text-ink-4 hidden sm:block">{userName ?? email}</span>
+            <Link
+              href="/my-content"
+              className={`text-xs font-semibold px-2 py-1 rounded-md transition-colors ${
+                isOnMyContent ? 'text-ink bg-[var(--blue-tint)]' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
+              }`}
+            >
+              My Content
+            </Link>
             <Link
               href="/settings"
               className={`p-1.5 rounded-md transition-colors ${
