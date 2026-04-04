@@ -119,6 +119,30 @@ export async function POST(request: Request) {
     ? `\n${voiceToPrompt(voiceProfile)}`
     : ''
 
+  // Learn from brain insights — fetch cached reply analysis
+  let brainInsightsContext = ''
+  try {
+    const { data: insight } = await auth.sb
+      .from('sb_insights')
+      .select('insight_data')
+      .eq('user_id', auth.dbUser.id)
+      .eq('insight_type', 'reply_analysis')
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (insight?.insight_data) {
+      const analysis = insight.insight_data as Record<string, string>
+      const parts: string[] = []
+      if (analysis.topTactic) parts.push(`DO: ${analysis.topTactic}`)
+      if (analysis.avoid) parts.push(`AVOID: ${analysis.avoid}`)
+      if (analysis.replyStyle) parts.push(`STYLE: ${analysis.replyStyle}`)
+      if (parts.length > 0) {
+        brainInsightsContext = `\nBRAIN INSIGHTS (learned from your engagement data):\n${parts.join('\n')}\nApply these insights to this reply.`
+      }
+    }
+  } catch { /* no cached analysis yet */ }
+
   // Learn from top-performing replies — fetch user's best replies via SocialData
   let topRepliesContext = ''
   const xHandle = auth.dbUser.x_handle
@@ -188,7 +212,7 @@ Return ONLY the rewritten reply. Nothing else. Keep under 280 characters.`,
     ].filter(Boolean).join(', ')
 
     const { text } = await callClaude(
-      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}${topRepliesContext}
+      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}${brainInsightsContext}${topRepliesContext}
 
 ${isLinkedIn ? 'POST' : 'TWEET'} by @${author_handle} (${author_name}):
 "${tweet_text.substring(0, 500)}"

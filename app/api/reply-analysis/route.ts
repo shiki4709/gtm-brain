@@ -137,6 +137,14 @@ Return ONLY a JSON object:
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
     const analysis = JSON.parse(cleaned)
 
+    // Cache to sb_insights so draft-reply can read it
+    await auth.sb.from('sb_insights').insert({
+      user_id: auth.dbUser.id,
+      insight_type: 'reply_analysis',
+      insight_data: analysis,
+      confidence: 0.8,
+    })
+
     return NextResponse.json({
       success: true,
       analysis,
