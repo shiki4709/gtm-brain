@@ -1288,7 +1288,7 @@ export default function WatchlistFeed() {
           {/* Section 2.5: Weekly GTM Brief */}
           <div className="card p-4 mb-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="section-label">Weekly GTM Brief</div>
+              <h2 className="section-label">Weekly GTM Brief</h2>
               {weeklyBrief && (
                 <button
                   className="text-[11px] text-accent hover:underline disabled:opacity-50"
@@ -1333,7 +1333,7 @@ export default function WatchlistFeed() {
 
           {/* Brain Insights card — deep pattern analysis */}
           <div className="card p-4 mb-4">
-            <div className="section-label mb-2.5">Brain Insights</div>
+            <h2 className="section-label mb-2.5">Brain Insights</h2>
 
             {insightsLoading ? (
               <div className="space-y-2">
@@ -1348,24 +1348,24 @@ export default function WatchlistFeed() {
             ) : replyAnalysis ? (
               <div className="space-y-2">
                 <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                  <div className="section-label mb-1">What reply style gets engagement</div>
+                  <h3 className="section-label mb-1">What reply style gets engagement</h3>
                   <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.replyStyle}</div>
                 </div>
                 <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                  <div className="section-label mb-1">Who engages with you</div>
+                  <h3 className="section-label mb-1">Who engages with you</h3>
                   <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.whoEngages}</div>
                 </div>
                 <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                  <div className="section-label mb-1">Why they engage</div>
+                  <h3 className="section-label mb-1">Why they engage</h3>
                   <div className="text-xs text-ink-2 leading-relaxed">{replyAnalysis.whyTheyEngage}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-[var(--green-tint)] rounded-[var(--radius-sm)] px-3 py-2">
-                    <div className="section-label mb-1 text-green">Do more</div>
+                    <h3 className="section-label mb-1 text-green">Do more</h3>
                     <div className="text-xs text-ink-2 font-medium leading-relaxed">{replyAnalysis.topTactic}</div>
                   </div>
                   <div className="bg-[var(--orange-tint)] rounded-[var(--radius-sm)] px-3 py-2">
-                    <div className="section-label mb-1 text-orange">Stop</div>
+                    <h3 className="section-label mb-1 text-orange">Stop</h3>
                     <div className="text-xs text-ink-2 font-medium leading-relaxed">{replyAnalysis.avoid}</div>
                   </div>
                 </div>
@@ -1373,7 +1373,7 @@ export default function WatchlistFeed() {
             ) : (
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                  <div className="section-label mb-1">Best time</div>
+                  <h3 className="section-label mb-1">Best time</h3>
                   <div className="font-semibold text-ink">
                     {weeklyBrief?.patterns.bestHour && weeklyBrief.patterns.bestHour !== 'not enough data'
                       ? `${weeklyBrief.patterns.bestHour} · ${weeklyBrief.patterns.bestDay}`
@@ -1381,7 +1381,7 @@ export default function WatchlistFeed() {
                   </div>
                 </div>
                 <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
-                  <div className="section-label mb-1">Top repliers</div>
+                  <h3 className="section-label mb-1">Top repliers</h3>
                   <div className="text-ink">
                     {whoReplies.length > 0
                       ? whoReplies.slice(0, 3).map(r => `@${r.handle}${r.isIcp ? ' (ICP)' : ''}`).join(', ')
@@ -1418,7 +1418,7 @@ export default function WatchlistFeed() {
 
             return (
               <div className="card p-4 mb-4">
-                <div className="section-label mb-2">This week</div>
+                <h2 className="section-label mb-2">This week</h2>
                 <div className={`grid gap-2 ${metrics.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
                   {metrics.map(m => {
                     const pct = m.target > 0 ? Math.min(100, Math.round((m.actual / m.target) * 100)) : 100
