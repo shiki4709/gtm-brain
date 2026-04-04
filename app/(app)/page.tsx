@@ -744,7 +744,7 @@ export default function WatchlistFeed() {
     const isAdding = watchingInProgress === s.username
     const isX = s.platform === 'x'
     return (
-      <div key={i} className="bg-white border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
+      <div key={i} className="bg-surface border border-rule rounded-[var(--radius)] px-4 py-3 flex items-center justify-between hover:border-accent transition-colors">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={`badge ${!isX ? 'badge-icp' : 'badge-replied'}`}>
@@ -903,7 +903,7 @@ export default function WatchlistFeed() {
           </p>
         </div>
 
-        <div className="bg-white border border-rule rounded-[var(--radius)] p-6 mb-6">
+        <div className="bg-surface border border-rule rounded-[var(--radius)] p-6 mb-6">
           <div className="section-label mb-3">Add someone to watch</div>
           <div className="flex gap-3 mb-2">
             <input
@@ -947,15 +947,15 @@ export default function WatchlistFeed() {
           <div className="section-label mb-3">How it works</div>
           <div className="flex flex-col gap-4 text-xs text-ink-3 leading-relaxed">
             <div className="flex gap-3">
-              <div className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[9px] font-bold shrink-0">1</div>
+              <div className="w-5 h-5 rounded-full bg-accent text-on-accent flex items-center justify-center text-[9px] font-bold shrink-0">1</div>
               <div><strong className="text-ink">They post</strong> → brain tells you what to do with it</div>
             </div>
             <div className="flex gap-3">
-              <div className="w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[9px] font-bold shrink-0">2</div>
+              <div className="w-5 h-5 rounded-full bg-accent text-on-accent flex items-center justify-center text-[9px] font-bold shrink-0">2</div>
               <div><strong className="text-ink">{userMode === 'b2b_outbound' ? 'Scrape engagers' : 'Reply to trending posts'}</strong> → {userMode === 'b2b_outbound' ? 'find ICP matches → draft DMs → book meetings' : 'build visibility → grow your audience'}</div>
             </div>
             <div className="flex gap-3">
-              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 gradient-dot text-white">B</div>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0 gradient-dot text-on-accent">B</div>
               <div><strong className="text-ink">Brain learns</strong> → what actually works for {userMode === 'b2b_outbound' ? 'booking meetings' : 'growing your audience'}</div>
             </div>
           </div>
@@ -1010,7 +1010,7 @@ export default function WatchlistFeed() {
               const isDone = !!tasks[item.url]
               const rec = getRecommendation(item)
               return (
-                <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${isDone ? 'border-rule opacity-60' : rec.actions[0]?.priority === 'high' ? 'border-accent' : 'border-rule'}`}>
+                <div key={i} className={`bg-surface border rounded-[var(--radius)] p-4 ${isDone ? 'border-rule opacity-60' : rec.actions[0]?.priority === 'high' ? 'border-accent' : 'border-rule'}`}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[11px] text-ink-4">{timeAgo(item.time)}</span>
                     {isDone && <span className="text-[10px] text-[var(--green)] font-semibold">{tasks[item.url] === 'done' ? 'Done' : 'Skipped'}</span>}
@@ -1792,7 +1792,7 @@ export default function WatchlistFeed() {
                     const p = est.prefix
 
                     return (
-                      <div key={i} className={`bg-white border rounded-[var(--radius)] p-4 ${
+                      <div key={i} className={`bg-surface border rounded-[var(--radius)] p-4 ${
                         primaryAction?.priority === 'high' ? (isLinkedIn ? 'border-accent' : 'border-[var(--accent-orange)]') : 'border-rule'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
@@ -1820,7 +1820,7 @@ export default function WatchlistFeed() {
                             <span className="text-[10px] text-ink-4 px-1.5 py-0.5 bg-[var(--rule-light)] rounded">Off-topic</span>
                           )}
                           {(() => { const v = getVelocity(item); return v.velocity >= 2 ? (
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${v.velocity >= 10 ? `text-white ${isLinkedIn ? 'bg-accent' : 'bg-orange'}` : 'bg-[var(--rule-light)] text-ink-3'}`}>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${v.velocity >= 10 ? `text-on-accent ${isLinkedIn ? 'bg-accent' : 'bg-orange'}` : 'bg-[var(--rule-light)] text-ink-3'}`}>
                               {v.velocity}/hr
                             </span>
                           ) : null })()}
@@ -1945,7 +1945,7 @@ export default function WatchlistFeed() {
                                         </div>
                                         <div className="flex flex-col gap-2">
                                           {tweets.map((tweet, ti) => (
-                                            <div key={ti} className="bg-white border border-rule rounded-lg px-3 py-2.5">
+                                            <div key={ti} className="bg-surface border border-rule rounded-lg px-3 py-2.5">
                                               <div className="flex items-start gap-2">
                                                 <span className="text-[10px] text-ink-4 font-semibold shrink-0 mt-0.5">{ti + 1}/{tweets.length}</span>
                                                 <div className="flex-1">
@@ -1977,7 +1977,7 @@ export default function WatchlistFeed() {
                                           {isCopied ? 'Copied!' : isPosted ? 'Copy again' : 'Copy & mark posted'}
                                         </button>
                                       </div>
-                                      <div className="bg-white border border-rule rounded-lg px-3 py-2.5">
+                                      <div className="bg-surface border border-rule rounded-lg px-3 py-2.5">
                                         <textarea
                                           className="w-full text-xs text-ink leading-relaxed bg-transparent resize-none outline-none min-h-[120px]"
                                           value={repurposeEditing[editKey] ?? cleanContent}

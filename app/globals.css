@@ -52,6 +52,7 @@
   --separator: rgba(33,150,243,0.08);
 
   --surface: #ffffff;
+  --on-accent: #f8fafb;        /* text on colored backgrounds — tinted, not pure white */
 
   /* Status colors */
   --status-pending: #e65100;
@@ -90,6 +91,7 @@
   --color-orange-tint: var(--orange-tint);
   --color-green-tint: var(--green-tint);
   --color-separator: var(--separator);
+  --color-on-accent: var(--on-accent);
 
   /* SVG fill colors */
   --fill-ink: var(--ink);
@@ -134,7 +136,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--on-accent);
   font-size: 10px;
   font-weight: 700;
   margin-top: 1px;
@@ -164,13 +166,13 @@ body {
 }
 
 .btn-primary {
-  border: none; color: #fff; background: var(--gradient-main);
+  border: none; color: var(--on-accent); background: var(--gradient-main);
   box-shadow: 0 2px 8px rgba(33,150,243,0.15);
 }
 .btn-primary:hover:not(:disabled) { opacity: 0.92; transform: translateY(-1px); }
 
 .btn-accent {
-  border: none; color: #fff; background: var(--accent-blue);
+  border: none; color: var(--on-accent); background: var(--accent-blue);
 }
 .btn-accent:hover:not(:disabled) { opacity: 0.88; }
 
@@ -196,7 +198,7 @@ body {
 .badge-sent { background: var(--green-bg); color: var(--green); }
 .badge-replied { background: rgba(191,54,12,0.1); color: var(--accent-orange); }
 .badge-drafted { background: var(--rule-light); color: var(--ink-3); }
-.badge-count { background: var(--orange-bright); color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+.badge-count { background: var(--orange-bright); color: var(--on-accent); font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
 
 /* ═══ Cards ═══ */
 .card { border: 1.5px solid var(--rule); border-radius: var(--radius); padding: 14px 18px; transition: border-color 0.15s; }
@@ -207,7 +209,7 @@ body {
 .input {
   width: 100%; padding: 10px 14px; border: 1.5px solid var(--rule);
   border-radius: var(--radius-sm); font-family: var(--font-body);
-  font-size: 16px; color: var(--ink); background: #fff;
+  font-size: 16px; color: var(--ink); background: var(--surface);
   transition: border-color 0.15s;
 }
 .input:focus:not(:focus-visible) { border-color: var(--accent-blue); outline: none; }
@@ -226,7 +228,7 @@ body {
 
 /* ═══ Pipeline ═══ */
 .pipe-step { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background: var(--rule-light); color: var(--ink-3); }
-.pipe-active { background: var(--accent-blue); color: #fff; font-weight: 600; }
+.pipe-active { background: var(--accent-blue); color: var(--on-accent); font-weight: 600; }
 .pipe-arrow { color: var(--ink-4); font-size: 12px; }
 
 /* ═══ Stats ═══ */
@@ -250,10 +252,11 @@ body {
 }
 .collapsible-chevron.open { transform: rotate(180deg); }
 .collapsible-body {
-  overflow: hidden; transition: max-height 0.3s ease, opacity 0.2s;
+  display: grid; transition: grid-template-rows 0.3s ease, opacity 0.2s;
 }
-.collapsible-body.collapsed { max-height: 0; opacity: 0; pointer-events: none; }
-.collapsible-body.expanded { max-height: 2000px; opacity: 1; }
+.collapsible-body.collapsed { grid-template-rows: 0fr; opacity: 0; pointer-events: none; }
+.collapsible-body.collapsed > * { overflow: hidden; }
+.collapsible-body.expanded { grid-template-rows: 1fr; opacity: 1; }
 
 /* ═══ Skeleton Loading ═══ */
 @keyframes shimmer {
@@ -358,7 +361,7 @@ h3 { font-family: var(--font-head); font-size: 14px; font-weight: 600; color: va
   top: -40px;
   left: 0;
   background: var(--ink);
-  color: #fff;
+  color: var(--on-accent);
   padding: 8px 16px;
   z-index: 1000;
   font-size: 14px;

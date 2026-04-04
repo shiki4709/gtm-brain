@@ -21,7 +21,7 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
   const isOnMyContent = path === '/my-content'
 
   return (
-    <header className="bg-[var(--surface)] border-b border-rule">
+    <header className="bg-surface border-b border-rule">
       <div className="max-w-5xl mx-auto px-6">
         <div className="flex items-center justify-between h-14">
           {/* Left: Logo + nav */}

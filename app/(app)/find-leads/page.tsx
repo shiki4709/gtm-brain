@@ -316,7 +316,7 @@ export default function Outbound() {
         <h1 className="font-head text-xl font-bold text-ink">Pipeline</h1>
         <button
           onClick={() => setShowScrapeInput(!showScrapeInput)}
-          className={`text-xs px-3 py-1.5 rounded transition-colors ${showScrapeInput ? 'bg-accent text-white' : 'btn-outline'}`}
+          className={`text-xs px-3 py-1.5 rounded transition-colors ${showScrapeInput ? 'bg-accent text-on-accent' : 'btn-outline'}`}
         >
           Scrape a post
         </button>
@@ -324,7 +324,7 @@ export default function Outbound() {
           <button className="btn-outline text-xs px-3 py-1.5">
             Export CSV ▾
           </button>
-          <div className="hidden group-hover:block absolute top-full right-0 mt-1 bg-white border border-rule rounded-lg shadow-md z-10 min-w-[180px] py-1">
+          <div className="hidden group-hover:block absolute top-full right-0 mt-1 bg-surface border border-rule rounded-lg shadow-md z-10 min-w-[180px] py-1">
             {[
               { key: 'default', label: 'All fields' },
               { key: 'dripify', label: 'Dripify' },
@@ -349,7 +349,7 @@ export default function Outbound() {
 
       {/* Collapsible scrape input */}
       {showScrapeInput && (
-        <div className="bg-white border border-rule rounded-[var(--radius)] p-4 mb-6">
+        <div className="bg-surface border border-rule rounded-[var(--radius)] p-4 mb-6">
           <div className="flex gap-2 mb-1">
             <input
               type="text"
@@ -497,7 +497,7 @@ export default function Outbound() {
         const dateStr = new Date(sc.scrape_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
         return (
-          <div key={sc.id} className="mb-4 bg-white border border-rule rounded-[var(--radius)] overflow-hidden">
+          <div key={sc.id} className="mb-4 bg-surface border border-rule rounded-[var(--radius)] overflow-hidden">
             {/* Hero row */}
             <button
               className="w-full text-left px-5 py-4 hover:bg-[var(--bg-warm)] transition-colors"
@@ -568,7 +568,7 @@ export default function Outbound() {
                       key={f.key}
                       className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                         filters.includes(f.key)
-                          ? 'border-accent bg-accent text-white'
+                          ? 'border-accent bg-accent text-on-accent'
                           : 'border-rule text-ink-3 hover:border-ink-4'
                       }`}
                       onClick={() => toggleFilter(sc.id, f.key)}

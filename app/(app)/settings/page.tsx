@@ -537,7 +537,7 @@ export default function Settings() {
                 <div key={i}>
                   {msg.role === 'user' ? (
                     <div className="flex justify-end">
-                      <div className="bg-accent text-white text-sm px-3 py-2 rounded-2xl rounded-br-md max-w-[80%]">
+                      <div className="bg-accent text-on-accent text-sm px-3 py-2 rounded-2xl rounded-br-md max-w-[80%]">
                         {msg.text}
                       </div>
                     </div>

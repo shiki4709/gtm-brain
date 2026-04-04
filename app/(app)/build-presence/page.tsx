@@ -210,7 +210,7 @@ export default function Inbound() {
           )}
           <div className="grid grid-cols-2 gap-4 mb-4">
             {content.results.linkedin && (
-              <div className="bg-white border border-rule rounded-[var(--radius)] p-4">
+              <div className="bg-surface border border-rule rounded-[var(--radius)] p-4">
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-accent" />
@@ -227,7 +227,7 @@ export default function Inbound() {
               </div>
             )}
             {content.results.x && (
-              <div className="bg-white border border-rule rounded-[var(--radius)] p-4">
+              <div className="bg-surface border border-rule rounded-[var(--radius)] p-4">
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-orange" />
@@ -325,7 +325,7 @@ export default function Inbound() {
       ) : tweets.length > 0 ? (
         <div className="flex flex-col gap-3">
           {tweets.map((tw) => (
-            <div key={tw.id} className="bg-white border border-rule rounded-[var(--radius)] p-4 hover:border-accent transition-colors">
+            <div key={tw.id} className="bg-surface border border-rule rounded-[var(--radius)] p-4 hover:border-accent transition-colors">
               <div className="text-sm mb-1">
                 <strong className="font-head">{tw.name}</strong>
                 <span className="text-ink-4 font-normal"> @{tw.username}</span>

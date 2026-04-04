@@ -83,7 +83,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white border border-rule rounded-[var(--radius)] p-6">
+        <form onSubmit={handleSubmit} className="bg-surface border border-rule rounded-[var(--radius)] p-6">
           <div className="mb-4">
             <label className="section-label mb-2.5" htmlFor="email">Email</label>
             <input
