@@ -1328,12 +1328,10 @@ export default function WatchlistFeed() {
                         const match = line.match(/^([^:]+):\s*(.+)/)
                         if (!match) return null
                         const clean = match[2].replace(/\*\*/g, '').trim()
-                        const words = clean.split(/\s+/)
-                        const short = words.length > 10 ? words.slice(0, 10).join(' ') + '...' : clean
                         return (
                           <div key={i} className="text-xs text-ink-3">
                             <span className="font-semibold text-ink-4">{match[1].trim()}: </span>
-                            {short}
+                            {clean}
                           </div>
                         )
                       })}
