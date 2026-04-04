@@ -1102,7 +1102,7 @@ export default function WatchlistFeed() {
     <div className="max-w-2xl mx-auto">
       <h1 className="sr-only">GTM Brain Dashboard</h1>
       {/* ═══ TOP-LEVEL VIEW TABS ═══ */}
-      <div className="flex items-center gap-1 mb-6">
+      <div className="flex items-center gap-1 mb-6" role="tablist" aria-label="Main navigation">
         {([
           { key: 'dashboard' as const, label: 'Dashboard' },
           { key: 'feed' as const, label: 'Feed', count: feedLoaded ? feed.length : 0 },
@@ -1110,6 +1110,8 @@ export default function WatchlistFeed() {
         ]).map(tab => (
           <button
             key={tab.key}
+            role="tab"
+            aria-selected={activeView === tab.key}
             onClick={() => setActiveView(tab.key)}
             className={`font-head text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
               activeView === tab.key ? 'bg-[var(--blue-tint)] text-ink' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
