@@ -21,6 +21,45 @@ export async function GET() {
     .order('snapshot_date', { ascending: true })
 
   // Fetch LinkedIn connection snapshots (last 30 days)
+  // Auto-refresh: if today's snapshot is missing and user has a LinkedIn URL, scrape now
+  const today = new Date().toISOString().slice(0, 10)
+  const linkedinUrl = auth.dbUser.linkedin_url as string | undefined
+  const apifyToken = process.env.APIFY_TOKEN ?? ''
+
+  if (linkedinUrl && apifyToken) {
+    const { data: todayLi } = await auth.sb
+      .from('metrics_snapshots')
+      .select('id')
+      .eq('user_id', auth.dbUser.id)
+      .eq('metric', 'li_connections')
+      .eq('snapshot_date', today)
+      .single()
+
+    if (!todayLi) {
+      try {
+        const resp = await fetch(
+          `https://api.apify.com/v2/acts/harvestapi~linkedin-profile-scraper/run-sync-get-dataset-items?token=${apifyToken}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls: [linkedinUrl], maxProfiles: 1 }),
+            signal: AbortSignal.timeout(30000),
+          }
+        )
+        if (resp.ok) {
+          const profiles = await resp.json() as Array<Record<string, unknown>>
+          const connections = (profiles[0]?.followerCount as number) ?? (profiles[0]?.connectionsCount as number)
+          if (typeof connections === 'number' && connections > 0) {
+            await auth.sb.from('metrics_snapshots').upsert(
+              { user_id: auth.dbUser.id, metric: 'li_connections', value: connections, snapshot_date: today },
+              { onConflict: 'user_id,metric,snapshot_date' }
+            )
+          }
+        }
+      } catch { /* scrape failed, use cached data */ }
+    }
+  }
+
   const { data: liData } = await auth.sb
     .from('metrics_snapshots')
     .select('value, snapshot_date')
