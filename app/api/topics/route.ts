@@ -314,8 +314,112 @@ Be specific. "OpenAI board drama fallout" not "AI news". These should be CONVERS
     }
   }
 
+  // STEP 3: Surface breaking news from HN front page (always-on, no interest filter)
+  const breakingTopics: TrendingTopic[] = []
+
+  if (apiKey) {
+    try {
+      // Fetch HN front page top stories
+      const hnResp = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json', {
+        signal: AbortSignal.timeout(5000),
+      })
+      if (hnResp.ok) {
+        const topIds = (await hnResp.json() as number[]).slice(0, 15)
+        const hnStories = await Promise.all(
+          topIds.map(async (id) => {
+            try {
+              const r = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, {
+                signal: AbortSignal.timeout(3000),
+              })
+              if (!r.ok) return null
+              const story = await r.json()
+              return {
+                title: story.title ?? '',
+                score: story.score ?? 0,
+                comments: story.descendants ?? 0,
+                url: story.url ?? `https://news.ycombinator.com/item?id=${id}`,
+                hnUrl: `https://news.ycombinator.com/item?id=${id}`,
+                by: story.by ?? '',
+              }
+            } catch { return null }
+          })
+        )
+        const validStories = hnStories.filter(Boolean).filter(s => s!.score >= 50) as Array<{
+          title: string; score: number; comments: number; url: string; hnUrl: string; by: string
+        }>
+
+        if (validStories.length >= 3) {
+          // Use Haiku to find tech/startup breaking news worth posting about
+          const hnSamples = validStories.slice(0, 12)
+            .map((s, i) => `[${i}] "${s.title}" (${s.score} pts, ${s.comments} comments)`)
+            .join('\n')
+
+          const hnResp2 = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 400,
+              messages: [{ role: 'user', content: `These are the top Hacker News stories right now. Which 3-5 are the biggest BREAKING NEWS or CONTROVERSIES that tech/startup people should have an opinion about?
+
+HN FRONT PAGE:
+${hnSamples}
+
+Return ONLY a JSON array:
+[{"topic": "specific headline 4-7 words", "post_indices": [0, 3], "why_hot": "5 words why this matters"}]
+
+Rules:
+- Only include stories that are genuinely controversial, surprising, or breaking
+- Skip Show HN, hiring posts, tutorials, and evergreen content
+- Focus on: company drama, policy changes, acquisitions, security incidents, market shifts` }],
+            }),
+          })
+
+          if (hnResp2.ok) {
+            const result = await hnResp2.json()
+            const raw = result.content?.[0]?.text ?? ''
+            const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+            try {
+              const extracted = JSON.parse(cleaned) as Array<{
+                topic: string; post_indices: number[]; why_hot: string
+              }>
+              for (const item of extracted) {
+                const matched = (item.post_indices ?? []).map(i => validStories[i]).filter(Boolean)
+                if (matched.length === 0) continue
+                const totalEng = matched.reduce((s, p) => s + p.score + p.comments, 0)
+
+                // Skip if already covered by network or trending topics
+                const alreadyCovered = [...networkTopics, ...trendingTopics].some(t =>
+                  t.topic.toLowerCase().split(' ').some(w => item.topic.toLowerCase().includes(w) && w.length > 4)
+                )
+                if (alreadyCovered) continue
+
+                breakingTopics.push({
+                  topic: item.topic,
+                  postCount: matched.length,
+                  totalEngagement: totalEng,
+                  authors: matched.map(p => p.by).slice(0, 3),
+                  userEngaged: false,
+                  signalScore: totalEng * 0.3 + matched[0].score * 0.5,
+                  suggestedAngle: 'breaking',
+                  source: 'trending',
+                  samplePosts: matched.slice(0, 2).map(p => ({
+                    author: p.by,
+                    text: p.title,
+                    engagement: p.score + p.comments,
+                    url: p.hnUrl,
+                  })),
+                })
+              }
+            } catch { /* parse error */ }
+          }
+        }
+      }
+    } catch { /* HN API error */ }
+  }
+
   // Combine and rank all topics
-  const allTopics = [...networkTopics, ...trendingTopics]
+  const allTopics = [...networkTopics, ...trendingTopics, ...breakingTopics]
     .sort((a, b) => b.signalScore - a.signalScore)
     .slice(0, 10)
 
