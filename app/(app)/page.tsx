@@ -1311,7 +1311,7 @@ export default function WatchlistFeed() {
             </div>
             {weeklyBrief ? (
               <>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 mb-3">
                   <span className="badge badge-icp">Most active: {weeklyBrief.patterns.mostActiveDay}</span>
                   <span className="badge badge-icp">Avg {weeklyBrief.patterns.avgActionsPerDay}/day</span>
                   {weeklyBrief.patterns.notificationActRate > 0 && (
@@ -1320,6 +1320,26 @@ export default function WatchlistFeed() {
                   <span className="badge badge-icp">Top: {weeklyBrief.patterns.topAction}</span>
                   <span className={`badge ${weeklyBrief.patterns.trend === 'increasing' ? 'badge-sent' : 'badge-drafted'}`}>Trend: {weeklyBrief.patterns.trend}</span>
                 </div>
+                {(() => {
+                  const lines = weeklyBrief.brief.split(/\s*[-–]\s+(?=\w)/).filter(Boolean)
+                  return (
+                    <div className="space-y-1">
+                      {lines.map((line: string, i: number) => {
+                        const match = line.match(/^([^:]+):\s*(.+)/)
+                        if (!match) return null
+                        const clean = match[2].replace(/\*\*/g, '').trim()
+                        const words = clean.split(/\s+/)
+                        const short = words.length > 10 ? words.slice(0, 10).join(' ') + '...' : clean
+                        return (
+                          <div key={i} className="text-xs text-ink-3">
+                            <span className="font-semibold text-ink-4">{match[1].trim()}: </span>
+                            {short}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </>
             ) : (
               <p className="text-xs text-ink-4">
