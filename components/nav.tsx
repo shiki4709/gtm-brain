@@ -63,7 +63,7 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
             </Link>
             <Link
               href="/settings"
-              className={`p-1.5 rounded-md transition-colors ${
+              className={`p-2.5 rounded-md transition-colors ${
                 isOnSettings ? 'text-ink bg-[var(--blue-tint)]' : 'text-ink-4 hover:text-ink hover:bg-[var(--rule-light)]'
               }`}
               title="Settings"
@@ -75,7 +75,7 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
               </svg>
             </Link>
             {onSignOut && (
-              <button onClick={onSignOut} className="text-ink-4 hover:text-ink text-xs hidden sm:block">
+              <button onClick={onSignOut} className="text-ink-4 hover:text-ink text-xs hidden sm:block py-2 px-2">
                 Sign out
               </button>
             )}
