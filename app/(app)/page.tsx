@@ -1361,23 +1361,26 @@ export default function WatchlistFeed() {
                   <div className="skeleton skeleton-stat" />
                 </div>
               </div>
-            ) : replyAnalysis ? (
-              <div className="space-y-1.5">
-                {([
-                  { icon: '\u2705', label: 'Do', text: replyAnalysis.topTactic, color: 'text-green' },
-                  { icon: '\u26D4', label: 'Stop', text: replyAnalysis.avoid, color: 'text-orange' },
-                  { icon: '\u{1F3AF}', label: 'Style', text: replyAnalysis.replyStyle, color: 'text-accent' },
-                  { icon: '\u{1F465}', label: 'Who', text: replyAnalysis.whoEngages, color: 'text-accent' },
-                  { icon: '\u{1F4A1}', label: 'Why', text: replyAnalysis.whyTheyEngage, color: 'text-accent' },
-                ] as const).map((item, i) => (
-                  <div key={i} className="flex gap-2 text-xs leading-snug">
-                    <span className="shrink-0 w-4 text-center">{item.icon}</span>
-                    <span className={`shrink-0 font-semibold ${item.color}`}>{item.label}:</span>
-                    <span className="text-ink-3">{item.text.split(/\.\s/)[0]}.</span>
+            ) : replyAnalysis ? (() => {
+              // Extract just the key phrase (before first comma, paren, or dash)
+              const shortPhrase = (s: string) => s.split(/[,()\u2014\u2013—–]/)[0].trim().replace(/\.+$/, '')
+              return (
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-[var(--green-tint)] rounded-[var(--radius-sm)] px-3 py-2.5 text-center">
+                    <h3 className="section-label text-green mb-1">Do more</h3>
+                    <div className="text-xs text-ink-2 font-medium">{shortPhrase(replyAnalysis.topTactic)}</div>
                   </div>
-                ))}
-              </div>
-            ) : (
+                  <div className="bg-[var(--orange-tint)] rounded-[var(--radius-sm)] px-3 py-2.5 text-center">
+                    <h3 className="section-label text-orange mb-1">Avoid</h3>
+                    <div className="text-xs text-ink-2 font-medium">{shortPhrase(replyAnalysis.avoid)}</div>
+                  </div>
+                  <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2.5 text-center">
+                    <h3 className="section-label mb-1">Audience</h3>
+                    <div className="text-xs text-ink-2 font-medium">{shortPhrase(replyAnalysis.whoEngages)}</div>
+                  </div>
+                </div>
+              )
+            })() : (
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-[var(--bg-warm)] rounded-[var(--radius-sm)] px-3 py-2">
                   <h3 className="section-label mb-1">Best time</h3>
