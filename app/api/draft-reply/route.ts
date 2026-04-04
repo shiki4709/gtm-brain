@@ -119,6 +119,40 @@ export async function POST(request: Request) {
     ? `\n${voiceToPrompt(voiceProfile)}`
     : ''
 
+  // Learn from top-performing replies — fetch user's best replies via SocialData
+  let topRepliesContext = ''
+  const xHandle = auth.dbUser.x_handle
+  const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
+  if (xHandle && socialDataKey && !isLinkedIn) {
+    try {
+      const resp = await fetch(
+        `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(`from:${xHandle}`)}&type=Latest`,
+        {
+          headers: { Authorization: `Bearer ${socialDataKey}`, Accept: 'application/json' },
+          signal: AbortSignal.timeout(5000),
+        }
+      )
+      if (resp.ok) {
+        const data = await resp.json()
+        const replies = (data.tweets ?? [])
+          .filter((tw: Record<string, unknown>) => tw.in_reply_to_status_id_str)
+          .map((tw: Record<string, unknown>) => ({
+            text: ((tw.full_text ?? tw.text ?? '') as string).replace(/^@\w+\s*/g, '').trim(),
+            likes: (tw.favorite_count as number) ?? 0,
+          }))
+          .filter((r: { text: string; likes: number }) => r.likes >= 3 && r.text.length >= 20)
+          .sort((a: { likes: number }, b: { likes: number }) => b.likes - a.likes)
+          .slice(0, 3)
+
+        if (replies.length > 0) {
+          topRepliesContext = `\nYOUR TOP-PERFORMING REPLIES (match this tone and style):
+${replies.map((r: { text: string; likes: number }) => `- "${r.text}" (${r.likes} likes)`).join('\n')}
+Write in the same voice, length, and approach as these successful replies.`
+        }
+      }
+    } catch { /* skip — don't block reply generation */ }
+  }
+
   // Refine mode — rewrite existing draft with user instruction
   if (refine_instruction && current_draft) {
     try {
@@ -154,7 +188,7 @@ Return ONLY the rewritten reply. Nothing else. Keep under 280 characters.`,
     ].filter(Boolean).join(', ')
 
     const { text } = await callClaude(
-      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}
+      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}${topRepliesContext}
 
 ${isLinkedIn ? 'POST' : 'TWEET'} by @${author_handle} (${author_name}):
 "${tweet_text.substring(0, 500)}"
