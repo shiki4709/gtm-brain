@@ -19,10 +19,16 @@ export async function GET() {
     .order('pushed_at', { ascending: false })
     .limit(20)
 
+  const dbRow = auth.dbUser as Record<string, unknown>
+
   return NextResponse.json({
     success: true,
     channels,
     timezone,
+    notificationMode: dbRow.notification_mode ?? 'realtime',
+    digestHour: dbRow.digest_hour ?? 9,
+    replyStyle: dbRow.reply_style ?? 'balanced',
+    maxDailyPosts: dbRow.max_daily_posts ?? 5,
     telegramConnected: auth.dbUser.telegram_connected ?? false,
     // Generate a Telegram deep link for connecting
     telegramLink: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME ?? 'gtm_brain_bot'}?start=${auth.dbUser.id}`,
@@ -36,9 +42,13 @@ export async function POST(request: Request) {
   if (!auth) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json() as {
-    action: 'add_slack' | 'remove_telegram' | 'remove_slack' | 'update_timezone' | 'test_telegram' | 'test_slack'
+    action: 'add_slack' | 'remove_telegram' | 'remove_slack' | 'update_timezone' | 'test_telegram' | 'test_slack' | 'update_settings'
     webhook_url?: string
     timezone?: string
+    notification_mode?: 'realtime' | 'digest'
+    digest_hour?: number
+    reply_style?: 'balanced' | 'spicy'
+    max_daily_posts?: number
   }
 
   const channels: Array<{ type: string; chat_id?: string; webhook_url?: string }> = auth.dbUser.notification_channels ?? []
@@ -138,6 +148,25 @@ export async function POST(request: Request) {
       if (!resp.ok) {
         return NextResponse.json({ success: false, error: 'Failed to send test message' }, { status: 500 })
       }
+
+      return NextResponse.json({ success: true })
+    }
+
+    case 'update_settings': {
+      const updates: Record<string, unknown> = {}
+      if (body.notification_mode) updates.notification_mode = body.notification_mode
+      if (body.digest_hour != null) updates.digest_hour = body.digest_hour
+      if (body.reply_style) updates.reply_style = body.reply_style
+      if (body.max_daily_posts != null) updates.max_daily_posts = body.max_daily_posts
+
+      if (Object.keys(updates).length === 0) {
+        return NextResponse.json({ success: false, error: 'No settings to update' }, { status: 400 })
+      }
+
+      await auth.sb
+        .from('sb_users')
+        .update(updates)
+        .eq('id', auth.dbUser.id)
 
       return NextResponse.json({ success: true })
     }

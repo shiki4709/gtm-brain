@@ -69,6 +69,8 @@ export default function WatchlistFeed() {
   const [draftReplies, setDraftReplies] = useState<Record<string, string>>({})
   const [copied, setCopied] = useState<string | null>(null)
   const [refineInput, setRefineInput] = useState<Record<string, string>>({}) // url → instruction
+  const [explanations, setExplanations] = useState<Record<string, string>>({}) // url → explanation
+  const [explainingUrl, setExplainingUrl] = useState<string | null>(null)
   const [refiningUrl, setRefiningUrl] = useState<string | null>(null)
 
   // Repurpose state
@@ -487,6 +489,27 @@ export default function WatchlistFeed() {
       if (json.reply) setDraftReplies(prev => ({ ...prev, [item.url]: json.reply }))
     } catch { /* silently fail */ }
     finally { setDraftingUrl(null) }
+  }
+
+  async function handleExplain(item: FeedItem) {
+    if (explanations[item.url]) {
+      // Toggle off
+      setExplanations(prev => { const next = { ...prev }; delete next[item.url]; return next })
+      return
+    }
+    setExplainingUrl(item.url)
+    try {
+      const resp = await fetch('/api/explain-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: item.text, author: item.author }),
+      })
+      const data = await resp.json()
+      if (data.explanation) {
+        setExplanations(prev => ({ ...prev, [item.url]: data.explanation }))
+      }
+    } catch { /* ignore */ }
+    setExplainingUrl(null)
   }
 
   async function handleRefineReply(item: FeedItem, instruction: string) {
@@ -1028,7 +1051,19 @@ export default function WatchlistFeed() {
                       <span className="text-[10px] text-accent font-bold uppercase tracking-wider">High priority</span>
                     )}
                   </div>
-                  <div className="text-xs text-ink-2 leading-relaxed mb-2">{item.text}</div>
+                  <div className="text-xs text-ink-2 leading-relaxed mb-1">{item.text}</div>
+                  <button
+                    onClick={() => handleExplain(item)}
+                    disabled={explainingUrl === item.url}
+                    className="text-[10px] text-ink-4 hover:text-accent mb-1 transition-colors"
+                  >
+                    {explainingUrl === item.url ? 'Thinking...' : explanations[item.url] ? 'Hide explanation' : '? Explain this'}
+                  </button>
+                  {explanations[item.url] && (
+                    <div className="text-[11px] text-ink-3 bg-[var(--bg)] rounded px-2.5 py-1.5 mb-2 leading-relaxed border border-rule">
+                      {explanations[item.url]}
+                    </div>
+                  )}
                   {item.engagement && (
                     <div className="flex gap-3 text-[11px] text-ink-4 mb-2">
                       {(item.engagement.likes ?? 0) > 0 && <span>{item.engagement.likes} likes</span>}

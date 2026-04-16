@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
+import { fetchRelevantTakes, takesToPrompt } from '@/lib/brain-context'
 
 // Find user's recent replies that got engagement and suggest expanding them into posts/threads
 
@@ -95,6 +96,9 @@ export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
   if (!apiKey) return NextResponse.json({ success: false, error: 'API not configured' }, { status: 500 })
 
+  const relevantTakes = await fetchRelevantTakes(auth.sb, auth.dbUser.id, replyText)
+  const takesNote = takesToPrompt(relevantTakes)
+
   const formatInstructions: Record<string, string> = {
     thread: `Expand into an X thread (4-6 tweets separated by ---).
 Each tweet max 270 chars. Hook must grab attention. Each tweet earns its spot.
@@ -121,6 +125,7 @@ Line break every 1-2 sentences. End with a question.`,
           content: `This reply got good engagement. Expand it into original content.
 
 ORIGINAL REPLY: "${replyText}"
+${takesNote}
 
 ${formatInstructions[format] ?? formatInstructions.thread}
 

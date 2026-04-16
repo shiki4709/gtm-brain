@@ -19,6 +19,7 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
   const isOnPipeline = path === '/find-leads'
   const isOnSettings = path === '/settings'
   const isOnMyContent = path === '/my-content'
+  const isOnSources = path === '/content-sources'
 
   return (
     <header className="bg-surface border-b border-rule">
@@ -49,6 +50,14 @@ export default function Nav({ userName, email, outboundBadge = 0, mode, onSignOu
                 }`}
               >
                 My Content
+              </Link>
+              <Link
+                href="/content-sources"
+                className={`font-head text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                  isOnSources ? 'text-ink bg-[var(--blue-tint)]' : 'text-ink-4 hover:text-ink-3 hover:bg-[var(--rule-light)]'
+                }`}
+              >
+                Sources
               </Link>
               {mode === 'b2b_outbound' && (
                 <Link

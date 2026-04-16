@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
+import { hasReplyContext, getReplyability } from '@/lib/scoring'
+
+const MAX_FEED_ITEMS = 15 // Show only the best posts, not a firehose
 
 // Cache feed results for 5 minutes per user
 const feedCache = new Map<string, { items: FeedItem[]; timestamp: number }>()
@@ -259,22 +262,29 @@ export async function GET(request: Request) {
     await Promise.all(topicPromises)
   }
 
-  // Only show posts from the last 24 hours
+  // Only show posts from the last 24 hours + filter out no-context posts
   const oneDayAgoMs = Date.now() - 24 * 60 * 60 * 1000
   const filtered = items.filter(item => {
     if (!item.time) return false
     const ts = new Date(item.time).getTime()
     if (isNaN(ts) || ts === 0) return false
     if (ts < oneDayAgoMs) return false
+    // Skip posts with no real context to reply to
+    if (!hasReplyContext(item.text)) return false
     return true
   })
 
-  // Sort by time (newest first)
-  filtered.sort((a, b) => {
-    const timeA = new Date(a.time).getTime()
-    const timeB = new Date(b.time).getTime()
-    return timeB - timeA
+  // Score and sort by quality (replyability + engagement + recency), not just time
+  const scored = filtered.map(item => {
+    const replyability = getReplyability(item.text)
+    const eng = (item.engagement?.likes ?? 0) + (item.engagement?.replies ?? 0) + (item.engagement?.retweets ?? 0)
+    const ageHours = Math.max(0.5, (Date.now() - new Date(item.time).getTime()) / 3600000)
+    const recencyBonus = Math.max(0, 1 - ageHours / 24)
+    const score = replyability * 60 + Math.min(eng, 200) * 0.3 + recencyBonus * 40
+    return { item, score }
   })
+  scored.sort((a, b) => b.score - a.score)
+  const ranked = scored.slice(0, MAX_FEED_ITEMS).map(s => s.item)
 
   // Update last_checked for all profiles
   const now = new Date().toISOString()
@@ -288,7 +298,7 @@ export async function GET(request: Request) {
     const firstKey = feedCache.keys().next().value
     if (firstKey !== undefined) feedCache.delete(firstKey)
   }
-  feedCache.set(cacheKey, { items: filtered, timestamp: Date.now() })
+  feedCache.set(cacheKey, { items: ranked, timestamp: Date.now() })
 
-  return NextResponse.json({ success: true, items: filtered, cached: false })
+  return NextResponse.json({ success: true, items: ranked, cached: false })
 }

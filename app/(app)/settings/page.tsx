@@ -103,6 +103,10 @@ export default function Settings() {
   const [notifTesting, setNotifTesting] = useState<string | null>(null)
   const [notifTimezone, setNotifTimezone] = useState('')
   const [notifSaving, setNotifSaving] = useState(false)
+  const [notifMode, setNotifMode] = useState<'realtime' | 'digest'>('realtime')
+  const [digestHour, setDigestHour] = useState(9)
+  const [replyStyle, setReplyStyle] = useState<'balanced' | 'spicy'>('balanced')
+  const [maxDailyPosts, setMaxDailyPosts] = useState(5)
   const [recentNotifications, setRecentNotifications] = useState<Array<{
     id: string; channel: string; post_url: string; action_type: string
     status: string; pushed_at: string; acted_at: string | null
@@ -146,6 +150,10 @@ export default function Settings() {
         setTelegramConnected(notifJson.telegramConnected ?? false)
         setTelegramLink(notifJson.telegramLink ?? '')
         setNotifTimezone(notifJson.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone)
+        setNotifMode(notifJson.notificationMode ?? 'realtime')
+        setDigestHour(notifJson.digestHour ?? 9)
+        setReplyStyle(notifJson.replyStyle ?? 'balanced')
+        setMaxDailyPosts(notifJson.maxDailyPosts ?? 5)
         setRecentNotifications(notifJson.recentNotifications ?? [])
       }
       if (voiceJson.success && voiceJson.profile) {
@@ -848,6 +856,109 @@ export default function Settings() {
             </select>
             <span className="text-xs text-ink-4">7am — 10pm only</span>
           </div>
+        </div>
+
+        {/* Notification mode */}
+        <div className="mb-4">
+          <div className="text-sm font-semibold text-ink mb-2">Notification mode</div>
+          <div className="flex gap-2">
+            {(['realtime', 'digest'] as const).map(m => (
+              <button
+                key={m}
+                className={`px-4 py-2 rounded-md text-sm border transition-colors ${notifMode === m ? 'bg-accent text-white border-accent' : 'bg-surface border-rule text-ink-3 hover:text-ink'}`}
+                onClick={async () => {
+                  setNotifMode(m)
+                  await fetch('/api/notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'update_settings', notification_mode: m }),
+                  })
+                }}
+              >
+                {m === 'realtime' ? '⚡ Realtime' : '📋 Daily digest'}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-ink-4 mt-1.5">
+            {notifMode === 'digest'
+              ? 'One daily summary with only the best posts to reply to.'
+              : 'Get notified throughout the day as good posts are found.'}
+          </p>
+        </div>
+
+        {/* Digest hour (only shown in digest mode) */}
+        {notifMode === 'digest' && (
+          <div className="mb-4">
+            <div className="text-sm font-semibold text-ink mb-2">Digest time</div>
+            <select
+              className="input py-2 px-3 text-sm"
+              value={digestHour}
+              onChange={async (e) => {
+                const h = parseInt(e.target.value)
+                setDigestHour(h)
+                await fetch('/api/notifications', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'update_settings', digest_hour: h }),
+                })
+              }}
+            >
+              {Array.from({ length: 16 }, (_, i) => i + 7).map(h => (
+                <option key={h} value={h}>{h === 12 ? '12:00 PM' : h > 12 ? `${h - 12}:00 PM` : `${h}:00 AM`}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Max daily posts */}
+        <div className="mb-4">
+          <div className="text-sm font-semibold text-ink mb-2">Max posts per day</div>
+          <select
+            className="input py-2 px-3 text-sm w-24"
+            value={maxDailyPosts}
+            onChange={async (e) => {
+              const n = parseInt(e.target.value)
+              setMaxDailyPosts(n)
+              await fetch('/api/notifications', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update_settings', max_daily_posts: n }),
+              })
+            }}
+          >
+            {[3, 5, 10, 15, 20].map(n => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+          <p className="text-xs text-ink-4 mt-1.5">Fewer = only the best. More = wider net.</p>
+        </div>
+
+        {/* Reply style */}
+        <div className="mb-4">
+          <div className="text-sm font-semibold text-ink mb-2">Reply style</div>
+          <div className="flex gap-2">
+            {(['balanced', 'spicy'] as const).map(s => (
+              <button
+                key={s}
+                className={`px-4 py-2 rounded-md text-sm border transition-colors ${replyStyle === s ? 'bg-accent text-white border-accent' : 'bg-surface border-rule text-ink-3 hover:text-ink'}`}
+                onClick={async () => {
+                  setReplyStyle(s)
+                  await fetch('/api/notifications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'update_settings', reply_style: s }),
+                  })
+                }}
+              >
+                {s === 'balanced' ? '⚖️ Balanced' : '🌶️ Spicy'}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-ink-4 mt-1.5">
+            {replyStyle === 'spicy'
+              ? 'Takes a stance, leads with contrarian angles. Less editing needed.'
+              : 'Mix of agree/disagree/extend. Safe but sometimes generic.'}
+          </p>
         </div>
 
       </Section>

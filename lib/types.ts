@@ -69,6 +69,9 @@ export interface NotificationChannel {
 
 export type UserMode = 'personal_brand' | 'b2b_outbound' | 'both'
 
+export type NotificationMode = 'realtime' | 'digest'
+export type ReplyStyle = 'balanced' | 'spicy'
+
 export interface SbUser {
   id: string
   email: string | null
@@ -82,6 +85,10 @@ export interface SbUser {
   mode: UserMode
   mode_set: boolean
   x_handle: string | null
+  notification_mode: NotificationMode // 'realtime' = push every 30min, 'digest' = one daily batch
+  digest_hour: number // 0-23, hour in user's timezone to send digest (default 9)
+  reply_style: ReplyStyle // 'balanced' = current behavior, 'spicy' = takes a stance
+  max_daily_posts: number // cap on posts per day (default 5 for digest, 15 for realtime)
   created_at: string
 }
 

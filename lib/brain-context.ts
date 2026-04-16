@@ -11,6 +11,13 @@ export interface BrainContext {
   readonly icpPattern: ReadonlyArray<IcpInsight>
   readonly bestDay: string | null
   readonly recentInsights: ReadonlyArray<string>
+  readonly userTakes: ReadonlyArray<UserTake>
+}
+
+export interface UserTake {
+  readonly topic: string
+  readonly opinion: string
+  readonly keywords: string[]
 }
 
 export type TaskType =
@@ -47,13 +54,14 @@ export async function fetchBrainContext(
   icpTitles: readonly string[] = []
 ): Promise<BrainContext> {
   // Run all queries in parallel — each is independent
-  const [topTopics, dmEffectiveness, icpPattern, bestDay, recentInsights] =
+  const [topTopics, dmEffectiveness, icpPattern, bestDay, recentInsights, userTakes] =
     await Promise.all([
       fetchTopTopics(sb, userId),
       fetchDmEffectiveness(sb, userId),
       fetchIcpPattern(sb, userId, icpTitles),
       fetchBestDay(sb, userId),
       fetchRecentInsights(sb, userId),
+      fetchUserTakes(sb, userId),
     ])
 
   return {
@@ -63,6 +71,7 @@ export async function fetchBrainContext(
     icpPattern,
     bestDay,
     recentInsights,
+    userTakes,
   }
 }
 
@@ -105,6 +114,13 @@ export function brainContextToPrompt(ctx: BrainContext): string {
     sections.push(
       `RECENT BRAIN INSIGHTS:\n${ctx.recentInsights.map((i) => `- ${i}`).join('\n')}`
     )
+  }
+
+  if (ctx.userTakes.length > 0) {
+    const takeLines = ctx.userTakes
+      .map((t) => `- On "${t.topic}": "${t.opinion}"`)
+      .join('\n')
+    sections.push(`YOUR REAL OPINIONS (use these — this is what you actually think):\n${takeLines}`)
   }
 
   if (sections.length === 0) {
@@ -282,6 +298,66 @@ async function fetchBestDay(
     .sort((a, b) => b.avg - a.avg)
 
   return sorted.length > 0 ? sorted[0].day : null
+}
+
+async function fetchUserTakes(
+  sb: SupabaseClient,
+  userId: string
+): Promise<ReadonlyArray<UserTake>> {
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: takes } = await sb
+    .from('sb_insights')
+    .select('insight_data')
+    .eq('user_id', userId)
+    .eq('insight_type', 'user_take')
+    .gte('generated_at', ninetyDaysAgo)
+    .order('generated_at', { ascending: false })
+    .limit(20)
+
+  if (!takes || takes.length === 0) return []
+
+  return takes.map((t) => {
+    const data = t.insight_data as { topic?: string; opinion?: string; keywords?: string[] }
+    return {
+      topic: data.topic ?? '',
+      opinion: data.opinion ?? '',
+      keywords: data.keywords ?? [],
+    }
+  }).filter((t) => t.topic && t.opinion)
+}
+
+// Fetch user takes filtered by relevance to specific text — for targeted injection
+export async function fetchRelevantTakes(
+  sb: SupabaseClient,
+  userId: string,
+  sourceText: string,
+  limit = 3
+): Promise<ReadonlyArray<UserTake>> {
+  const allTakes = await fetchUserTakes(sb, userId)
+  if (allTakes.length === 0) return []
+
+  const sourceWords = new Set(
+    sourceText.toLowerCase().split(/\W+/).filter((w) => w.length > 3)
+  )
+
+  // Score each take by keyword overlap with the source text
+  const scored = allTakes.map((take) => {
+    const matches = take.keywords.filter((k) => sourceWords.has(k.toLowerCase())).length
+    return { take, matches }
+  })
+
+  return scored
+    .filter((s) => s.matches > 0)
+    .sort((a, b) => b.matches - a.matches)
+    .slice(0, limit)
+    .map((s) => s.take)
+}
+
+// Format takes into a prompt string for direct injection
+export function takesToPrompt(takes: ReadonlyArray<UserTake>): string {
+  if (takes.length === 0) return ''
+  const lines = takes.map((t) => `- On "${t.topic}": "${t.opinion}"`).join('\n')
+  return `\nYOUR REAL OPINIONS (use these — this is what you actually think):\n${lines}`
 }
 
 async function fetchRecentInsights(

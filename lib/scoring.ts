@@ -40,20 +40,46 @@ export interface PostScore {
   icpRelevance: IcpRelevanceResult
   recommendation: ActionRecommendation
   finalScore: number
+  replyability: number // 0-1: how easy this post is to reply to
+  hasContext: boolean  // false = too vague/short to act on, should be hidden
 }
 
 // ═══ SPAM / NOISE FILTERS ═══
 
-export const SPAM_SIGNALS = /fan\s?meet|fan\s?ival|fancam|fanart|idol|k-?pop|bias|comeback|fancall|photocard|lightstick|aegyo|oppa|noona|ship\s?name|otp|stan|manga|anime|cosplay|horoscope|zodiac|♈|♉|♊|♋|♌|♍|♎|♏|♐|♑|♒|♓|cheek\s?kiss|shyly|😭😭|fot\b|geminifourth|lookkhunnoo|gmmtv|fourth\s?nattawat|gem\s?fourth|nattawat|praew|คั่นกู/i
+export const SPAM_SIGNALS = /fan\s?meet|fan\s?ival|fancam|fanart|idol|k-?pop|bias|comeback|fancall|photocard|lightstick|aegyo|oppa|noona|ship\s?name|otp|stan|manga|anime|cosplay|horoscope|zodiac|♈|♉|♊|♋|♌|♍|♎|♏|♐|♑|♒|♓|cheek\s?kiss|shyly|😭😭|fot\b|geminifourth|lookkhunnoo|gmmtv|fourth\s?nattawat|gem\s?fourth|nattawat|praew|คั่นกู|mercury\s*retrograde|birth\s*chart|sun\s*sign|moon\s*sign|rising\s*sign|astrology|tarot|natal\s*chart|star\s*sign/i
+
+// General non-tech personal context — catches "my name is Claude", "I'm a Gemini", etc.
+export const NAME_USAGE_SIGNALS = /\b(my name is|i'?m a|born in|birthday|born on|my sign)\b.*\b(gemini|claude|sage|bloom|aurora|titan)\b/i
 
 export const EMOJI_HEAVY = /(?:😭|😍|🥺|💕|💞|❤️|🫶|😆|🤣|💗|🥰|😘){3,}/
 
 export const TECH_CONTEXT = /\bapi\b|startup|saas|b2b|founder|shipped|deploy|code|developer|engineer|benchmark|token|context window|fine.?tun|inference|parameter|prompt|llm|ml\b|neural|training|dataset|vc\b|series [a-c]|ipo|revenue|arr\b|pipeline|funnel|conversion|product|launch|build|ship|growth|metric/i
 
-export const AMBIGUOUS_KEYWORDS = new Set(['gemini', 'claude', 'model', 'agents', 'agent'])
+// Ambiguous keywords: tech term vs common meaning
+// Each entry maps the keyword to noise signals that indicate non-tech usage
+// If ANY noise signal matches AND no tech context is found, the post is filtered
+export const AMBIGUOUS_KEYWORDS: Record<string, RegExp> = {
+  gemini: /season|energy|sun\b|moon\b|rising|traits|compatibility|vibes|woman|man|men|women|gang|squad|era|baby|♊|zodiac|astrology|horoscope|birth\s*chart|natal|star\s*sign/i,
+  claude: /my\s+(name|dog|cat|son|dad|brother|friend|boyfriend|husband)|claude\s+(the|is a|van|debussy|monet|rains)|saint.?claude/i,
+  model: /runway|fashion|shoot|photoshoot|portfolio|casting|supermodel|victoria.?s secret|catwalk|vogue|posing/i,
+  agents: /real\s*estate|travel\s*agent|insurance|booking|fbi|cia|secret\s*agent|double\s*agent|estate\s*agent|talent\s*agent/i,
+  agent: /real\s*estate|travel\s*agent|insurance|booking|fbi|cia|secret\s*agent|double\s*agent|estate\s*agent|talent\s*agent/i,
+  transformer: /optimus|megatron|bumblebee|decepticon|autobot|hasbro|movie|electrical|voltage|power\s*grid/i,
+  copilot: /cockpit|aviation|pilot\s*seat|co.?pilot.*plane|flight/i,
+  sage: /herb|spice|cooking|recipe|smudge|burning\s*sage|sage\s*green|sage\s*advice/i,
+  llama: /animal|farm|zoo|alpaca|wool|spit|cute\s*llama/i,
+  falcon: /bird|hunting|nest|peregrine|millennium\s*falcon|atlanta\s*falcon/i,
+  bloom: /flower|garden|spring|blossom|orlando\s*bloom/i,
+  palm: /tree|beach|hand|palm\s*reading|palm\s*springs|palm\s*oil/i,
+  bard: /shakespeare|poet|poetry|medieval|celtic/i,
+  titan: /greek|mythology|attack\s*on\s*titan|tennessee\s*titan/i,
+  aurora: /northern\s*lights|borealis|disney|princess|colorado/i,
+  mistral: /wind|weather|south\s*of\s*france|provence/i,
+}
 
 export function isSpamContent(text: string): boolean {
   if (SPAM_SIGNALS.test(text)) return true
+  if (NAME_USAGE_SIGNALS.test(text)) return true
   // Heavy emoji posts without any tech context = entertainment
   if (EMOJI_HEAVY.test(text) && !TECH_CONTEXT.test(text)) return true
   return false
@@ -124,9 +150,13 @@ export function getIcpRelevanceKeywords(text: string, config: UserScoringConfig)
   const exactMatches = trackKeywords.filter(kw => matchesWord(text, kw))
   if (exactMatches.length >= 2) return { score: 0.6, matchedTopic: exactMatches.slice(0, 2).join(', '), method: 'exact' }
   if (exactMatches.length === 1) {
-    // If the only match is an ambiguous keyword, require tech context
-    if (AMBIGUOUS_KEYWORDS.has(exactMatches[0].toLowerCase()) && !hasTechContext) {
-      return { score: 0, matchedTopic: null, method: 'none' }
+    // If the only match is an ambiguous keyword, check for noise signals or require tech context
+    const noisePattern = AMBIGUOUS_KEYWORDS[exactMatches[0].toLowerCase()]
+    if (noisePattern) {
+      // If noise signals present → definitely not tech
+      if (noisePattern.test(text)) return { score: 0, matchedTopic: null, method: 'none' }
+      // If no noise signals but also no tech context → too risky, skip
+      if (!hasTechContext) return { score: 0, matchedTopic: null, method: 'none' }
     }
     return { score: 0.4, matchedTopic: exactMatches[0], method: 'exact' }
   }
@@ -310,6 +340,49 @@ Score based on semantic meaning, not keyword matching.`,
   }
 }
 
+// ═══ REPLYABILITY — how easy is this post to reply to? ═══
+
+/** Returns 0-1 score for how "replyable" a post is */
+export function getReplyability(text: string): number {
+  let score = 0
+
+  // Questions are the easiest to reply to
+  if (/\?/.test(text)) score += 0.3
+
+  // Clear opinions/takes invite agreement or pushback
+  if (/\b(I think|I believe|unpopular opinion|hot take|controversial|IMO|my take|here'?s the thing|the truth is|stop saying|you don'?t need)\b/i.test(text)) score += 0.25
+
+  // Lists/frameworks/how-tos are easy to add to
+  if (/\b(step \d|tip[s ]?\d|\d\.\s|here'?s how|lessons? learned|mistake[s ]?\w+ make|things? I wish)\b/i.test(text)) score += 0.2
+
+  // Data/stats give you something concrete to respond to
+  if (/\d+%|\$[\d,]+[KMB]?|\dx\b|\d+x\b/i.test(text)) score += 0.15
+
+  // Longer posts with substance are easier to engage with
+  if (text.length >= 150) score += 0.1
+
+  return Math.min(1, score)
+}
+
+/** Returns false if the post lacks enough context to reply meaningfully */
+export function hasReplyContext(text: string): boolean {
+  const stripped = text.replace(/https?:\/\/\S+/g, '').replace(/@\w+/g, '').trim()
+
+  // Too short after removing links/mentions — nothing to reply to
+  if (stripped.length < 30) return false
+
+  // Just a link share with no commentary
+  if (/^https?:\/\/\S+\s*$/.test(text.trim())) return false
+
+  // Just emojis or single word
+  if (/^[\s\p{Emoji}\p{Emoji_Component}]+$/u.test(stripped)) return false
+
+  // "Check this out" / "This 👆" / "100%" type low-context posts
+  if (/^(this[.!]?|check this|so true|facts?|100%|exactly|yep|nah|lol|real|W take|L take)\s*[\p{Emoji}\p{Emoji_Component}]*$/iu.test(stripped)) return false
+
+  return true
+}
+
 // ═══ OPPORTUNITY SCORE ═══
 
 export function getOpportunityScore(post: ScoredPost): number {
@@ -390,6 +463,8 @@ export function scorePost(post: ScoredPost, config: UserScoringConfig): PostScor
   const icpRelevance = getIcpRelevance(post.text, config)
   const opportunityScore = getOpportunityScore(post)
   const recommendation = getRecommendation(post)
+  const replyability = getReplyability(post.text)
+  const context = hasReplyContext(post.text)
 
   // Apply behavior-learned boosts
   let behaviorMultiplier = 1
@@ -398,18 +473,19 @@ export function scorePost(post: ScoredPost, config: UserScoringConfig): PostScor
     if (boost) behaviorMultiplier = boost
   }
 
-  // Final score: ICP relevance (biggest factor) + opportunity + priority
+  // Final score: ICP relevance (biggest factor) + replyability + opportunity + priority
   const priorityScore = recommendation.actions[0]?.priority === 'high' ? 100
     : recommendation.actions[0]?.priority === 'medium' ? 30 : 1
   const totalEngagement = (post.engagement?.likes ?? 0) + (post.engagement?.replies ?? 0) + (post.engagement?.retweets ?? 0)
 
   const finalScore = (
     (icpRelevance.score > 0 ? 200 * icpRelevance.score : 0) +
+    replyability * 80 + // easy-to-reply posts get boosted even without high engagement
     priorityScore +
     totalEngagement * 0.1
   ) * behaviorMultiplier
 
-  return { opportunityScore, icpRelevance, recommendation, finalScore }
+  return { opportunityScore, icpRelevance, recommendation, finalScore, replyability, hasContext: context }
 }
 
 // ═══ BEHAVIOR TRACKING — learn from act/skip patterns ═══

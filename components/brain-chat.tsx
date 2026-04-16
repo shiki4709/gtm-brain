@@ -187,26 +187,90 @@ export default function BrainChat({ hotTopics, briefPatterns, briefLines, userNa
     finally { setExplaining(false) }
   }
 
+  function classifyMessage(text: string): 'explain' | 'take' | 'casual' | 'question' {
+    const lower = text.toLowerCase().trim()
+
+    // Explain requests
+    const explainPhrases = ['what do you mean', 'what is this', 'explain', 'i don\'t understand', 'idk', 'not sure what', 'can you explain', 'huh']
+    if (explainPhrases.some(p => lower.includes(p))) return 'explain'
+
+    // Questions — ends with ? or starts with question words
+    if (lower.endsWith('?') || /^(what|why|how|when|where|who|is it|does|do |can |could |should |would )/.test(lower)) return 'question'
+
+    // Casual / filler — short non-substantive replies
+    const casualPatterns = [
+      /^(ok|okay|k|sure|yep|yea|yeah|yes|no|nah|nope|cool|nice|true|right|exactly|totally|fair|agreed|lol|haha|hmm|ah|oh|ooh|wow|damn|got it|makes sense|i see|for sure|100|bet|facts|word|same|real|fr|tbh)\.?$/,
+      /^(thanks|thank you|thx|ty)\.?$/,
+      /^(interesting|that's interesting|good to know|noted)\.?$/,
+    ]
+    if (lower.length < 30 && casualPatterns.some(p => p.test(lower))) return 'casual'
+
+    // Everything else with substance is a take
+    return 'take'
+  }
+
   function handleSubmit() {
     const text = input.trim()
     if (!text) return
 
-    // Detect "explain" / "what do you mean" type responses
-    const explainPhrases = ['what do you mean', 'what is this', 'explain', 'i don\'t understand', 'idk', 'not sure what', 'can you explain', 'huh']
-    const isAskingExplain = explainPhrases.some(p => text.toLowerCase().includes(p))
+    const msgType = classifyMessage(text)
 
-    if (isAskingExplain) {
+    // Explain requests
+    if (msgType === 'explain') {
       setMessages(prev => [...prev, { role: 'user', text, type: 'answer' }])
       setInput('')
       handleExplain()
       return
     }
 
-    // Save answer with acknowledgment
+    // Questions — acknowledge and re-ask, don't save as take
+    if (msgType === 'question') {
+      setMessages(prev => [...prev, { role: 'user', text, type: 'answer' }])
+      setInput('')
+      const responses = [
+        'Good question. I\'m really looking for your opinion though.',
+        'That\'s worth exploring. But what\'s your gut feeling on this?',
+        'Fair question. What do you think, even if you\'re not sure?',
+      ]
+      setTimeout(() => {
+        setMessages(prev => [...prev, {
+          role: 'brain',
+          text: responses[Math.floor(Math.random() * responses.length)],
+          type: 'briefing',
+        }])
+      }, 300)
+      return
+    }
+
+    // Casual / filler — acknowledge and move on without saving
+    if (msgType === 'casual') {
+      setMessages(prev => [...prev, { role: 'user', text, type: 'answer' }])
+      setInput('')
+
+      const nextQ = currentQ + 1
+      if (nextQ < questions.length) {
+        setCurrentQ(nextQ)
+        setTimeout(() => {
+          setMessages(prev => [...prev,
+            { role: 'brain', text: 'No worries. Next one:', type: 'briefing' },
+          ])
+          setTimeout(() => {
+            setMessages(prev => [...prev,
+              { role: 'brain', text: questions[nextQ].question, type: 'question' },
+            ])
+          }, 400)
+        }, 300)
+      } else {
+        setTimeout(() => finishChat(), 300)
+      }
+      return
+    }
+
+    // Real take — save it
     setMessages(prev => [...prev, { role: 'user', text, type: 'answer' }])
     setInput('')
 
-    const acks = ['Got it.', 'Sharp take.', 'Noted.', 'Good point.', 'Interesting.', 'Saved.']
+    const acks = ['Got it.', 'Sharp take.', 'Noted.', 'Good point.', 'Saved.']
     const ack = acks[Math.floor(Math.random() * acks.length)]
 
     const nextQ = currentQ + 1
@@ -245,14 +309,15 @@ export default function BrainChat({ hotTopics, briefPatterns, briefLines, userNa
   }
 
   async function finishChat() {
-    // Collect all answered takes
+    // Collect only substantive takes — skip casual replies, questions, and skipped messages
     const takes: Array<{ topic: string; opinion: string; question: string; keywords: string[] }> = []
     let qIdx = 0
     for (const msg of messages) {
       if (msg.type === 'question' && msg.role === 'brain' && questions[qIdx]?.question === msg.text) {
         // Next user message should be the answer
       } else if (msg.type === 'answer' && msg.role === 'user' && msg.text !== '(skipped)') {
-        if (questions[qIdx]) {
+        const kind = classifyMessage(msg.text)
+        if (kind === 'take' && questions[qIdx]) {
           takes.push({
             topic: questions[qIdx].topic,
             opinion: msg.text,
@@ -266,7 +331,7 @@ export default function BrainChat({ hotTopics, briefPatterns, briefLines, userNa
       }
     }
     // Also check current input if last answer
-    if (input.trim() && questions[currentQ]) {
+    if (input.trim() && questions[currentQ] && classifyMessage(input.trim()) === 'take') {
       takes.push({
         topic: questions[currentQ].topic,
         opinion: input.trim(),

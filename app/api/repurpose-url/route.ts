@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/auth'
 import { getVoiceProfile, voiceToPrompt } from '@/lib/brand-voice'
+import { fetchRelevantTakes, takesToPrompt } from '@/lib/brain-context'
 
 // Fetch post text from a URL (X or LinkedIn) then repurpose it
 export async function POST(request: Request) {
@@ -56,8 +57,12 @@ export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
   if (!apiKey) return NextResponse.json({ success: false, error: 'API key not configured' }, { status: 500 })
 
-  const voiceProfile = await getVoiceProfile(auth.sb, auth.dbUser.id)
+  const [voiceProfile, relevantTakes] = await Promise.all([
+    getVoiceProfile(auth.sb, auth.dbUser.id),
+    fetchRelevantTakes(auth.sb, auth.dbUser.id, postText),
+  ])
   const voiceNote = voiceProfile ? `\n${voiceToPrompt(voiceProfile)}` : ''
+  const takesNote = takesToPrompt(relevantTakes)
 
   const ANTI_AI_RULES = `STRICT RULES:
 - NEVER use: delve, leverage, utilize, game-changer, unlock, cutting-edge, groundbreaking, remarkable, revolutionary, tapestry, illuminate, unveil, pivotal, intricate, hence, furthermore, moreover, realm, landscape, testament, harness, exciting, ever-evolving, foster, elevate, streamline, robust, seamless, synergy, holistic, paradigm, innovative, optimize, empower, curate, ecosystem, stakeholder, scalable, deep dive, double down, circle back, move the needle, craft, navigate, supercharge, boost, powerful, inquiries, stark, resonate, insightful
@@ -74,7 +79,7 @@ export async function POST(request: Request) {
   const targetFormats = format === 'all' || !format ? ['quote', 'thread', 'linkedin'] : [format]
   const combinedSystem = targetFormats.map(f => `[${f}]\n${PROMPTS[f] ?? ''}`).join('\n\n')
 
-  const userPrompt = `Repurpose this ${platform} post by @${author} into your own original content. Extract the core insight and make it yours.${voiceNote}
+  const userPrompt = `Repurpose this ${platform} post by @${author} into your own original content. Extract the core insight and make it yours.${voiceNote}${takesNote}
 
 SOURCE POST:
 "${postText}"

@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { scorePost, getIcpRelevanceWithHaiku, getIcpRelevanceWithProfile, getRecommendation } from '@/lib/scoring'
+import { scorePost, getIcpRelevanceWithHaiku, getIcpRelevanceWithProfile, getRecommendation, hasReplyContext, getReplyability } from '@/lib/scoring'
 import type { ScoredPost, UserScoringConfig } from '@/lib/scoring'
 import { buildUserProfile } from '@/lib/user-profile'
+import { fetchRelevantTakes, takesToPrompt } from '@/lib/brain-context'
+import { getVoiceProfile, voiceToPrompt } from '@/lib/brand-voice'
+import { X_REPLY_SKILL, LINKEDIN_REPLY_SKILL, ANTI_AI_RULES, SPICY_MODIFIER, enforceCharLimit } from '@/lib/reply-prompts'
+import type { NotificationMode, ReplyStyle } from '@/lib/types'
 
 // Cron scanner — runs every 30 min via GitHub Actions
 // Fetches posts from watched accounts + topic keywords
@@ -10,11 +14,11 @@ import { buildUserProfile } from '@/lib/user-profile'
 // Pushes top posts to connected notification channels
 
 const CRON_SECRET = process.env.CRON_SECRET ?? ''
-const MAX_PUSHES_PER_SCAN = 15
+const MAX_PUSHES_PER_SCAN = 5
 const DEDUP_WINDOW_DAYS = 7
 const WAKING_HOUR_START = 7
 const WAKING_HOUR_END = 22
-const MAX_PUSHES_PER_3H = 20
+const MAX_PUSHES_PER_3H = 10
 
 interface FeedItem {
   platform: 'linkedin' | 'x'
@@ -141,14 +145,29 @@ async function handleScan(request: Request) {
     const channels: Array<{ type: string; chat_id?: string; webhook_url?: string }> = user.notification_channels ?? []
     if (channels.length === 0) continue
 
-    // Check timezone — only push during waking hours
+    const notifMode: NotificationMode = user.notification_mode ?? 'realtime'
+    const digestHour: number = user.digest_hour ?? 9
+    const replyStyle: ReplyStyle = user.reply_style ?? 'balanced'
+    const maxDaily: number = user.max_daily_posts ?? (notifMode === 'digest' ? 5 : 10)
+
+    // Check timezone — only push during waking hours (realtime) or at digest hour (digest)
     const tz = user.timezone ?? 'America/New_York'
     try {
       const now = new Date()
       const localHour = parseInt(now.toLocaleString('en-US', { timeZone: tz, hour: 'numeric', hour12: false }))
-      if (localHour < WAKING_HOUR_START || localHour >= WAKING_HOUR_END) {
-        results.push({ userId: user.id, pushed: 0, skipped: 0 })
-        continue
+
+      if (notifMode === 'digest') {
+        // Digest mode: only send during the digest hour window (e.g. 9:00-9:29)
+        if (localHour !== digestHour) {
+          results.push({ userId: user.id, pushed: 0, skipped: 0 })
+          continue
+        }
+      } else {
+        // Realtime mode: respect waking hours
+        if (localHour < WAKING_HOUR_START || localHour >= WAKING_HOUR_END) {
+          results.push({ userId: user.id, pushed: 0, skipped: 0 })
+          continue
+        }
       }
     } catch {
       // Invalid timezone, proceed anyway
@@ -184,12 +203,30 @@ async function handleScan(request: Request) {
       .eq('user_id', user.id)
       .gte('pushed_at', threeHoursAgo)
 
+    // Check daily push count for digest mode cap
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const { count: dailyPushCount } = await sb
+      .from('sb_notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('pushed_at', todayStart.toISOString())
+
+    if ((dailyPushCount ?? 0) >= maxDaily) {
+      results.push({ userId: user.id, pushed: 0, skipped: 0 })
+      continue
+    }
+
     if ((recentPushCount ?? 0) >= MAX_PUSHES_PER_3H) {
       results.push({ userId: user.id, pushed: 0, skipped: 0 })
       continue
     }
 
-    const remainingSlots = Math.min(MAX_PUSHES_PER_SCAN, MAX_PUSHES_PER_3H - (recentPushCount ?? 0))
+    const remainingSlots = Math.min(
+      notifMode === 'digest' ? maxDaily : MAX_PUSHES_PER_SCAN,
+      MAX_PUSHES_PER_3H - (recentPushCount ?? 0),
+      maxDaily - (dailyPushCount ?? 0),
+    )
 
     // Fetch posts from watched accounts + topics
     const posts = await fetchPosts(watchlist, user.icp_config?.track_keywords ?? [])
@@ -240,6 +277,9 @@ async function handleScan(request: Request) {
         : await getIcpRelevanceWithHaiku(post.text, config.icpTitles, config.trackKeywords)
       const rec = getRecommendation(post)
 
+      // Skip posts with no real context to reply to
+      if (!hasReplyContext(post.text)) return null
+
       // Skip posts with no real actions
       if (rec.actions[0]?.type === 'skip') return null
 
@@ -256,7 +296,9 @@ async function handleScan(request: Request) {
         ? 1.15
         : 1.0
 
+      const replyability = getReplyability(post.text)
       const finalScore = ((haikuRelevance.score > 0 ? 200 * haikuRelevance.score : 0) +
+        replyability * 80 + // boost easy-to-reply posts
         (rec.actions[0]?.priority === 'high' ? 100 : rec.actions[0]?.priority === 'medium' ? 30 : 1) +
         opportunityScore * 10) * topicBoost
 
@@ -269,11 +311,50 @@ async function handleScan(request: Request) {
       .sort((a, b) => b.finalScore - a.finalScore)
       .slice(0, remainingSlots)
 
-    // Push to all connected channels
-    let pushed = 0
+    // Fetch voice profile + top replies ONCE per user (not per post)
+    const voiceProfile = await getVoiceProfile(sb, user.id)
+    const voicePrompt = voiceProfile ? voiceToPrompt(voiceProfile) : ''
+
+    // Fetch user's best-performing replies for tone matching
+    let topRepliesContext = ''
+    const xHandle = user.x_handle
+    const socialDataKeyLocal = process.env.SOCIALDATA_API_KEY ?? ''
+    if (xHandle && socialDataKeyLocal) {
+      try {
+        const resp = await fetch(
+          `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(`from:${xHandle}`)}&type=Latest`,
+          {
+            headers: { Authorization: `Bearer ${socialDataKeyLocal}`, Accept: 'application/json' },
+            signal: AbortSignal.timeout(5000),
+          }
+        )
+        if (resp.ok) {
+          const data = await resp.json()
+          const replies = (data.tweets ?? [])
+            .filter((tw: Record<string, unknown>) => tw.in_reply_to_status_id_str)
+            .map((tw: Record<string, unknown>) => ({
+              text: ((tw.full_text ?? tw.text ?? '') as string).replace(/^@\w+\s*/g, '').trim(),
+              likes: (tw.favorite_count as number) ?? 0,
+            }))
+            .filter((r: { text: string; likes: number }) => r.likes >= 3 && r.text.length >= 20)
+            .sort((a: { likes: number }, b: { likes: number }) => b.likes - a.likes)
+            .slice(0, 3)
+
+          if (replies.length > 0) {
+            topRepliesContext = `\nYOUR TOP-PERFORMING REPLIES (match this tone and style):\n${replies.map((r: { text: string; likes: number }) => `- "${r.text}" (${r.likes} likes)`).join('\n')}\nWrite in the same voice, length, and approach as these successful replies.`
+          }
+        }
+      } catch { /* skip */ }
+    }
+
+    const draftCtx: DraftReplyContext = { voicePrompt, topReplies: topRepliesContext, replyStyle }
+
+    // Generate drafts for all top posts
+    const postsWithDrafts: Array<{ post: FeedItem; haikuRelevance: { score: number; matchedTopic: string | null }; rec: ReturnType<typeof getRecommendation>; draftReply: string | null }> = []
     for (const { post, haikuRelevance, rec } of topPosts) {
-      // Always draft a reply — this is a reply-focused bot
-      const draftReply = await generateDraftReply(post)
+      const relevantTakes = await fetchRelevantTakes(sb, user.id, post.text, 2)
+      const draftReply = await generateDraftReply(post, takesToPrompt(relevantTakes), draftCtx)
+      postsWithDrafts.push({ post, haikuRelevance, rec, draftReply })
 
       // Save to sb_notifications
       await sb.from('sb_notifications').insert({
@@ -285,18 +366,34 @@ async function handleScan(request: Request) {
         score: Math.round(haikuRelevance.score * 100) / 100,
         status: 'pushed',
       })
+    }
 
-      // Push to each channel
+    // Push to channels — digest mode batches into one message, realtime sends individually
+    let pushed = 0
+    if (notifMode === 'digest' && postsWithDrafts.length > 0) {
+      // Send one batched digest message
       for (const channel of channels) {
         if (channel.type === 'telegram' && channel.chat_id) {
-          await pushToTelegram(channel.chat_id, post, rec, haikuRelevance, draftReply)
+          await pushDigestToTelegram(channel.chat_id, postsWithDrafts)
         }
         if (channel.type === 'slack' && channel.webhook_url) {
-          await pushToSlack(channel.webhook_url, post, rec, haikuRelevance, draftReply)
+          await pushDigestToSlack(channel.webhook_url, postsWithDrafts)
         }
       }
-
-      pushed++
+      pushed = postsWithDrafts.length
+    } else {
+      // Realtime: send each post individually
+      for (const { post, haikuRelevance, rec, draftReply } of postsWithDrafts) {
+        for (const channel of channels) {
+          if (channel.type === 'telegram' && channel.chat_id) {
+            await pushToTelegram(channel.chat_id, post, rec, haikuRelevance, draftReply)
+          }
+          if (channel.type === 'slack' && channel.webhook_url) {
+            await pushToSlack(channel.webhook_url, post, rec, haikuRelevance, draftReply)
+          }
+        }
+        pushed++
+      }
     }
 
     results.push({ userId: user.id, pushed, skipped: freshPosts.length - pushed })
@@ -419,9 +516,28 @@ async function fetchPosts(
 
 // ═══ DRAFT REPLY ═══
 
-async function generateDraftReply(post: FeedItem): Promise<string | null> {
+interface DraftReplyContext {
+  readonly voicePrompt: string
+  readonly topReplies: string
+  readonly replyStyle: ReplyStyle
+}
+
+async function generateDraftReply(
+  post: FeedItem,
+  userTakesContext = '',
+  ctx: DraftReplyContext = { voicePrompt: '', topReplies: '', replyStyle: 'balanced' },
+): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
   if (!apiKey) return null
+
+  const isLinkedIn = post.platform === 'linkedin'
+  const replySkill = isLinkedIn ? LINKEDIN_REPLY_SKILL : X_REPLY_SKILL
+  const charLimit = isLinkedIn ? 600 : 280
+  const spicyBlock = ctx.replyStyle === 'spicy' ? `\n${SPICY_MODIFIER}\n` : ''
+
+  // Pick a random structure to vary replies
+  const structures = ['REFRAME', 'STACK', 'PROOF', 'QUESTION', 'ONE-LINER']
+  const picked = structures[Math.floor(Math.random() * structures.length)]
 
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -433,28 +549,31 @@ async function generateDraftReply(post: FeedItem): Promise<string | null> {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 150,
+        max_tokens: isLinkedIn ? 300 : 200,
         messages: [{
           role: 'user',
-          content: `Write a reply to this ${post.platform === 'x' ? 'tweet' : 'post'} by ${post.author}:
+          content: `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'} by ${post.author}:
 
-"${post.text.substring(0, 300)}"
+"${post.text.substring(0, 400)}"
+${ctx.voicePrompt ? `\n${ctx.voicePrompt}` : ''}${ctx.topReplies ? `\n${ctx.topReplies}` : ''}${userTakesContext ? `\n${userTakesContext}` : ''}${spicyBlock}
 
-Rules:
-- 1-2 sentences, under 200 characters
-- Use contractions, short sentences
-- Reference something specific from the post
-- Add value: data point, experience, or question
-- NEVER start with "Great insight!", "So true!", "Love this!"
-- Sound human, not like a bot
-- Output ONLY the reply text`,
+Vary your approach — sometimes agree and extend, sometimes challenge, sometimes ask a sharp question. Do NOT default to the same angle every time.
+NEVER prefix your reply with a label like "Reframe:", "Counterpoint:", "The real issue is". Just say it directly.
+
+${replySkill}
+
+${ANTI_AI_RULES}
+${isLinkedIn ? '- Keep it 20-60 words (2-4 sentences). Must be over 15 words.' : '- Keep it under 280 characters.'}
+
+Output ONLY the ${isLinkedIn ? 'comment' : 'reply'} text. Nothing else.`,
         }],
       }),
     })
 
     if (!resp.ok) return null
     const result = await resp.json()
-    return (result.content?.[0]?.text ?? '').trim() || null
+    const raw = (result.content?.[0]?.text ?? '').trim()
+    return raw ? enforceCharLimit(raw, charLimit) : null
   } catch {
     return null
   }
@@ -561,4 +680,75 @@ async function pushToSlack(
       body: JSON.stringify({ blocks }),
     })
   } catch (e) { console.error('Slack push failed:', e) }
+}
+
+// ═══ DIGEST PUSH — batched daily summary ═══
+
+interface DigestItem {
+  readonly post: FeedItem
+  readonly haikuRelevance: { score: number; matchedTopic: string | null }
+  readonly rec: ReturnType<typeof getRecommendation>
+  readonly draftReply: string | null
+}
+
+async function pushDigestToTelegram(chatId: string, items: readonly DigestItem[]) {
+  const token = process.env.TELEGRAM_BOT_TOKEN ?? ''
+  if (!token) return
+
+  let text = `📋 *Your daily GTM digest* — ${items.length} post${items.length === 1 ? '' : 's'} worth replying to:\n\n`
+
+  for (let i = 0; i < items.length; i++) {
+    const { post, haikuRelevance, draftReply } = items[i]
+    const platformEmoji = post.platform === 'linkedin' ? '🔵' : '🟠'
+    const eng = (post.engagement?.likes ?? 0) + (post.engagement?.replies ?? 0) + (post.engagement?.retweets ?? 0)
+    const topicTag = haikuRelevance.matchedTopic ? ` · ${haikuRelevance.matchedTopic}` : ''
+
+    text += `${i + 1}. ${platformEmoji} *${post.author}*${topicTag}\n`
+    text += `"${post.text.substring(0, 120)}${post.text.length > 120 ? '...' : ''}"\n`
+    text += `${eng} engagers`
+    if (draftReply) text += `\n💬 _${draftReply}_`
+    text += `\n[Open](${post.url})\n\n`
+  }
+
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'Markdown',
+        disable_web_page_preview: true,
+      }),
+    })
+  } catch (e) { console.error('Telegram digest push failed:', e) }
+}
+
+async function pushDigestToSlack(webhookUrl: string, items: readonly DigestItem[]) {
+  const blocks: unknown[] = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: `📋 Your daily GTM digest — ${items.length} posts` },
+    },
+  ]
+
+  for (const { post, haikuRelevance, draftReply } of items) {
+    const eng = (post.engagement?.likes ?? 0) + (post.engagement?.replies ?? 0) + (post.engagement?.retweets ?? 0)
+    const topicTag = haikuRelevance.matchedTopic ? ` · ${haikuRelevance.matchedTopic}` : ''
+    let postText = `*${post.author}* on ${post.platform === 'linkedin' ? 'LinkedIn' : 'X'}${topicTag}\n"${post.text.substring(0, 150)}${post.text.length > 150 ? '...' : ''}"\n${eng} engagers`
+    if (draftReply) postText += `\n💬 _${draftReply}_`
+
+    blocks.push(
+      { type: 'divider' },
+      { type: 'section', text: { type: 'mrkdwn', text: postText }, accessory: { type: 'button', text: { type: 'plain_text', text: '🔗 Open' }, url: post.url } },
+    )
+  }
+
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blocks }),
+    })
+  } catch (e) { console.error('Slack digest push failed:', e) }
 }
