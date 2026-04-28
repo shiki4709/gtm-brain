@@ -4,6 +4,7 @@ import { callClaude, parseClaudeJson } from '@/lib/claude'
 import { fetchBrainContext, brainContextToPrompt } from '@/lib/brain-context'
 import { runPipeline, step } from '@/lib/pipeline'
 import { logPipelineRun } from '@/lib/feedback'
+import { getProductContext, productContextToPrompt } from '@/lib/product-context'
 
 interface DraftRequest {
   readonly lead_id?: string
@@ -46,14 +47,18 @@ export async function POST(request: Request) {
   const firstName = name ? name.split(' ')[0] : ''
 
   try {
-    const brainContext = await fetchBrainContext(
-      auth.sb,
-      auth.dbUser.id,
-      'dm_drafting',
-      auth.dbUser.icp_config?.titles ?? []
-    )
+    const [brainContext, productContext] = await Promise.all([
+      fetchBrainContext(
+        auth.sb,
+        auth.dbUser.id,
+        'dm_drafting',
+        auth.dbUser.icp_config?.titles ?? []
+      ),
+      getProductContext(auth.sb, auth.dbUser.id),
+    ])
 
     const brainPrompt = brainContextToPrompt(brainContext)
+    const productPrompt = productContextToPrompt(productContext)
 
     const dmPipeline = [
       // Step 1: Analyze — pick the best angle based on brain data + lead context
@@ -62,6 +67,7 @@ export async function POST(request: Request) {
           `You are a DM strategist. Pick the best approach for this LinkedIn message.
 
 ${brainPrompt}
+${productPrompt}
 
 LEAD CONTEXT:
 - Name: ${name}

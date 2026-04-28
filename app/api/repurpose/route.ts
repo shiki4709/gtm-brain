@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/auth'
 import { getVoiceProfile, voiceToPrompt } from '@/lib/brand-voice'
 import { SYSTEM_PROMPTS } from '@/lib/repurpose-prompts'
 import { fetchRelevantTakes, takesToPrompt } from '@/lib/brain-context'
+import { getProductContext, productContextToPrompt } from '@/lib/product-context'
 
 export async function POST(request: Request) {
   const auth = await getAuthUser()
@@ -22,20 +23,24 @@ export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY ?? ''
   if (!apiKey) return NextResponse.json({ success: false, error: 'API key not configured' }, { status: 500 })
 
-  // Voice profile + relevant takes
-  const [voiceProfile, relevantTakes] = await Promise.all([
+  // Voice profile + relevant takes + product context
+  const [voiceProfile, relevantTakes, productContext] = await Promise.all([
     getVoiceProfile(auth.sb, auth.dbUser.id),
     fetchRelevantTakes(auth.sb, auth.dbUser.id, text),
+    getProductContext(auth.sb, auth.dbUser.id),
   ])
   const voiceNote = voiceProfile ? `\n${voiceToPrompt(voiceProfile)}` : ''
   const takesNote = takesToPrompt(relevantTakes)
+  const productNote = productContextToPrompt(productContext)
+    ? `\n${productContextToPrompt(productContext)}`
+    : ''
 
   // Determine what to generate based on format param
   const targetFormats = format === 'all' || !format
     ? (platforms ?? ['linkedin', 'x'])  // legacy: generate for each platform
     : [format]
 
-  const userPrompt = `Repurpose this ${sourcePlatform === 'x' ? 'tweet' : 'LinkedIn post'} by ${author} into your own original content. Don't copy the original, extract the core insight and make it yours.${voiceNote}${takesNote}
+  const userPrompt = `Repurpose this ${sourcePlatform === 'x' ? 'tweet' : 'LinkedIn post'} by ${author} into your own original content. Don't copy the original, extract the core insight and make it yours.${voiceNote}${productNote}${takesNote}
 
 SOURCE POST:
 "${text}"

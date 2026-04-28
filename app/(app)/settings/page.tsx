@@ -95,6 +95,16 @@ export default function Settings() {
   const [voiceError, setVoiceError] = useState('')
 
 
+  // Product context
+  const [productWhat, setProductWhat] = useState('')
+  const [productWho, setProductWho] = useState('')
+  const [productPain, setProductPain] = useState('')
+  const [productDiff, setProductDiff] = useState('')
+  const [productCta, setProductCta] = useState('')
+  const [productSaving, setProductSaving] = useState(false)
+  const [productSaved, setProductSaved] = useState(false)
+  const [productError, setProductError] = useState('')
+
   // Notifications
   const [notifChannels, setNotifChannels] = useState<Array<{ type: string; chat_id?: string; webhook_url?: string; paused?: boolean }>>([])
   const [telegramConnected, setTelegramConnected] = useState(false)
@@ -128,8 +138,9 @@ export default function Settings() {
       safeFetch('/api/watchlist'),
       safeFetch('/api/goals'),
       safeFetch('/api/voice-profile'),
+      safeFetch('/api/product-context'),
       safeFetch('/api/notifications'),
-    ]).then(([userJson, wlJson, goalsJson, voiceJson, notifJson]) => {
+    ]).then(([userJson, wlJson, goalsJson, voiceJson, productJson, notifJson]) => {
       if (userJson.success && userJson.data) {
         const u = userJson.data as UserData
         setUser(u)
@@ -164,6 +175,16 @@ export default function Settings() {
         else if (vp.tone) setVoiceSamples(`${vp.tone}. ${vp.sentenceStyle ?? ''}. ${vp.vocabulary ?? ''}`.trim())
         if (vp.avoid) setVoiceAvoid(vp.avoid)
         if ((vp as Record<string, unknown>).persona) setVoicePersona((vp as Record<string, unknown>).persona as string)
+      }
+
+      if (productJson.success && productJson.context) {
+        const pc = productJson.context
+        if (pc.whatYouSell) setProductWhat(pc.whatYouSell)
+        if (pc.whoItsFor) setProductWho(pc.whoItsFor)
+        if (pc.painPoints) setProductPain(pc.painPoints)
+        if (pc.differentiator) setProductDiff(pc.differentiator)
+        if (pc.cta) setProductCta(pc.cta)
+        setProductSaved(true)
       }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
@@ -512,6 +533,108 @@ export default function Settings() {
             {voiceProfile && <span className="text-[11px] text-[var(--green)]">Voice profile active</span>}
           </div>
           {voiceError && <div className="text-xs text-orange mt-2">{voiceError}</div>}
+        </div>
+      </Section>
+
+      {/* What you sell */}
+      <Section title="What you sell">
+        <p className="text-xs text-ink-4 mb-4">
+          Describe your product or service. The brain uses this to align all content with what you&apos;re building — without turning posts into ads.
+        </p>
+
+        <div className="card-flat p-4 space-y-4">
+          <div>
+            <label htmlFor="product-what" className="font-head text-xs font-semibold text-ink block mb-1.5">What are you selling?</label>
+            <textarea
+              id="product-what"
+              className="input w-full min-h-[60px] text-xs leading-relaxed"
+              placeholder="e.g. AI-powered GTM tool that helps solo founders find and engage their ideal buyers on LinkedIn and X"
+              value={productWhat}
+              onChange={e => setProductWhat(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="product-who" className="font-head text-xs font-semibold text-ink block mb-1.5">Who is it for?</label>
+            <input
+              id="product-who"
+              className="input w-full text-xs"
+              placeholder="e.g. Solo founders and early-stage GTM teams who can't afford a sales team"
+              value={productWho}
+              onChange={e => setProductWho(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="product-pain" className="font-head text-xs font-semibold text-ink block mb-1.5">What pain does it solve?</label>
+            <textarea
+              id="product-pain"
+              className="input w-full min-h-[48px] text-xs leading-relaxed"
+              placeholder="e.g. Spending hours manually finding leads on LinkedIn, writing generic DMs that get ignored, no system for tracking what works"
+              value={productPain}
+              onChange={e => setProductPain(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="product-diff" className="font-head text-xs font-semibold text-ink block mb-1.5">What makes it different?</label>
+            <input
+              id="product-diff"
+              className="input w-full text-xs"
+              placeholder="e.g. Learns from your engagement data — gets smarter the more you use it"
+              value={productDiff}
+              onChange={e => setProductDiff(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="product-cta" className="font-head text-xs font-semibold text-ink block mb-1.5">What do you want people to do?</label>
+            <input
+              id="product-cta"
+              className="input w-full text-xs"
+              placeholder="e.g. Book a demo, try the free tier, DM me for access"
+              value={productCta}
+              onChange={e => setProductCta(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              className="btn-primary"
+              disabled={productSaving || !productWhat.trim()}
+              onClick={async () => {
+                setProductSaving(true)
+                setProductError('')
+                try {
+                  const res = await fetch('/api/product-context', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      whatYouSell: productWhat.trim(),
+                      whoItsFor: productWho.trim(),
+                      painPoints: productPain.trim(),
+                      differentiator: productDiff.trim(),
+                      cta: productCta.trim(),
+                    }),
+                  })
+                  const json = await res.json()
+                  if (json.success) {
+                    setProductSaved(true)
+                  } else {
+                    setProductError(json.error ?? 'Failed to save')
+                  }
+                } catch {
+                  setProductError('Failed to connect')
+                } finally {
+                  setProductSaving(false)
+                }
+              }}
+            >
+              {productSaving ? 'Saving...' : productSaved ? 'Update product' : 'Save product'}
+            </button>
+            {productSaved && <span className="text-[11px] text-[var(--green)]">Product context active</span>}
+          </div>
+          {productError && <div className="text-xs text-orange mt-2">{productError}</div>}
         </div>
       </Section>
 

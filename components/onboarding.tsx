@@ -27,7 +27,7 @@ const SUGGESTED_EXCLUDES = [
 ]
 
 export default function Onboarding({ onComplete, initialTitles, initialExcludes }: OnboardingProps) {
-  const [step, setStep] = useState<1 | 2 | 3 | '1b'>(initialTitles ? 2 : 1)
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | '1b'>(initialTitles ? 2 : 1)
   const [problem, setProblem] = useState('')
   const [clarifyQuestions, setClarifyQuestions] = useState<string[]>([])
   const [clarifyAnswers, setClarifyAnswers] = useState<string[]>([])
@@ -40,6 +40,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
   const [excludeInput, setExcludeInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [productWhat, setProductWhat] = useState('')
   const [suggestedTitles, setSuggestedTitles] = useState<string[]>(SUGGESTED_TITLES)
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const isEditing = !!initialTitles
@@ -130,7 +131,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
     setExcludes(excludes.filter(t => t !== text))
   }
 
-  async function handleSubmit() {
+  async function saveIcpAndContinue() {
     if (titles.length === 0) {
       setError('Add at least one target title')
       return
@@ -145,6 +146,29 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
       })
       const json = await res.json()
       if (!json.success) { setError(json.error ?? 'Something went wrong'); return }
+      if (isEditing) { onComplete(); return }
+      setStep(4)
+    } catch {
+      setError('Failed to save. Check your connection.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSubmit() {
+    setSaving(true)
+    setError('')
+    try {
+      // Save product context if provided
+      if (productWhat.trim()) {
+        const res = await fetch('/api/product-context', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ whatYouSell: productWhat.trim() }),
+        })
+        const json = await res.json()
+        if (!json.success) { setError(json.error ?? 'Failed to save product'); return }
+      }
       onComplete()
     } catch {
       setError('Failed to save. Check your connection.')
@@ -169,7 +193,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
         {/* Step indicator */}
         {!isEditing && (
           <div className="flex items-center justify-center gap-2 mb-6">
-            {[1, 2, 3].map(s => (
+            {[1, 2, 3, 4].map(s => (
               <div key={s} className={`w-2 h-2 rounded-full transition-colors ${
                 (s === step || (s === 1 && step === '1b')) ? 'bg-accent' : (typeof step === 'number' && s < step) || (step === '1b' && s < 1) ? 'bg-green' : 'bg-[var(--rule)]'
               }`} />
@@ -390,7 +414,7 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
             {!isEditing && (
               <button onClick={() => setStep(1)} className="btn-outline px-6 py-3 text-sm">Back</button>
             )}
-            <button onClick={() => isEditing ? handleSubmit() : setStep(3)} disabled={titles.length === 0}
+            <button onClick={() => isEditing ? saveIcpAndContinue() : setStep(3)} disabled={titles.length === 0}
               className="btn-primary flex-1 py-3 text-sm">
               {isEditing
                 ? (saving ? 'Saving...' : `Save ${titles.length} title${titles.length === 1 ? '' : 's'}`)
@@ -444,9 +468,9 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
 
           <div className="flex gap-3">
             <button onClick={() => setStep(2)} className="btn-outline px-6 py-3 text-sm">Back</button>
-            <button onClick={handleSubmit} disabled={saving || titles.length === 0}
+            <button onClick={saveIcpAndContinue} disabled={saving || titles.length === 0}
               className="btn-primary flex-1 py-3 text-sm">
-              {saving ? 'Setting up...' : `Start with ${titles.length} title${titles.length === 1 ? '' : 's'}`}
+              {saving ? 'Saving...' : 'Next — your product'}
             </button>
           </div>
 
@@ -454,6 +478,68 @@ export default function Onboarding({ onComplete, initialTitles, initialExcludes 
             The brain refines your ICP over time. You can always edit these later.
           </p>
         </div>
+      )}
+
+      {/* Step 4: What are you selling? (optional) */}
+      {step === 4 && (
+        <>
+          <div className="text-center mb-10">
+            <h1 className="font-head text-2xl font-bold text-ink mb-2">
+              What are you selling?
+            </h1>
+            <p className="text-sm text-ink-3 max-w-sm mx-auto mb-2">
+              Describe your product or service so the brain can align all content with your narrative.
+            </p>
+            <p className="text-[11px] text-ink-4 max-w-sm mx-auto mb-8">
+              This is optional — you can add it later in settings. The brain won&apos;t turn your posts into ads.
+            </p>
+          </div>
+
+          <div className="text-left">
+            <textarea
+              className="input w-full min-h-[100px] text-sm leading-relaxed mb-4"
+              placeholder="e.g. I'm building an AI-powered GTM tool that helps solo founders find their ideal buyers on LinkedIn and X. It learns from your engagement data and gets smarter over time."
+              aria-label="What are you selling"
+              value={productWhat}
+              onChange={e => setProductWhat(e.target.value)}
+              autoFocus
+            />
+
+            <div className="brain-card text-left mb-6">
+              <div className="section-label mb-2">How the brain uses this</div>
+              <div className="flex flex-col gap-2 text-xs text-ink-3 leading-relaxed">
+                <div className="flex gap-3">
+                  <span className="text-accent font-bold shrink-0">1.</span>
+                  <span>Your replies and posts will reflect expertise in your product&apos;s problem space</span>
+                </div>
+                <div className="flex gap-3">
+                  <span className="text-accent font-bold shrink-0">2.</span>
+                  <span>Content angles will align with what your audience cares about</span>
+                </div>
+                <div className="flex gap-3">
+                  <span className="text-accent font-bold shrink-0">3.</span>
+                  <span>DMs will have context about what you do — without being salesy</span>
+                </div>
+              </div>
+            </div>
+
+            {error && (
+              <div className="text-sm text-[var(--accent-orange)] mb-4" role="alert">{error}</div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={() => setStep(3)} className="btn-outline px-6 py-3 text-sm">Back</button>
+              <button onClick={handleSubmit} disabled={saving}
+                className="btn-primary flex-1 py-3 text-sm">
+                {saving ? 'Setting up...' : productWhat.trim() ? 'Start with product context' : 'Skip for now'}
+              </button>
+            </div>
+
+            <p className="text-center text-xs text-ink-4 mt-4">
+              You can update this anytime in Settings → What you sell.
+            </p>
+          </div>
+        </>
       )}
     </div>
   )

@@ -237,3 +237,11 @@ export interface FollowerDelta {
   current: number | null
   delta7d: number | null
 }
+
+export interface ProductContext {
+  readonly whatYouSell: string // product/service description
+  readonly whoItsFor: string // target audience in their words
+  readonly painPoints: string // key problems it solves
+  readonly differentiator: string // what makes it different
+  readonly cta: string // what you want people to do (book a call, try free, etc.)
+}

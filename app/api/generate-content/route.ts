@@ -5,6 +5,7 @@ import { fetchBrainContext, brainContextToPrompt } from '@/lib/brain-context'
 import { runPipeline, step } from '@/lib/pipeline'
 import { logPipelineRun } from '@/lib/feedback'
 import { getVoiceProfile, voiceToPrompt } from '@/lib/brand-voice'
+import { getProductContext, productContextToPrompt } from '@/lib/product-context'
 
 interface GenerateRequest {
   readonly source: string
@@ -38,8 +39,8 @@ export async function POST(request: Request) {
   const requestedPlatforms = platforms ?? ['linkedin', 'x']
 
   try {
-    // Fetch brain context + voice profile in parallel
-    const [brainContext, voiceProfile] = await Promise.all([
+    // Fetch brain context + voice profile + product context in parallel
+    const [brainContext, voiceProfile, productContext] = await Promise.all([
       fetchBrainContext(
         auth.sb,
         auth.dbUser.id,
@@ -47,10 +48,12 @@ export async function POST(request: Request) {
         auth.dbUser.icp_config?.titles ?? []
       ),
       getVoiceProfile(auth.sb, auth.dbUser.id),
+      getProductContext(auth.sb, auth.dbUser.id),
     ])
 
     const brainPrompt = brainContextToPrompt(brainContext)
     const voicePrompt = voiceToPrompt(voiceProfile)
+    const productPrompt = productContextToPrompt(productContext)
 
     // Define pipeline: research → angle → draft → refine
     const contentPipeline = [
@@ -60,6 +63,7 @@ export async function POST(request: Request) {
           `You are a research analyst for GTM content.
 
 ${brainPrompt}
+${productPrompt}
 
 SOURCE MATERIAL:
 ${source.substring(0, 3000)}
@@ -122,6 +126,7 @@ Tone: sharp, opinionated, concise.
           `You are a content strategist. Write platform-native content using this angle.
 
 ${voicePrompt}
+${productPrompt}
 
 ANGLE: ${bestAngle.angle}
 THESIS: ${bestAngle.thesis}
@@ -224,6 +229,7 @@ Output ONLY the tagged sections, nothing else.`,
         totalDurationMs: result.totalDurationMs,
         brainContextUsed: result.brainContextUsed,
         voiceProfileUsed: voiceProfile !== null,
+        productContextUsed: productContext !== null,
       },
     })
   } catch (e: unknown) {

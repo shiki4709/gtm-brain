@@ -156,6 +156,9 @@ CREATE TABLE sb_brain_log (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Product context (what user sells, for narrative alignment)
+ALTER TABLE sb_users ADD COLUMN IF NOT EXISTS product_context JSONB DEFAULT NULL;
+
 -- User mode (personal brand / B2B outbound / both)
 ALTER TABLE sb_users ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'personal_brand'
   CHECK (mode IN ('personal_brand', 'b2b_outbound', 'both'));

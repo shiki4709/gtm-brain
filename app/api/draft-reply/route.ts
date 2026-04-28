@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/auth'
 import { callClaude } from '@/lib/claude'
 import { getVoiceProfile, voiceToPrompt } from '@/lib/brand-voice'
 import { X_REPLY_SKILL, LINKEDIN_REPLY_SKILL, ANTI_AI_RULES, SPICY_MODIFIER, enforceCharLimit } from '@/lib/reply-prompts'
+import { getProductContext, productContextToPrompt } from '@/lib/product-context'
 
 interface DraftReplyRequest {
   readonly tweet_text: string
@@ -47,10 +48,16 @@ export async function POST(request: Request) {
     ? `You are engaging as someone knowledgeable about: ${topics.join(', ')}. Your replies should reflect this expertise.`
     : 'You are engaging authentically as a knowledgeable person in this space.'
 
-  // Voice profile — full structured profile for accurate voice matching
-  const voiceProfile = await getVoiceProfile(auth.sb, auth.dbUser.id)
+  // Voice profile + product context — fetched in parallel
+  const [voiceProfile, productContext] = await Promise.all([
+    getVoiceProfile(auth.sb, auth.dbUser.id),
+    getProductContext(auth.sb, auth.dbUser.id),
+  ])
   const voiceIntro = voiceProfile
     ? `\n${voiceToPrompt(voiceProfile)}`
+    : ''
+  const productIntro = productContextToPrompt(productContext)
+    ? `\n${productContextToPrompt(productContext)}`
     : ''
 
   // Learn from brain insights — fetch cached reply analysis
@@ -185,7 +192,7 @@ Return ONLY the rewritten reply. Nothing else. Keep under 280 characters.`,
     const spicyBlock = replyStylePref === 'spicy' ? `\n${SPICY_MODIFIER}\n` : ''
 
     const { text } = await callClaude(
-      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}${brainInsightsContext}${topRepliesContext}${userTakesContext}${spicyBlock}
+      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}${productIntro}${brainInsightsContext}${topRepliesContext}${userTakesContext}${spicyBlock}
 
 ${isLinkedIn ? 'POST' : 'TWEET'} by @${author_handle} (${author_name}):
 "${tweet_text.substring(0, 500)}"
