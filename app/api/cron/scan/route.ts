@@ -522,6 +522,30 @@ interface DraftReplyContext {
   readonly replyStyle: ReplyStyle
 }
 
+async function fetchReplyConsensus(tweetId: string, apiKey: string): Promise<string> {
+  try {
+    const resp = await fetch(
+      `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(`conversation_id:${tweetId}`)}&type=Latest`,
+      {
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(5000),
+      }
+    )
+    if (!resp.ok) return ''
+    const data = await resp.json()
+    const replies = (data.tweets ?? [])
+      .filter((tw: Record<string, unknown>) => tw.in_reply_to_status_id_str === tweetId)
+      .map((tw: Record<string, unknown>) => ((tw.full_text ?? tw.text ?? '') as string).replace(/^@\w+\s*/g, '').trim())
+      .filter((t: string) => t.length >= 15)
+      .slice(0, 10)
+
+    if (replies.length < 2) return ''
+    return `\nOTHER REPLIES TO THIS POST (read these to understand the consensus, then say it better):\n${replies.map((r: string) => `- "${r}"`).join('\n')}`
+  } catch {
+    return ''
+  }
+}
+
 async function generateDraftReply(
   post: FeedItem,
   userTakesContext = '',
@@ -534,6 +558,16 @@ async function generateDraftReply(
   const replySkill = isLinkedIn ? LINKEDIN_REPLY_SKILL : X_REPLY_SKILL
   const charLimit = isLinkedIn ? 600 : 280
   const spicyBlock = ctx.replyStyle === 'spicy' ? `\n${SPICY_MODIFIER}\n` : ''
+
+  // Fetch reply consensus for X posts
+  let replyConsensusContext = ''
+  const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
+  if (!isLinkedIn && socialDataKey && post.url) {
+    const tweetIdMatch = post.url.match(/status\/(\d+)/)
+    if (tweetIdMatch) {
+      replyConsensusContext = await fetchReplyConsensus(tweetIdMatch[1], socialDataKey)
+    }
+  }
 
   // Pick a random structure to vary replies
   const structures = ['REFRAME', 'STACK', 'PROOF', 'QUESTION', 'ONE-LINER']
@@ -555,9 +589,8 @@ async function generateDraftReply(
           content: `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'} by ${post.author}:
 
 "${post.text.substring(0, 400)}"
-${ctx.voicePrompt ? `\n${ctx.voicePrompt}` : ''}${ctx.topReplies ? `\n${ctx.topReplies}` : ''}${userTakesContext ? `\n${userTakesContext}` : ''}${spicyBlock}
+${ctx.voicePrompt ? `\n${ctx.voicePrompt}` : ''}${ctx.topReplies ? `\n${ctx.topReplies}` : ''}${replyConsensusContext}${userTakesContext ? `\n${userTakesContext}` : ''}${spicyBlock}
 
-Vary your approach — sometimes agree and extend, sometimes challenge, sometimes ask a sharp question. Do NOT default to the same angle every time.
 NEVER prefix your reply with a label like "Reframe:", "Counterpoint:", "The real issue is". Just say it directly.
 
 ${replySkill}

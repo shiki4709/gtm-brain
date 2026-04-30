@@ -16,6 +16,36 @@ interface DraftReplyRequest {
   readonly retweets?: number
   readonly platform?: 'x' | 'linkedin'
   readonly author_followers?: number
+  readonly post_url?: string
+}
+
+function extractTweetId(url: string): string | null {
+  const match = url.match(/status\/(\d+)/)
+  return match ? match[1] : null
+}
+
+async function fetchReplyConsensus(tweetId: string, apiKey: string): Promise<string> {
+  try {
+    const resp = await fetch(
+      `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(`conversation_id:${tweetId}`)}&type=Latest`,
+      {
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+        signal: AbortSignal.timeout(5000),
+      }
+    )
+    if (!resp.ok) return ''
+    const data = await resp.json()
+    const replies = (data.tweets ?? [])
+      .filter((tw: Record<string, unknown>) => tw.in_reply_to_status_id_str === tweetId)
+      .map((tw: Record<string, unknown>) => ((tw.full_text ?? tw.text ?? '') as string).replace(/^@\w+\s*/g, '').trim())
+      .filter((t: string) => t.length >= 15)
+      .slice(0, 10)
+
+    if (replies.length < 2) return ''
+    return `\nOTHER REPLIES TO THIS POST (read these to understand the consensus, then say it better):\n${replies.map((r: string) => `- "${r}"`).join('\n')}`
+  } catch {
+    return ''
+  }
 }
 
 export async function POST(request: Request) {
@@ -25,7 +55,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { tweet_text, author_name, author_handle, engage_id, refine_instruction, current_draft, likes, retweets, platform, author_followers } =
+  const { tweet_text, author_name, author_handle, engage_id, refine_instruction, current_draft, likes, retweets, platform, author_followers, post_url } =
     body as DraftReplyRequest
 
   const isLinkedIn = platform === 'linkedin'
@@ -48,10 +78,13 @@ export async function POST(request: Request) {
     ? `You are engaging as someone knowledgeable about: ${topics.join(', ')}. Your replies should reflect this expertise.`
     : 'You are engaging authentically as a knowledgeable person in this space.'
 
-  // Voice profile + product context — fetched in parallel
-  const [voiceProfile, productContext] = await Promise.all([
+  // Voice profile + product context + reply consensus — fetched in parallel
+  const tweetId = post_url ? extractTweetId(post_url) : null
+  const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
+  const [voiceProfile, productContext, replyConsensusContext] = await Promise.all([
     getVoiceProfile(auth.sb, auth.dbUser.id),
     getProductContext(auth.sb, auth.dbUser.id),
+    tweetId && socialDataKey && !isLinkedIn ? fetchReplyConsensus(tweetId, socialDataKey) : Promise.resolve(''),
   ])
   const voiceIntro = voiceProfile
     ? `\n${voiceToPrompt(voiceProfile)}`
@@ -77,7 +110,7 @@ export async function POST(request: Request) {
       // Randomly pick which insight to emphasize so replies vary in structure
       const parts: string[] = []
       if (analysis.avoid) parts.push(`AVOID: ${analysis.avoid}`)
-      parts.push(`Vary your approach — sometimes agree and extend, sometimes challenge, sometimes ask a sharp question. NEVER prefix your reply with a label like "Reframe:", "Counterpoint:", "The real issue is".`)
+      parts.push(`NEVER prefix your reply with a label like "Reframe:", "Counterpoint:", "The real issue is".`)
       if (parts.length > 0) {
         brainInsightsContext = `\nBRAIN INSIGHTS (learned from your engagement data):\n${parts.join('\n')}`
       }
@@ -121,7 +154,6 @@ export async function POST(request: Request) {
   // Learn from top-performing replies — fetch user's best replies via SocialData
   let topRepliesContext = ''
   const xHandle = auth.dbUser.x_handle
-  const socialDataKey = process.env.SOCIALDATA_API_KEY ?? ''
   if (xHandle && socialDataKey && !isLinkedIn) {
     try {
       const resp = await fetch(
@@ -192,7 +224,7 @@ Return ONLY the rewritten reply. Nothing else. Keep under 280 characters.`,
     const spicyBlock = replyStylePref === 'spicy' ? `\n${SPICY_MODIFIER}\n` : ''
 
     const { text } = await callClaude(
-      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}${productIntro}${brainInsightsContext}${topRepliesContext}${userTakesContext}${spicyBlock}
+      `Write a ${isLinkedIn ? 'LinkedIn comment' : 'reply to this tweet'}. ${nicheContext}${voiceIntro}${productIntro}${brainInsightsContext}${topRepliesContext}${replyConsensusContext}${userTakesContext}${spicyBlock}
 
 ${isLinkedIn ? 'POST' : 'TWEET'} by @${author_handle} (${author_name}):
 "${tweet_text.substring(0, 500)}"

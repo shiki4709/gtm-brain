@@ -483,6 +483,7 @@ export default function WatchlistFeed() {
           platform: item.platform,
           likes: item.engagement?.likes,
           retweets: item.engagement?.retweets,
+          post_url: item.url,
         }),
       })
       const json = await res.json()
