@@ -24,7 +24,7 @@ function extractTweetId(url: string): string | null {
   return match ? match[1] : null
 }
 
-async function fetchReplyConsensus(tweetId: string, apiKey: string): Promise<string> {
+async function fetchTopReplies(tweetId: string, apiKey: string): Promise<string> {
   try {
     const resp = await fetch(
       `https://api.socialdata.tools/twitter/search?query=${encodeURIComponent(`conversation_id:${tweetId}`)}&type=Latest`,
@@ -37,12 +37,23 @@ async function fetchReplyConsensus(tweetId: string, apiKey: string): Promise<str
     const data = await resp.json()
     const replies = (data.tweets ?? [])
       .filter((tw: Record<string, unknown>) => tw.in_reply_to_status_id_str === tweetId)
-      .map((tw: Record<string, unknown>) => ((tw.full_text ?? tw.text ?? '') as string).replace(/^@\w+\s*/g, '').trim())
-      .filter((t: string) => t.length >= 15)
-      .slice(0, 10)
+      .map((tw: Record<string, unknown>) => ({
+        text: ((tw.full_text ?? tw.text ?? '') as string).replace(/^@\w+\s*/g, '').trim(),
+        likes: (tw.favorite_count as number) ?? 0,
+      }))
+      .filter((r: { text: string; likes: number }) => r.text.length >= 15)
+      .sort((a: { likes: number }, b: { likes: number }) => b.likes - a.likes)
 
-    if (replies.length < 2) return ''
-    return `\nOTHER REPLIES TO THIS POST (read these to understand the consensus, then say it better):\n${replies.map((r: string) => `- "${r}"`).join('\n')}`
+    if (replies.length === 0) return ''
+
+    const top = replies[0]
+    const rest = replies.slice(1, 8)
+
+    let ctx = `\nMOST LIKED REPLY (${top.likes} likes) — this is the winning angle, study its vibe:\n"${top.text}"`
+    if (rest.length > 0) {
+      ctx += `\n\nOTHER POPULAR REPLIES:\n${rest.map((r: { text: string; likes: number }) => `- "${r.text}" (${r.likes} likes)`).join('\n')}`
+    }
+    return ctx
   } catch {
     return ''
   }
@@ -84,7 +95,7 @@ export async function POST(request: Request) {
   const [voiceProfile, productContext, replyConsensusContext] = await Promise.all([
     getVoiceProfile(auth.sb, auth.dbUser.id),
     getProductContext(auth.sb, auth.dbUser.id),
-    tweetId && socialDataKey && !isLinkedIn ? fetchReplyConsensus(tweetId, socialDataKey) : Promise.resolve(''),
+    tweetId && socialDataKey && !isLinkedIn ? fetchTopReplies(tweetId, socialDataKey) : Promise.resolve(''),
   ])
   const voiceIntro = voiceProfile
     ? `\n${voiceToPrompt(voiceProfile)}`
